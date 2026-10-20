@@ -1,0 +1,29 @@
+<UserControl x:Class="OpenRadViewer.Views.GridMatrixPickerControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             mc:Ignorable="d" 
+             Background="#1E1E1E" Width="200" Height="210">
+
+    <Border BorderBrush="#383838" BorderThickness="1" CornerRadius="3" Padding="10">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <!-- Header -->
+            <TextBlock Grid.Row="0" Text="Select Viewport Grid" Foreground="#999999" FontSize="11" FontWeight="Bold" Margin="0,0,0,8" />
+
+            <!-- 6 Columns x 5 Rows Interactive Canvas/UniformGrid -->
+            <UniformGrid Grid.Row="1" x:Name="MatrixGrid" Rows="5" Columns="6" Background="#141414" 
+                         MouseLeave="OnGridMouseLeave" />
+
+            <!-- Footer indicator -->
+            <TextBlock Grid.Row="2" x:Name="TxtSelection" Text="1 × 1 Panels" Foreground="#F5AF28" 
+                       FontWeight="Bold" FontSize="12" HorizontalAlignment="Center" Margin="0,8,0,0" />
+        </Grid>
+    </Border>
+</UserControl>

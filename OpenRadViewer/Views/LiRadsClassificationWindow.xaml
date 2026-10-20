@@ -1,0 +1,268 @@
+<Window x:Class="OpenRadViewer.Views.LiRadsClassificationWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="LI-RADS Classification (Hepatocellular Carcinoma)"
+        Height="780" Width="1120"
+        MinHeight="580" MinWidth="800"
+        WindowStartupLocation="CenterOwner"
+        Background="#181818" Foreground="#E0E0E0"
+        ShowInTaskbar="False">
+
+    <Window.Resources>
+        <Style x:Key="ActionButton" TargetType="Button">
+            <Setter Property="Background" Value="#2C2C2C" />
+            <Setter Property="Foreground" Value="#E0E0E0" />
+            <Setter Property="BorderBrush" Value="#444444" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="12,5" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="4"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#3D3D3D" />
+                    <Setter Property="BorderBrush" Value="#666666" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="GradeCard" TargetType="Border">
+            <Setter Property="Background" Value="#202020" />
+            <Setter Property="BorderBrush" Value="#333333" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="4" />
+            <Setter Property="Padding" Value="10,8" />
+            <Setter Property="Margin" Value="0,0,0,8" />
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="12">
+        <Grid.RowDefinitions>
+            <!-- Header -->
+            <RowDefinition Height="Auto" />
+            <!-- Main Content: Image & Classification -->
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- HEADER -->
+        <Border Grid.Row="0" Background="#222222" BorderBrush="#333333" BorderThickness="1" CornerRadius="4" Padding="12,10" Margin="0,0,0,10">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <Border Background="#E65100" CornerRadius="3" Padding="6,2" Margin="0,0,8,0">
+                            <TextBlock Text="MULTIPHASE CT / MRI LIVER" FontSize="10" FontWeight="Bold" Foreground="#FFFFFF" />
+                        </Border>
+                        <TextBlock Text="LI-RADS v2018 (Liver Imaging Reporting &amp; Data System)" FontSize="16" FontWeight="SemiBold" Foreground="#FFFFFF" />
+                    </StackPanel>
+                    <TextBlock Text="Standardized diagnostic categorization for observations in patients at high risk for Hepatocellular Carcinoma (HCC)"
+                               FontSize="11" Foreground="#999999" Margin="0,3,0,0" />
+                </StackPanel>
+
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button Content="Close" Style="{StaticResource ActionButton}" Click="OnCloseClick" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- MAIN CONTENT (Split: Left Image, Right Classification Table) -->
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="1.15*" MinWidth="360" />
+                <ColumnDefinition Width="8" />
+                <ColumnDefinition Width="1*" MinWidth="340" />
+            </Grid.ColumnDefinitions>
+
+            <!-- LEFT: Reference Diagram Image -->
+            <Border Grid.Column="0" Background="#141414" BorderBrush="#333333" BorderThickness="1" CornerRadius="4" ClipToBounds="True">
+                <Grid Margin="6">
+                    <Image x:Name="LiRadsImage"
+                           RenderOptions.BitmapScalingMode="HighQuality"
+                           Stretch="Uniform"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center" />
+                </Grid>
+            </Border>
+
+            <!-- SPLITTER -->
+            <GridSplitter Grid.Column="1" HorizontalAlignment="Stretch" Background="#262626" />
+
+            <!-- RIGHT: Classification Criteria & Diagnostic Cutoffs -->
+            <Border Grid.Column="2" Background="#1D1D1D" BorderBrush="#333333" BorderThickness="1" CornerRadius="4" Padding="12">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel>
+                        <TextBlock Text="LI-RADS CATEGORIES &amp; DIAGNOSTIC CRITERIA" FontWeight="Bold" FontSize="11" Foreground="#888888" Margin="0,0,0,10" />
+
+                        <!-- LR-1: Definitely Benign -->
+                        <Border Style="{StaticResource GradeCard}" BorderBrush="#00C853">
+                            <StackPanel>
+                                <Grid Margin="0,0,0,4">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <Border Grid.Column="0" Background="#00C853" CornerRadius="3" Padding="6,2" Margin="0,0,8,0">
+                                        <TextBlock Text="LR-1" FontWeight="Bold" FontSize="11" Foreground="White" />
+                                    </Border>
+                                    <TextBlock Grid.Column="1" Text="Definitely Benign" FontWeight="SemiBold" Foreground="#69F0AE" FontSize="12" VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="2" Text="Surveillance: 6 mo" FontSize="10" FontWeight="SemiBold" Foreground="#B9F6CA" VerticalAlignment="Center" />
+                                </Grid>
+                                <TextBlock Text="• Simple cyst, definitive hemangioma, focal fatty sparing/infiltration&#x0a;• 100% certainty of benignity; no HCC risk"
+                                           FontSize="11" Foreground="#CCCCCC" LineHeight="17" Margin="2,2,0,0" />
+                            </StackPanel>
+                        </Border>
+
+                        <!-- LR-2: Probably Benign -->
+                        <Border Style="{StaticResource GradeCard}" BorderBrush="#8BC34A">
+                            <StackPanel>
+                                <Grid Margin="0,0,0,4">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <Border Grid.Column="0" Background="#8BC34A" CornerRadius="3" Padding="6,2" Margin="0,0,8,0">
+                                        <TextBlock Text="LR-2" FontWeight="Bold" FontSize="11" Foreground="#212121" />
+                                    </Border>
+                                    <TextBlock Grid.Column="1" Text="Probably Benign" FontWeight="SemiBold" Foreground="#AED581" FontSize="12" VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="2" Text="Surveillance: 6 mo" FontSize="10" FontWeight="SemiBold" Foreground="#DCEDC8" VerticalAlignment="Center" />
+                                </Grid>
+                                <TextBlock Text="• High probability of benignity (probable hemangioma, nodule &lt;20 mm without features)&#x0a;• Continue routine ultrasound/cross-sectional surveillance"
+                                           FontSize="11" Foreground="#CCCCCC" LineHeight="17" Margin="2,2,0,0" />
+                            </StackPanel>
+                        </Border>
+
+                        <!-- LR-3: Intermediate Probability -->
+                        <Border Style="{StaticResource GradeCard}" BorderBrush="#FDD835">
+                            <StackPanel>
+                                <Grid Margin="0,0,0,4">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <Border Grid.Column="0" Background="#FDD835" CornerRadius="3" Padding="6,2" Margin="0,0,8,0">
+                                        <TextBlock Text="LR-3" FontWeight="Bold" FontSize="11" Foreground="#212121" />
+                                    </Border>
+                                    <TextBlock Grid.Column="1" Text="Intermediate Probability of Malignancy" FontWeight="SemiBold" Foreground="#FFF59D" FontSize="12" VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="2" Text="Repeat in 3-6 mo" FontSize="10" FontWeight="SemiBold" Foreground="#FFF9C4" VerticalAlignment="Center" />
+                                </Grid>
+                                <TextBlock Text="• Does not meet definite benign nor LR-4/5 criteria&#x0a;• E.g., &lt;20 mm hypo/iso-enhancing with 0-1 feature, or APHE &lt;20 mm without other features"
+                                           FontSize="11" Foreground="#CCCCCC" LineHeight="17" Margin="2,2,0,0" />
+                            </StackPanel>
+                        </Border>
+
+                        <!-- LR-4: Probably HCC -->
+                        <Border Style="{StaticResource GradeCard}" BorderBrush="#FB8C00">
+                            <StackPanel>
+                                <Grid Margin="0,0,0,4">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <Border Grid.Column="0" Background="#FB8C00" CornerRadius="3" Padding="6,2" Margin="0,0,8,0">
+                                        <TextBlock Text="LR-4" FontWeight="Bold" FontSize="11" Foreground="White" />
+                                    </Border>
+                                    <TextBlock Grid.Column="1" Text="Probably HCC" FontWeight="SemiBold" Foreground="#FFA726" FontSize="12" VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="2" Text="MDT / Repeat ≤3 mo" FontSize="10" FontWeight="Bold" Foreground="#FFE0B2" VerticalAlignment="Center" />
+                                </Grid>
+                                <TextBlock Text="• High likelihood of HCC, but lacks one major criterion for LR-5&#x0a;• E.g., APHE 10-19 mm with capsule only (no washout), or APHE &lt;10 mm with ≥1 feature"
+                                           FontSize="11" Foreground="#CCCCCC" LineHeight="17" Margin="2,2,0,0" />
+                            </StackPanel>
+                        </Border>
+
+                        <!-- LR-5: Definitely HCC -->
+                        <Border Style="{StaticResource GradeCard}" BorderBrush="#E53935">
+                            <StackPanel>
+                                <Grid Margin="0,0,0,4">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <Border Grid.Column="0" Background="#E53935" CornerRadius="3" Padding="6,2" Margin="0,0,8,0">
+                                        <TextBlock Text="LR-5" FontWeight="Bold" FontSize="11" Foreground="White" />
+                                    </Border>
+                                    <TextBlock Grid.Column="1" Text="Definitely HCC (100% Specific)" FontWeight="SemiBold" Foreground="#EF5350" FontSize="12" VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="2" Text="Treat / Resect / OLT" FontSize="10" FontWeight="Bold" Foreground="#FFCDD2" VerticalAlignment="Center" />
+                                </Grid>
+                                <TextBlock Text="• 100% specificity for HCC; diagnosis made without biopsy!&#x0a;• APHE (non-rim) 10-19 mm + Non-peripheral washout (or ≥2 features)&#x0a;• APHE (non-rim) ≥20 mm + ≥1 feature (washout / capsule / growth)"
+                                           FontSize="11" Foreground="#CCCCCC" LineHeight="17" Margin="2,2,0,0" />
+                            </StackPanel>
+                        </Border>
+
+                        <!-- LR-M: Other Malignancy -->
+                        <Border Style="{StaticResource GradeCard}" BorderBrush="#880E4F">
+                            <StackPanel>
+                                <Grid Margin="0,0,0,4">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <Border Grid.Column="0" Background="#880E4F" CornerRadius="3" Padding="6,2" Margin="0,0,8,0">
+                                        <TextBlock Text="LR-M" FontWeight="Bold" FontSize="11" Foreground="White" />
+                                    </Border>
+                                    <TextBlock Grid.Column="1" Text="Malignant, Not Specific for HCC" FontWeight="SemiBold" Foreground="#EC407A" FontSize="12" VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="2" Text="Biopsy / MDT" FontSize="10" FontWeight="Bold" Foreground="#F8BBD0" VerticalAlignment="Center" />
+                                </Grid>
+                                <TextBlock Text="• Targetoid appearance, peripheral rim APHE, peripheral washout, or infiltrative border&#x0a;• Suggests Cholangiocarcinoma (iCCA), hepatocholangiocarcinoma, or metastasis"
+                                           FontSize="11" Foreground="#CCCCCC" LineHeight="17" Margin="2,2,0,0" />
+                            </StackPanel>
+                        </Border>
+
+                        <!-- LR-TIV: Tumor in Vein -->
+                        <Border Style="{StaticResource GradeCard}" BorderBrush="#37474F">
+                            <StackPanel>
+                                <Grid Margin="0,0,0,4">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <Border Grid.Column="0" Background="#263238" CornerRadius="3" Padding="6,2" Margin="0,0,8,0">
+                                        <TextBlock Text="LR-TIV" FontWeight="Bold" FontSize="11" Foreground="White" />
+                                    </Border>
+                                    <TextBlock Grid.Column="1" Text="Tumor in Vein (Vascular Invasion)" FontWeight="SemiBold" Foreground="#B0BEC5" FontSize="12" VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="2" Text="Advanced Staging" FontSize="10" FontWeight="Bold" Foreground="#ECEFF1" VerticalAlignment="Center" />
+                                </Grid>
+                                <TextBlock Text="• Enhancing soft tissue expanding portal vein or hepatic vein&#x0a;• Indicates macrovascular invasion (HCC extension)"
+                                           FontSize="11" Foreground="#CCCCCC" LineHeight="17" Margin="2,2,0,0" />
+                            </StackPanel>
+                        </Border>
+
+                        <!-- MAJOR FEATURES BREAKDOWN -->
+                        <Border Background="#1C2833" BorderBrush="#0288D1" BorderThickness="1" CornerRadius="4" Padding="10,8" Margin="0,4,0,0">
+                            <StackPanel>
+                                <TextBlock Text="🔑 MAJOR FEATURES OF HCC (LI-RADS v2018)" FontWeight="Bold" FontSize="10" Foreground="#29B6F6" Margin="0,0,0,4" />
+                                <TextBlock FontSize="11" Foreground="#B0BEC5" LineHeight="17">
+                                    <Run FontWeight="SemiBold" Foreground="#FFFFFF">1. Non-rim APHE:</Run> Hyperenhancement in arterial phase unequivocally greater than liver.&#x0a;
+                                    <Run FontWeight="SemiBold" Foreground="#FFFFFF">2. Non-peripheral Washout:</Run> Hypoenhancement in portal venous or delayed phase.&#x0a;
+                                    <Run FontWeight="SemiBold" Foreground="#FFFFFF">3. Enhancing "Capsule":</Run> Smooth, rim-like enhancing border on portal venous/delayed phases.&#x0a;
+                                    <Run FontWeight="SemiBold" Foreground="#FFFFFF">4. Threshold Growth:</Run> Size increase of <Run FontWeight="Bold" Foreground="#FF8A80">≥50% in ≤6 months</Run>.
+                                </TextBlock>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
+        </Grid>
+    </Grid>
+</Window>

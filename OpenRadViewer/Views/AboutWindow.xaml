@@ -1,0 +1,198 @@
+<Window x:Class="OpenRadViewer.Views.AboutWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="About Parsec"
+        Height="520" Width="620"
+        MinHeight="440" MinWidth="520"
+        WindowStartupLocation="CenterOwner"
+        Background="#141414" Foreground="#E0E0E0">
+
+    <Window.Resources>
+        <Style x:Key="DialogBtn" TargetType="Button">
+            <Setter Property="Background" Value="#252525" />
+            <Setter Property="Foreground" Value="#E0E0E0" />
+            <Setter Property="BorderBrush" Value="#404040" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="16,6" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bd" Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="4" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#333333" />
+                                <Setter TargetName="bd" Property="BorderBrush" Value="#666666" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#444444" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="ToggleShortcutsBtn" TargetType="Button">
+            <Setter Property="Background" Value="#1E1E1E" />
+            <Setter Property="Foreground" Value="#00E5FF" />
+            <Setter Property="BorderBrush" Value="#333333" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="12,8" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bd" Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="5" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#282828" />
+                                <Setter TargetName="bd" Property="BorderBrush" Value="#00E5FF" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#333333" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="ShortcutKey" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="Consolas, Courier New" />
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="Foreground" Value="#F5AF28" />
+            <Setter Property="Width" Value="110" />
+            <Setter Property="FontSize" Value="11.5" />
+        </Style>
+        <Style x:Key="ShortcutDesc" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#D0D0D0" />
+            <Setter Property="FontSize" Value="11.5" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" /> <!-- Header -->
+            <RowDefinition Height="*" />    <!-- Content & Collapsible Shortcuts -->
+            <RowDefinition Height="Auto" /> <!-- Footer -->
+        </Grid.RowDefinitions>
+
+        <!-- 1. HEADER -->
+        <DockPanel Grid.Row="0" Margin="0,0,0,16">
+            <Border Width="44" Height="44" CornerRadius="8" Background="#1E1E1E" BorderBrush="#333333" BorderThickness="1" Margin="0,0,14,0" VerticalAlignment="Center">
+                <Path Stroke="#F5AF28" StrokeThickness="1.5" Data="M7,1 A6,6 0 1,0 7,13 A6,6 0 1,0 7,1 M7,4 L7,5 M7,7 L7,10" Width="20" Height="20" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center" />
+            </Border>
+            <StackPanel VerticalAlignment="Center">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="Parsec Medical DICOM Viewer" FontSize="17" FontWeight="Bold" Foreground="#FFFFFF" />
+                    <Border Background="#332200" BorderBrush="#F5AF28" BorderThickness="1" CornerRadius="3" Padding="6,1" Margin="10,0,0,0" VerticalAlignment="Center" HorizontalAlignment="Left">
+                        <TextBlock Text="v1.1 Beta" FontSize="10.5" FontWeight="Bold" Foreground="#F5AF28" />
+                    </Border>
+                </StackPanel>
+                <TextBlock Text="Advanced diagnostic medical imaging &amp; 3D reconstruction suite" FontSize="11.5" Foreground="#888888" Margin="0,3,0,0" />
+            </StackPanel>
+        </DockPanel>
+
+        <!-- 2. MAIN CONTENT -->
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Margin="0,0,0,12">
+            <StackPanel>
+                <!-- Overview Card -->
+                <Border Background="#1C1C1C" BorderBrush="#2C2C2C" BorderThickness="1" CornerRadius="6" Padding="14,12" Margin="0,0,0,12">
+                    <StackPanel>
+                        <TextBlock Text="Parsec is a high-performance diagnostic workstation application engineered for clinical radiology, multi-planar reconstruction (3D MPR), hardware-accelerated GPU volume rendering, and DICOM PACS archive networking."
+                                   FontSize="12" Foreground="#C8C8C8" TextWrapping="Wrap" LineHeight="17" />
+                        
+                        <TextBlock Text="Key Features in v1.1 Beta:" FontSize="11.5" FontWeight="Bold" Foreground="#00E5FF" Margin="0,10,0,5" />
+                        <TextBlock Text="• AI Clinical Reporting: Gemini voice dictation, conversational refinement, custom persistent rules, &amp; Word (.docx) export" FontSize="11" Foreground="#AAAAAA" Margin="4,2" />
+                        <TextBlock Text="• Collapsible Series Thumbnail Bar: Maximize diagnostic viewport screen estate with smooth single-click toggling" FontSize="11" Foreground="#AAAAAA" Margin="4,2" />
+                        <TextBlock Text="• PACS Integration: DICOM C-FIND, C-MOVE, C-GET Query &amp; Retrieve with live throughput speed (img/s, MB/s)" FontSize="11" Foreground="#AAAAAA" Margin="4,2" />
+                        <TextBlock Text="• Progressive PACS Streaming: Instantly view and interact with slices while the study downloads in the background" FontSize="11" Foreground="#AAAAAA" Margin="4,2" />
+                        <TextBlock Text="• Local C-STORE SCP Listener &amp; Multi-PACS search across hospital networks with auto cache management" FontSize="11" Foreground="#AAAAAA" Margin="4,2" />
+                        <TextBlock Text="• Hardware-accelerated GPU 3D Volume Rendering (Direct3D 11) with Bone, Angio, MIP &amp; Soft Tissue presets" FontSize="11" Foreground="#AAAAAA" Margin="4,2" />
+                        <TextBlock Text="• Interactive 6-plane clipping box with real-time translation &amp; rotation in 3D VR" FontSize="11" Foreground="#AAAAAA" Margin="4,2" />
+                        <TextBlock Text="• Anatomical spine labeling: Interactive markers (C1-C7, T1-T12, L1-L5, S1) with drag-and-drop repositioning" FontSize="11" Foreground="#AAAAAA" Margin="4,2" />
+                        <TextBlock Text="• Real-time 3D Multiplanar Reconstruction (MPR) with interactive orthogonal &amp; oblique crosshairs" FontSize="11" Foreground="#AAAAAA" Margin="4,2" />
+                        <TextBlock Text="• Automated 3D spatial synchronization (IPP / IOP) and manual offset locking across multi-viewport layouts" FontSize="11" Foreground="#AAAAAA" Margin="4,2" />
+                        <TextBlock Text="• Multi-modality diagnostic support: CT, MRI, CR, DX, US, and Angiography (XA)" FontSize="11" Foreground="#AAAAAA" Margin="4,2" />
+                        <TextBlock Text="• Multi-series smart splitting by diffusion b-value, echo time (Dixon in/out-phase), and acquisition phases" FontSize="11" Foreground="#AAAAAA" Margin="4,2" />
+                        <TextBlock Text="• Local study archive database with verified import, review tracking, and fast full-text search" FontSize="11" Foreground="#AAAAAA" Margin="4,2" />
+                        <TextBlock Text="• Diagnostic measurements: Calibrated Length (mm), Angles, and Ellipse / Rect ROI (Area, Mean HU, SD, Min, Max)" FontSize="11" Foreground="#AAAAAA" Margin="4,2" />
+                        <TextBlock Text="• Cine loop playback with variable frame rates (FPS) and smooth frame buffering" FontSize="11" Foreground="#AAAAAA" Margin="4,2" />
+                    </StackPanel>
+                </Border>
+
+                <!-- Interactive Keyboard Shortcuts Trigger Button -->
+                <Button Style="{StaticResource ToggleShortcutsBtn}" Click="OnToggleShortcuts" Margin="0,0,0,10">
+                    <DockPanel>
+                        <Path Fill="#00E5FF" Data="M2,4 L14,4 L14,12 L2,12 Z M4,6 L6,6 M8,6 L10,6 M12,6 L12,6 M4,8 L6,8 M8,8 L10,8 M4,10 L12,10" Width="14" Height="14" Stretch="Uniform" Margin="0,0,8,0" VerticalAlignment="Center" />
+                        <TextBlock x:Name="TxtShortcutsHeader" Text="Click here to view keyboard shortcuts reference ▾" FontWeight="SemiBold" FontSize="11.5" VerticalAlignment="Center" />
+                    </DockPanel>
+                </Button>
+
+                <!-- Collapsible Keyboard Shortcuts Panel -->
+                <Border x:Name="ShortcutsContainer" Background="#181818" BorderBrush="#333333" BorderThickness="1" CornerRadius="6" Padding="14,12" Visibility="Collapsed" Margin="0,0,0,10">
+                    <StackPanel>
+                        <TextBlock Text="KEYBOARD SHORTCUTS REFERENCE" FontSize="11" FontWeight="Bold" Foreground="#F5AF28" Margin="0,0,0,10" />
+
+                        <!-- Interactive Tools -->
+                        <TextBlock Text="Mouse &amp; Diagnostic Tools:" FontSize="10.5" FontWeight="Bold" Foreground="#888888" Margin="0,4,0,4" />
+                        <DockPanel Margin="0,2"><TextBlock Text="Q" Style="{StaticResource ShortcutKey}" /><TextBlock Text="3D Spatial Cursor / Crosshair" Style="{StaticResource ShortcutDesc}" /></DockPanel>
+                        <DockPanel Margin="0,2"><TextBlock Text="B" Style="{StaticResource ShortcutKey}" /><TextBlock Text="Browse Series" Style="{StaticResource ShortcutDesc}" /></DockPanel>
+                        <DockPanel Margin="0,2"><TextBlock Text="W" Style="{StaticResource ShortcutKey}" /><TextBlock Text="Window / Level" Style="{StaticResource ShortcutDesc}" /></DockPanel>
+                        <DockPanel Margin="0,2"><TextBlock Text="M" Style="{StaticResource ShortcutKey}" /><TextBlock Text="Pan Image" Style="{StaticResource ShortcutDesc}" /></DockPanel>
+                        <DockPanel Margin="0,2"><TextBlock Text="Z" Style="{StaticResource ShortcutKey}" /><TextBlock Text="Zoom Image" Style="{StaticResource ShortcutDesc}" /></DockPanel>
+                        <DockPanel Margin="0,2"><TextBlock Text="L" Style="{StaticResource ShortcutKey}" /><TextBlock Text="Length Ruler (mm)" Style="{StaticResource ShortcutDesc}" /></DockPanel>
+                        <DockPanel Margin="0,2"><TextBlock Text="E" Style="{StaticResource ShortcutKey}" /><TextBlock Text="Ellipse ROI (Area, Mean HU, SD)" Style="{StaticResource ShortcutDesc}" /></DockPanel>
+                        <DockPanel Margin="0,2"><TextBlock Text="U" Style="{StaticResource ShortcutKey}" /><TextBlock Text="Rectangle ROI" Style="{StaticResource ShortcutDesc}" /></DockPanel>
+                        <DockPanel Margin="0,2"><TextBlock Text="A" Style="{StaticResource ShortcutKey}" /><TextBlock Text="Angle Measurement" Style="{StaticResource ShortcutDesc}" /></DockPanel>
+                        <DockPanel Margin="0,2"><TextBlock Text="Y" Style="{StaticResource ShortcutKey}" /><TextBlock Text="Arrow Annotation" Style="{StaticResource ShortcutDesc}" /></DockPanel>
+                        <DockPanel Margin="0,2"><TextBlock Text="P" Style="{StaticResource ShortcutKey}" /><TextBlock Text="Freehand Pencil" Style="{StaticResource ShortcutDesc}" /></DockPanel>
+                        <DockPanel Margin="0,2"><TextBlock Text="T" Style="{StaticResource ShortcutKey}" /><TextBlock Text="Text Annotation" Style="{StaticResource ShortcutDesc}" /></DockPanel>
+
+                        <!-- MPR & Scout -->
+                        <TextBlock Text="3D MPR &amp; Scout Lines:" FontSize="10.5" FontWeight="Bold" Foreground="#888888" Margin="0,8,0,4" />
+                        <DockPanel Margin="0,2"><TextBlock Text="Alt+1" Style="{StaticResource ShortcutKey}" /><TextBlock Text="Coronal Reconstruction Plane" Style="{StaticResource ShortcutDesc}" /></DockPanel>
+                        <DockPanel Margin="0,2"><TextBlock Text="Alt+2" Style="{StaticResource ShortcutKey}" /><TextBlock Text="Sagittal Reconstruction Plane" Style="{StaticResource ShortcutDesc}" /></DockPanel>
+                        <DockPanel Margin="0,2"><TextBlock Text="Alt+3" Style="{StaticResource ShortcutKey}" /><TextBlock Text="Axial Reconstruction Plane" Style="{StaticResource ShortcutDesc}" /></DockPanel>
+                        <DockPanel Margin="0,2"><TextBlock Text="H" Style="{StaticResource ShortcutKey}" /><TextBlock Text="Show / Hide MPR Reference Axes" Style="{StaticResource ShortcutDesc}" /></DockPanel>
+                        <DockPanel Margin="0,2"><TextBlock Text="Ctrl+F12" Style="{StaticResource ShortcutKey}" /><TextBlock Text="Toggle Scout Reference Lines" Style="{StaticResource ShortcutDesc}" /></DockPanel>
+                        <DockPanel Margin="0,2"><TextBlock Text="Ctrl+Shift+V" Style="{StaticResource ShortcutKey}" /><TextBlock Text="Open 3D Volume Rendering (3D VR)" Style="{StaticResource ShortcutDesc}" /></DockPanel>
+
+                        <!-- Window Presets -->
+                        <TextBlock Text="Windowing &amp; View:" FontSize="10.5" FontWeight="Bold" Foreground="#888888" Margin="0,8,0,4" />
+                        <DockPanel Margin="0,2"><TextBlock Text="0 - 7" Style="{StaticResource ShortcutKey}" /><TextBlock Text="Window Presets (Abdomen, Bone, Brain, Lung etc.)" Style="{StaticResource ShortcutDesc}" /></DockPanel>
+                        <DockPanel Margin="0,2"><TextBlock Text="8" Style="{StaticResource ShortcutKey}" /><TextBlock Text="Liver CT Preset (WL 60, WW 160)" Style="{StaticResource ShortcutDesc}" /></DockPanel>
+                        <DockPanel Margin="0,2"><TextBlock Text="Ctrl+W" Style="{StaticResource ShortcutKey}" /><TextBlock Text="Custom Window / Level Dialog" Style="{StaticResource ShortcutDesc}" /></DockPanel>
+                        <DockPanel Margin="0,2"><TextBlock Text="F11" Style="{StaticResource ShortcutKey}" /><TextBlock Text="Invert / Negative Mode" Style="{StaticResource ShortcutDesc}" /></DockPanel>
+                        <DockPanel Margin="0,2"><TextBlock Text="F5" Style="{StaticResource ShortcutKey}" /><TextBlock Text="Cycle Synchronization (Off / Auto / Manual)" Style="{StaticResource ShortcutDesc}" /></DockPanel>
+                        <DockPanel Margin="0,2"><TextBlock Text="F" Style="{StaticResource ShortcutKey}" /><TextBlock Text="Full Screen Mode" Style="{StaticResource ShortcutDesc}" /></DockPanel>
+                        <DockPanel Margin="0,2"><TextBlock Text="Ctrl+M" Style="{StaticResource ShortcutKey}" /><TextBlock Text="Maximize / Restore Active Panel" Style="{StaticResource ShortcutDesc}" /></DockPanel>
+                        <DockPanel Margin="0,2"><TextBlock Text="Ctrl+F4" Style="{StaticResource ShortcutKey}" /><TextBlock Text="Close Active Panel" Style="{StaticResource ShortcutDesc}" /></DockPanel>
+                        <DockPanel Margin="0,2"><TextBlock Text="Shift+F4" Style="{StaticResource ShortcutKey}" /><TextBlock Text="Close All Panels" Style="{StaticResource ShortcutDesc}" /></DockPanel>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- 3. FOOTER -->
+        <Border Grid.Row="2" BorderBrush="#252525" BorderThickness="0,1,0,0" Padding="0,10,0,0">
+            <DockPanel LastChildFill="False">
+                <TextBlock Text="© Parsec Medical Imaging" FontSize="11" Foreground="#666666" VerticalAlignment="Center" />
+                <Button DockPanel.Dock="Right" Style="{StaticResource DialogBtn}" Click="OnClose" Content="Close" Width="85" IsDefault="True" IsCancel="True" />
+            </DockPanel>
+        </Border>
+    </Grid>
+</Window>

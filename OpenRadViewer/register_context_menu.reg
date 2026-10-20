@@ -1,0 +1,22 @@
+Windows Registry Editor Version 5.00
+
+[HKEY_CURRENT_USER\Software\Classes\Directory\shell\Parsec]
+@="Open with Parsec"
+"Icon"="F:\\Rad\\OpenRadViewer\\bin\\Debug\\net8.0-windows\\Parsec.exe"
+
+[HKEY_CURRENT_USER\Software\Classes\Directory\shell\Parsec\command]
+@="\"F:\\Rad\\OpenRadViewer\\bin\\Debug\\net8.0-windows\\Parsec.exe\" \"%1\""
+
+[HKEY_CURRENT_USER\Software\Classes\Directory\Background\shell\Parsec]
+@="Open with Parsec"
+"Icon"="F:\\Rad\\OpenRadViewer\\bin\\Debug\\net8.0-windows\\Parsec.exe"
+
+[HKEY_CURRENT_USER\Software\Classes\Directory\Background\shell\Parsec\command]
+@="\"F:\\Rad\\OpenRadViewer\\bin\\Debug\\net8.0-windows\\Parsec.exe\" \"%V\""
+
+[HKEY_CURRENT_USER\Software\Classes\*\shell\Parsec]
+@="Open with Parsec"
+"Icon"="F:\\Rad\\OpenRadViewer\\bin\\Debug\\net8.0-windows\\Parsec.exe"
+
+[HKEY_CURRENT_USER\Software\Classes\*\shell\Parsec\command]
+@="\"F:\\Rad\\OpenRadViewer\\bin\\Debug\\net8.0-windows\\Parsec.exe\" \"%1\""

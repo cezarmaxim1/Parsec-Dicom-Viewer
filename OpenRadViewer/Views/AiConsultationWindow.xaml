@@ -1,0 +1,243 @@
+<Window x:Class="OpenRadViewer.Views.AiConsultationWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="AI Lesion Consultation &amp; Second Opinion"
+        Height="780" Width="980"
+        MinHeight="600" MinWidth="750"
+        WindowStartupLocation="CenterOwner"
+        Background="#181818" Foreground="#E0E0E0"
+        Topmost="True" ShowInTaskbar="False">
+
+    <Window.Resources>
+        <Style x:Key="ActionButton" TargetType="Button">
+            <Setter Property="Background" Value="#2A2A2A" />
+            <Setter Property="Foreground" Value="#E0E0E0" />
+            <Setter Property="BorderBrush" Value="#444444" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="12,5" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="4"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#3D3D3D" />
+                    <Setter Property="BorderBrush" Value="#666666" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="AnalyzeButton" TargetType="Button" BasedOn="{StaticResource ActionButton}">
+            <Setter Property="Background" Value="#00838F" />
+            <Setter Property="Foreground" Value="#FFFFFF" />
+            <Setter Property="BorderBrush" Value="#006064" />
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Padding" Value="18,7" />
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#0097A7" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="ChipButton" TargetType="Button">
+            <Setter Property="Background" Value="#222222" />
+            <Setter Property="Foreground" Value="#00E5FF" />
+            <Setter Property="BorderBrush" Value="#00838F" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="10,4" />
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Margin" Value="0,0,6,6" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="12"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#00838F" />
+                    <Setter Property="Foreground" Value="#FFFFFF" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="14">
+        <Grid.RowDefinitions>
+            <!-- Header -->
+            <RowDefinition Height="Auto" />
+            <!-- Cropped Images Strip -->
+            <RowDefinition Height="Auto" />
+            <!-- AI Response Area (Chat Transcript) -->
+            <RowDefinition Height="*" />
+            <!-- Prompt & Query Controls (Bottom Chat Input) -->
+            <RowDefinition Height="Auto" />
+            <!-- Footer Buttons -->
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- HEADER -->
+        <Border Grid.Row="0" Background="#202020" BorderBrush="#333333" BorderThickness="1" CornerRadius="5" Padding="12,10" Margin="0,0,0,10">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Border Background="#00838F" CornerRadius="4" Padding="8,3" Margin="0,0,10,0">
+                        <TextBlock Text="AI CONSULT" FontWeight="Bold" FontSize="11" Foreground="White" />
+                    </Border>
+                    <TextBlock Text="Lesion Multimodal Analysis &amp; Chat" FontSize="15" FontWeight="SemiBold" Foreground="White" VerticalAlignment="Center" />
+                    <Border Background="#2A2A2A" CornerRadius="4" Padding="6,2" Margin="10,0,0,0" VerticalAlignment="Center">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="Model:" FontSize="11" Foreground="#888888" VerticalAlignment="Center" Margin="0,0,6,0" />
+                            <ComboBox x:Name="CmbHeaderModel" Width="180" Height="24" FontSize="11" VerticalAlignment="Center"
+                                      SelectionChanged="OnHeaderModelSelectionChanged" ToolTip="Quick Switch AI Model (e.g. gemini-3.6-flash, gemini-3.8-flash)" />
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button Content="⚙ AI Settings" Style="{StaticResource ActionButton}" Margin="0,0,8,0" Click="OnOpenSettingsClick" ToolTip="Configure API Key, Model, and Custom Report Templates" />
+                    <Button Content="Close" Style="{StaticResource ActionButton}" Click="OnCloseClick" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- CROPPED IMAGES STRIP -->
+        <Border Grid.Row="1" Background="#1D1D1D" BorderBrush="#333333" BorderThickness="1" CornerRadius="5" Padding="10,8" Margin="0,0,0,10">
+            <DockPanel>
+                <DockPanel DockPanel.Dock="Top" Margin="0,0,0,6">
+                    <TextBlock Text="CAPTURED DICOM SERIES / ROIS" FontWeight="Bold" FontSize="11" Foreground="#888888" VerticalAlignment="Center" />
+                    <TextBlock x:Name="TxtCropsCount" Text="(1 Image)" FontSize="11" Foreground="#00E5FF" Margin="6,0,0,0" VerticalAlignment="Center" />
+                    <Button Content="Select All" Style="{StaticResource ActionButton}" Padding="6,2" FontSize="10" Margin="10,0,4,0" Click="OnSelectAllCropsClick" />
+                </DockPanel>
+
+                <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+                    <ItemsControl x:Name="ItemsCrops">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Orientation="Horizontal" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Background="#141414" BorderBrush="#333333" BorderThickness="1" CornerRadius="4"
+                                        Margin="0,0,10,0" Padding="6" Width="170">
+                                    <StackPanel>
+                                        <DockPanel Margin="0,0,0,4">
+                                            <CheckBox IsChecked="{Binding IsIncluded}" VerticalAlignment="Center" ToolTip="Include in AI prompt" />
+                                            <TextBlock Text="{Binding Modality}" FontWeight="Bold" FontSize="10" Foreground="#00E5FF" Margin="6,0,0,0" VerticalAlignment="Center" />
+                                            <Border Background="#FFB300" CornerRadius="3" Padding="4,1" Margin="4,0,0,0" VerticalAlignment="Center" Visibility="{Binding ArrowBadgeVisibility}">
+                                                <TextBlock Text="🎯 Arrow" FontSize="8" FontWeight="Bold" Foreground="Black" />
+                                            </Border>
+                                            <Border Background="#00E5FF" CornerRadius="3" Padding="4,1" Margin="4,0,0,0" VerticalAlignment="Center" Visibility="{Binding RoiBadgeVisibility}">
+                                                <TextBlock Text="⭕ ROI" FontSize="8" FontWeight="Bold" Foreground="Black" />
+                                            </Border>
+                                            <TextBlock Text="{Binding SeriesTitle}" FontSize="10" Foreground="#CCCCCC" TextTrimming="CharacterEllipsis"
+                                                       Margin="4,0,0,0" VerticalAlignment="Center" />
+                                        </DockPanel>
+
+                                        <Border Height="110" Background="Black" CornerRadius="3" ClipToBounds="True">
+                                            <Image Source="{Binding Image}" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality" />
+                                        </Border>
+
+                                        <TextBlock Text="{Binding DetailsText}" FontSize="9" Foreground="#888888" TextAlignment="Center" Margin="0,3,0,0" />
+                                    </StackPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </DockPanel>
+        </Border>
+
+        <!-- AI CONVERSATION & RESPONSE AREA (CHAT TRANSCRIPT) -->
+        <Border Grid.Row="2" Background="#161616" BorderBrush="#333333" BorderThickness="1" CornerRadius="5" Padding="14" Margin="0,0,0,10">
+            <Grid>
+                <ScrollViewer x:Name="ScrollResponse" VerticalScrollBarVisibility="Auto">
+                    <TextBox x:Name="TxtResponse" Background="Transparent" Foreground="#E8E8E8" BorderThickness="0"
+                             FontSize="13" FontFamily="Segoe UI, Consolas" TextWrapping="Wrap" IsReadOnly="True"
+                             SelectionBrush="#00838F" Text="Ready. Type your clinical question below or select a preset chip, then click '⚡ Consult AI' or press Enter." />
+                </ScrollViewer>
+
+                <!-- Loading Message Overlay -->
+                <Border x:Name="OverlayLoading" Background="#C0101010" CornerRadius="4" Visibility="Collapsed">
+                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <TextBlock Text="⚡ Consulting AI Model..." FontSize="14" FontWeight="SemiBold" Foreground="#00E5FF" HorizontalAlignment="Center" />
+                        <TextBlock x:Name="TxtLoadingSubtitle" Text="Analyzing radiological series, findings, and diagnostic features..."
+                                   FontSize="11" Foreground="#999999" Margin="0,6,0,0" HorizontalAlignment="Center" />
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </Border>
+
+        <!-- PROMPT & QUERY CONTROLS (BOTTOM CHAT INPUT) -->
+        <Border Grid.Row="3" Background="#202020" BorderBrush="#333333" BorderThickness="1" CornerRadius="5" Padding="12,10" Margin="0,0,0,10">
+            <StackPanel>
+                <!-- Quick Preset Chips -->
+                <WrapPanel Margin="0,0,0,8">
+                    <Button x:Name="BtnPresetArrowTarget" Content="🎯 Targeted Săgeată / ROI" Style="{StaticResource ChipButton}" Click="OnPresetArrowTargetClick" Visibility="Collapsed" />
+                    <Button Content="⚡ Diagnostic Diferențial &amp; Cinetici" Style="{StaticResource ChipButton}" Click="OnPresetDifferentialClick" />
+                    <Button Content="📋 Raport Structurat" Style="{StaticResource ChipButton}" Click="OnPresetReportClick" />
+                    <Button Content="🔬 Caracterizare Leziune (RECIST)" Style="{StaticResource ChipButton}" Click="OnPresetCharacterizeClick" />
+                    <Button Content="🇷🇴 În Limba Română" Style="{StaticResource ChipButton}" Click="OnPresetRomanianClick" />
+                    <Button x:Name="BtnResetChat" Content="🔄 Conversație Nouă" Style="{StaticResource ChipButton}" Click="OnResetChatClick" Visibility="Collapsed" />
+                </WrapPanel>
+
+                <!-- Prompt Input & Run Button -->
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <TextBox x:Name="TxtPrompt" Background="#141414" Foreground="#FFFFFF" BorderBrush="#444444"
+                             FontSize="12" Padding="8,6" AcceptsReturn="True" TextWrapping="Wrap" MaxHeight="80"
+                             VerticalScrollBarVisibility="Auto" KeyDown="OnPromptKeyDown"
+                             Text="Describe the imaging features, differential diagnosis, and suggested conclusion for this lesion." />
+
+                    <Button x:Name="BtnAnalyze" Grid.Column="1" Content="⚡ Consult AI" Style="{StaticResource AnalyzeButton}"
+                            Margin="8,0,0,0" VerticalAlignment="Stretch" Click="OnAnalyzeClick" />
+                </Grid>
+
+                <!-- Progress Bar -->
+                <ProgressBar x:Name="PrgLoading" IsIndeterminate="True" Height="3" Background="Transparent"
+                             Foreground="#00E5FF" BorderThickness="0" Margin="0,6,0,0" Visibility="Collapsed" />
+            </StackPanel>
+        </Border>
+
+        <!-- FOOTER BUTTONS -->
+        <Border Grid.Row="4">
+            <DockPanel LastChildFill="False">
+                <Button x:Name="BtnCopy" Content="📋 Copy Report to Clipboard" Style="{StaticResource ActionButton}"
+                        Background="#00838F" Foreground="White" BorderBrush="#006064"
+                        Click="OnCopyResponseClick" ToolTip="Copy AI findings to clipboard for pasting into medical report" />
+                <TextBlock x:Name="TxtStatus" Text="Ready." FontSize="11" Foreground="#888888" VerticalAlignment="Center" Margin="12,0,0,0" />
+
+                <Button Content="Close" Style="{StaticResource ActionButton}" DockPanel.Dock="Right" Click="OnCloseClick" />
+            </DockPanel>
+        </Border>
+    </Grid>
+</Window>

@@ -1,0 +1,58 @@
+# ==============================================================================
+# Parsec Medical DICOM Viewer - .gitignore
+# ==============================================================================
+
+# Build & compiler output
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+
+# Visual Studio & IDE cache
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# NuGet packages & project caches
+*.nupkg
+*.snupkg
+project.lock.json
+project.assets.json
+
+# Installer artifacts & large binaries (GitHub blocks files > 100MB)
+Installer/Payload/
+Installer/Output/
+*.exe
+*.rar
+*.zip
+*.7z
+*.msi
+
+# Operating System files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.DS_Store
+
+# Temporary & user settings (Secrets, API keys, local configs)
+*.tmp
+*.bak
+*.env
+*.key
+ai_settings.json
+mousesettings.json
+pacs_servers.json
+custom_references.json
+
+# ==============================================================================
+# PROPRIETARY MEDICAL DATA & REFERENCE ASSETS EXCLUSIONS
+# The classification diagrams, tables, doctor's reference notes, templates,
+# and dictionaries are strictly kept locally and excluded from public git repos.
+# ==============================================================================
+OpenRadViewer/Assets/*
+!OpenRadViewer/Assets/.gitkeep
+OpenRadViewer/bosniak_classification.jpg
+ReferenceGuides/

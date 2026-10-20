@@ -1,0 +1,329 @@
+<Window x:Class="OpenRadViewer.Views.VolumeRenderingWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        Title="3D Volume Rendering (3D VR) - Parsec" 
+        Height="800" Width="1050"
+        MinHeight="550" MinWidth="700"
+        WindowStartupLocation="CenterOwner"
+        Background="#000000" Foreground="#E0E0E0">
+
+    <Window.Resources>
+        <Style x:Key="VrToolbarBtn" TargetType="Button">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="Foreground" Value="#E0E0E0" />
+            <Setter Property="Padding" Value="7,4" />
+            <Setter Property="Margin" Value="2,0" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border" Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="3" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#2A2A2A" />
+                                <Setter TargetName="border" Property="BorderBrush" Value="#444444" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#383838" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="VrComboBox" TargetType="ComboBox" BasedOn="{StaticResource {x:Type ComboBox}}">
+            <Setter Property="Background" Value="#222222" />
+            <Setter Property="Foreground" Value="#FFFFFF" />
+            <Setter Property="BorderBrush" Value="#555555" />
+            <Setter Property="Padding" Value="6,3" />
+            <Setter Property="FontSize" Value="12" />
+        </Style>
+        <Style TargetType="ComboBoxItem">
+            <Setter Property="Background" Value="#1E1E1E" />
+            <Setter Property="Foreground" Value="#E0E0E0" />
+            <Setter Property="Padding" Value="6,4" />
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#333333" />
+                    <Setter Property="Foreground" Value="#00E5FF" />
+                </Trigger>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Background" Value="#264F78" />
+                    <Setter Property="Foreground" Value="#FFFFFF" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+    </Window.Resources>
+
+    <Grid Background="#000000">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" /> <!-- Top Toolbar -->
+            <RowDefinition Height="*" />    <!-- 3D VR Viewport -->
+            <RowDefinition Height="Auto" /> <!-- Status / Controls Bar -->
+        </Grid.RowDefinitions>
+
+        <!-- 1. TOP TOOLBAR -->
+        <Border Grid.Row="0" Background="#181818" BorderBrush="#262626" BorderThickness="0,0,0,1" Padding="6,3">
+            <DockPanel LastChildFill="False">
+                
+                <!-- VR Icon & Title -->
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,10,0">
+                    <Path Stroke="#F5AF28" StrokeThickness="1.5" Data="M8,1 L15,5 L15,13 L8,17 L1,13 L1,5 Z M1,5 L8,9 L15,5 M8,9 L8,17" Width="16" Height="16" Stretch="Uniform" />
+                    <TextBlock Text=" 3D VR" FontWeight="Bold" FontSize="13" Foreground="#F5AF28" Margin="4,0,0,0" VerticalAlignment="Center" />
+                </StackPanel>
+
+                <Border Width="1" Height="22" Background="#333333" Margin="4,0" />
+
+                <!-- Preset Selector -->
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="4,0">
+                    <TextBlock Text="Preset: " FontSize="11.5" Foreground="#A0A0A0" VerticalAlignment="Center" Margin="0,0,4,0" />
+                    <ComboBox x:Name="ComboPresets" Width="165" Style="{StaticResource VrComboBox}" SelectionChanged="OnPresetChanged">
+                        <ComboBoxItem IsSelected="True" Tag="Angio">
+                            <StackPanel Orientation="Horizontal">
+                                <Ellipse Width="8" Height="8" Fill="#FF3B30" Margin="0,0,7,0" VerticalAlignment="Center" />
+                                <TextBlock Text="Angio (Vessels)" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </ComboBoxItem>
+                        <ComboBoxItem Tag="Bones">
+                            <StackPanel Orientation="Horizontal">
+                                <Ellipse Width="8" Height="8" Fill="#F5AF28" Margin="0,0,7,0" VerticalAlignment="Center" />
+                                <TextBlock Text="Bones (CT)" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </ComboBoxItem>
+                        <ComboBoxItem Tag="Skin">
+                            <StackPanel Orientation="Horizontal">
+                                <Ellipse Width="8" Height="8" Fill="#E0A98B" Margin="0,0,7,0" VerticalAlignment="Center" />
+                                <TextBlock Text="Skin &amp; Scars" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </ComboBoxItem>
+                        <ComboBoxItem Tag="MIP">
+                            <StackPanel Orientation="Horizontal">
+                                <Ellipse Width="8" Height="8" Fill="#FFFFFF" Margin="0,0,7,0" VerticalAlignment="Center" />
+                                <TextBlock Text="MIP (Max Intensity)" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </ComboBoxItem>
+                        <ComboBoxItem Tag="Airways">
+                            <StackPanel Orientation="Horizontal">
+                                <Ellipse Width="8" Height="8" Fill="#00E5FF" Margin="0,0,7,0" VerticalAlignment="Center" />
+                                <TextBlock Text="Airways / Lungs" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </ComboBoxItem>
+                    </ComboBox>
+                </StackPanel>
+
+                <Border Width="1" Height="22" Background="#333333" Margin="4,0" />
+
+                <!-- Orientation Buttons (Anterior, Posterior, Left, Right, Superior, Inferior, Reset) -->
+                <Button Style="{StaticResource VrToolbarBtn}" Click="OnViewAnterior" ToolTip="Anterior View (Front)">
+                    <TextBlock Text="Ant" FontSize="11" FontWeight="SemiBold" Foreground="#00E5FF" />
+                </Button>
+                <Button Style="{StaticResource VrToolbarBtn}" Click="OnViewPosterior" ToolTip="Posterior View (Back)">
+                    <TextBlock Text="Post" FontSize="11" />
+                </Button>
+                <Button Style="{StaticResource VrToolbarBtn}" Click="OnViewLeft" ToolTip="Left Lateral View">
+                    <TextBlock Text="Left" FontSize="11" />
+                </Button>
+                <Button Style="{StaticResource VrToolbarBtn}" Click="OnViewRight" ToolTip="Right Lateral View">
+                    <TextBlock Text="Right" FontSize="11" />
+                </Button>
+                <Button Style="{StaticResource VrToolbarBtn}" Click="OnViewSuperior" ToolTip="Superior View (Head-down)">
+                    <TextBlock Text="Sup" FontSize="11" />
+                </Button>
+                <Button Style="{StaticResource VrToolbarBtn}" Click="OnViewInferior" ToolTip="Inferior View (Feet-up)">
+                    <TextBlock Text="Inf" FontSize="11" />
+                </Button>
+                <Button Style="{StaticResource VrToolbarBtn}" Click="OnResetView" ToolTip="Reset Camera View &amp; Zoom (Home)">
+                    <TextBlock Text="Reset" FontSize="11" Foreground="#FFA500" />
+                </Button>
+
+                <Border Width="1" Height="22" Background="#333333" Margin="4,0" />
+
+                <!-- Mouse Tool Selector Buttons (Rotate, WL/WW, Pan, Zoom) -->
+                <Button x:Name="BtnToolRotate" Style="{StaticResource VrToolbarBtn}" Click="OnSelectToolRotate" ToolTip="Tool: Rotate 3D (R)&#x0a;Drag with Left Mouse to rotate">
+                    <StackPanel Orientation="Horizontal">
+                        <Path Stroke="#00E5FF" StrokeThickness="1.4" Data="M12,4 A7,7 0 1,0 15,11 M12,1 L15,4 L12,7" Width="13" Height="13" Stretch="Uniform" />
+                        <TextBlock x:Name="TxtToolRotate" Text=" Rotate" FontSize="11" Margin="3,0,0,0" VerticalAlignment="Center" FontWeight="Bold" Foreground="#00E5FF" />
+                    </StackPanel>
+                </Button>
+                <Button x:Name="BtnToolWl" Style="{StaticResource VrToolbarBtn}" Click="OnSelectToolWl" ToolTip="Tool: Window / Level (W)&#x0a;Drag with Left Mouse to change threshold &amp; window">
+                    <StackPanel Orientation="Horizontal">
+                        <Path Stroke="#CCCCCC" StrokeThickness="1.4" Data="M3,3 L13,3 L13,13 L3,13 Z M3,3 L13,13" Width="13" Height="13" Stretch="Uniform" />
+                        <TextBlock x:Name="TxtToolWl" Text=" WL" FontSize="11" Margin="3,0,0,0" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+                <Button x:Name="BtnToolPan" Style="{StaticResource VrToolbarBtn}" Click="OnSelectToolPan" ToolTip="Tool: Pan 3D (M)&#x0a;Drag with Left Mouse to move view">
+                    <StackPanel Orientation="Horizontal">
+                        <Path Fill="#CCCCCC" Data="M7.5,1 L4.5,4 L6.5,4 L6.5,6.5 L4,6.5 L4,4.5 L1,7.5 L4,10.5 L4,8.5 L6.5,8.5 L6.5,11 L4.5,11 L7.5,14 L10.5,11 L8.5,11 L8.5,8.5 L11,8.5 L11,10.5 L14,7.5 L11,4.5 L11,6.5 L8.5,6.5 L8.5,4 L10.5,4 Z" Width="13" Height="13" Stretch="Uniform" />
+                        <TextBlock x:Name="TxtToolPan" Text=" Pan" FontSize="11" Margin="3,0,0,0" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+                <Button x:Name="BtnToolZoom" Style="{StaticResource VrToolbarBtn}" Click="OnSelectToolZoom" ToolTip="Tool: Zoom 3D (Z)&#x0a;Drag with Left Mouse or use Wheel to zoom">
+                    <StackPanel Orientation="Horizontal">
+                        <Path Stroke="#CCCCCC" StrokeThickness="1.4" Data="M6,2 A4,4 0 1,0 10,6 M9,9 L14,14" Width="13" Height="13" Stretch="Uniform" />
+                        <TextBlock x:Name="TxtToolZoom" Text=" Zoom" FontSize="11" Margin="3,0,0,0" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+
+                <Border Width="1" Height="22" Background="#333333" Margin="4,0" />
+
+                <!-- 1-Click Hide CT Table Toggle Button -->
+                <Button x:Name="BtnHideTable" Style="{StaticResource VrToolbarBtn}" Click="OnToggleHideTable" ToolTip="Elimină Masa CT (Taie automat suportul pacientului din spate)">
+                    <StackPanel Orientation="Horizontal">
+                        <Path x:Name="IconHideTable" Stroke="#CCCCCC" StrokeThickness="1.4" Data="M2,13 L14,13 M4,13 C4,9 6,7 8,7 C10,7 12,9 12,13" Width="13" Height="13" Stretch="Uniform" />
+                        <TextBlock x:Name="TxtHideTable" Text=" Fără Masă" FontSize="11" Margin="3,0,0,0" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+
+                <!-- Interactive 3D Cut/Crop Menu -->
+                <Button x:Name="BtnCropMenu" Style="{StaticResource VrToolbarBtn}" Click="OnOpenCropPopup" ToolTip="Decupare 3D / Tăiere Masă CT (Reglaj fin procente)">
+                    <StackPanel Orientation="Horizontal">
+                        <Path Stroke="#CCCCCC" StrokeThickness="1.3" Data="M3,2 L8,7 L13,2 M8,7 L8,14" Width="13" Height="13" Stretch="Uniform" />
+                        <TextBlock Text=" Tăiere" FontSize="11" Margin="3,0,0,0" VerticalAlignment="Center" />
+                        <Path Fill="#888888" Data="M0,0 L6,0 L3,4 Z" Width="6" Height="4" Margin="3,0,0,0" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+                <Popup x:Name="CropPopup" PlacementTarget="{Binding ElementName=BtnCropMenu}" Placement="Bottom" StaysOpen="False">
+                    <Border Background="#1C1C1C" BorderBrush="#444444" BorderThickness="1" CornerRadius="4" Padding="14,12" Width="300">
+                        <StackPanel>
+                            <DockPanel Margin="0,0,0,10">
+                                <TextBlock Text="Tăiere / Secțiuni 3D (6 Axe)" FontWeight="Bold" Foreground="#00E5FF" FontSize="12.5" VerticalAlignment="Center" />
+                                <Button Content="Resetează" Style="{StaticResource VrToolbarBtn}" HorizontalAlignment="Right" Click="OnResetCrop" Padding="6,2" FontSize="10.5" Foreground="#FFA500" />
+                            </DockPanel>
+
+                            <!-- 1. Perete Anterior -->
+                            <DockPanel Margin="0,3">
+                                <TextBlock Text="Perete Anterior:" Foreground="#CCCCCC" FontSize="11" VerticalAlignment="Center" />
+                                <TextBlock x:Name="TxtCropAntVal" Text="0%" Foreground="#F5AF28" FontSize="11" FontWeight="Bold" DockPanel.Dock="Right" Margin="4,0,0,0" />
+                            </DockPanel>
+                            <Slider x:Name="SliderCropAnt" Minimum="0" Maximum="100" Value="0" TickFrequency="1" IsSnapToTickEnabled="True" ValueChanged="OnCropAntChanged" Margin="0,1,0,5" />
+
+                            <!-- 2. Posterior -->
+                            <DockPanel Margin="0,3">
+                                <TextBlock Text="Posterior:" Foreground="#CCCCCC" FontSize="11" VerticalAlignment="Center" />
+                                <TextBlock x:Name="TxtCropPostVal" Text="18%" Foreground="#F5AF28" FontSize="11" FontWeight="Bold" DockPanel.Dock="Right" Margin="4,0,0,0" />
+                            </DockPanel>
+                            <Slider x:Name="SliderCropPost" Minimum="0" Maximum="100" Value="18" TickFrequency="1" IsSnapToTickEnabled="True" ValueChanged="OnCropPostChanged" Margin="0,1,0,5" />
+
+                            <!-- 3. Lateral Drept -->
+                            <DockPanel Margin="0,3">
+                                <TextBlock Text="Lateral Drept:" Foreground="#CCCCCC" FontSize="11" VerticalAlignment="Center" />
+                                <TextBlock x:Name="TxtCropRightVal" Text="0%" Foreground="#F5AF28" FontSize="11" FontWeight="Bold" DockPanel.Dock="Right" Margin="4,0,0,0" />
+                            </DockPanel>
+                            <Slider x:Name="SliderCropRight" Minimum="0" Maximum="100" Value="0" TickFrequency="1" IsSnapToTickEnabled="True" ValueChanged="OnCropRightChanged" Margin="0,1,0,5" />
+
+                            <!-- 4. Lateral Stâng -->
+                            <DockPanel Margin="0,3">
+                                <TextBlock Text="Lateral Stâng:" Foreground="#CCCCCC" FontSize="11" VerticalAlignment="Center" />
+                                <TextBlock x:Name="TxtCropLeftVal" Text="0%" Foreground="#F5AF28" FontSize="11" FontWeight="Bold" DockPanel.Dock="Right" Margin="4,0,0,0" />
+                            </DockPanel>
+                            <Slider x:Name="SliderCropLeft" Minimum="0" Maximum="100" Value="0" TickFrequency="1" IsSnapToTickEnabled="True" ValueChanged="OnCropLeftChanged" Margin="0,1,0,5" />
+
+                            <!-- 5. Axial Sus -->
+                            <DockPanel Margin="0,3">
+                                <TextBlock Text="Axial Sus:" Foreground="#CCCCCC" FontSize="11" VerticalAlignment="Center" />
+                                <TextBlock x:Name="TxtCropSupVal" Text="0%" Foreground="#F5AF28" FontSize="11" FontWeight="Bold" DockPanel.Dock="Right" Margin="4,0,0,0" />
+                            </DockPanel>
+                            <Slider x:Name="SliderCropSup" Minimum="0" Maximum="100" Value="0" TickFrequency="1" IsSnapToTickEnabled="True" ValueChanged="OnCropSupChanged" Margin="0,1,0,5" />
+
+                            <!-- 6. Axial Jos -->
+                            <DockPanel Margin="0,3">
+                                <TextBlock Text="Axial Jos:" Foreground="#CCCCCC" FontSize="11" VerticalAlignment="Center" />
+                                <TextBlock x:Name="TxtCropInfVal" Text="0%" Foreground="#F5AF28" FontSize="11" FontWeight="Bold" DockPanel.Dock="Right" Margin="4,0,0,0" />
+                            </DockPanel>
+                            <Slider x:Name="SliderCropInf" Minimum="0" Maximum="100" Value="0" TickFrequency="1" IsSnapToTickEnabled="True" ValueChanged="OnCropInfChanged" Margin="0,1,0,6" />
+                        </StackPanel>
+                    </Border>
+                </Popup>
+
+                <!-- Auto-Spin Toggle -->
+                <Button x:Name="BtnAutoSpin" Style="{StaticResource VrToolbarBtn}" Click="OnToggleAutoSpin" ToolTip="Toggle continuous 3D rotation spin">
+                    <StackPanel Orientation="Horizontal">
+                        <Path Stroke="#00E676" StrokeThickness="1.4" Data="M12,4 A7,7 0 1,0 15,11 M12,1 L15,4 L12,7" Width="13" Height="13" Stretch="Uniform" />
+                        <TextBlock Text=" Spin" FontSize="11" Margin="3,0,0,0" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+
+                <!-- Copy to Clipboard -->
+                <Button Style="{StaticResource VrToolbarBtn}" Click="OnCopyToClipboard" ToolTip="Copy 3D VR image to clipboard (Ctrl+C)">
+                    <Path Fill="#CCCCCC" Data="M4,2 L12,2 A1,1 0 0,1 13,3 L13,11 A1,1 0 0,1 12,12 L4,12 A1,1 0 0,1 3,11 L3,3 A1,1 0 0,1 4,2 Z M6,6 L15,6 A1,1 0 0,1 16,7 L16,15 A1,1 0 0,1 15,16 L6,16 A1,1 0 0,1 5,15 L5,7 A1,1 0 0,1 6,6 Z" Width="13" Height="13" Stretch="Uniform" />
+                </Button>
+
+                <!-- Close Window -->
+                <Button DockPanel.Dock="Right" Style="{StaticResource VrToolbarBtn}" Click="OnCloseWindow" ToolTip="Close 3D VR Window (Esc)">
+                    <Path Stroke="#FFA500" StrokeThickness="1.5" Data="M2,2 L10,10 M10,2 L2,10" Width="10" Height="10" />
+                </Button>
+            </DockPanel>
+        </Border>
+
+        <!-- 2. 3D VR VIEWPORT -->
+        <Border Grid.Row="1" Background="#000000" ClipToBounds="True" x:Name="ViewportBorder"
+                SizeChanged="OnViewportSizeChanged"
+                MouseDown="OnViewportMouseDown"
+                MouseMove="OnViewportMouseMove"
+                MouseUp="OnViewportMouseUp"
+                MouseWheel="OnViewportMouseWheel">
+            <Grid Background="#000000">
+                <!-- Rendered 3D Bitmap Image -->
+                <Image x:Name="ImgVr" HorizontalAlignment="Center" VerticalAlignment="Center"
+                       Stretch="Uniform" RenderOptions.BitmapScalingMode="Linear" />
+
+                <!-- Loading Overlay: always pitch black on opening -->
+                <Border x:Name="LoadingOverlay" Background="#000000" Visibility="Visible" IsHitTestVisible="False">
+                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <Path Stroke="#00E5FF" StrokeThickness="2" Data="M8,1 L15,5 L15,13 L8,17 L1,13 L1,5 Z M1,5 L8,9 L15,5 M8,9 L8,17" Width="36" Height="36" Stretch="Uniform" HorizontalAlignment="Center" Margin="0,0,0,12" />
+                        <TextBlock Text="Se încarcă volumul 3D..." FontSize="13" Foreground="#888888" HorizontalAlignment="Center" />
+                    </StackPanel>
+                </Border>
+
+                <!-- OVERLAYS (RadiAnt Style) -->
+                <!-- Top-Left Overlay: VR Mode + Patient Info -->
+                <StackPanel HorizontalAlignment="Left" VerticalAlignment="Top" Margin="14,12" IsHitTestVisible="False">
+                    <TextBlock Text="VR" FontSize="16" FontWeight="Bold" Foreground="#FFFFFF" />
+                    <TextBlock x:Name="TxtPatientName" Text="" FontSize="13" FontWeight="SemiBold" Foreground="#E0E0E0" Margin="0,2,0,0" />
+                    <TextBlock x:Name="TxtSeriesInfo" Text="" FontSize="11" Foreground="#A0A0A0" />
+                </StackPanel>
+
+                <!-- Bottom-Left Overlay: WL / WW + Presets Hint -->
+                <StackPanel HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="14,12" IsHitTestVisible="False">
+                    <TextBlock x:Name="TxtWlWw" Text="WL: 300 WW: 500" FontSize="13" FontWeight="SemiBold" Foreground="#FFFFFF" />
+                    <TextBlock x:Name="TxtPresetName" Text="Preset: Bones (CT)" FontSize="11" Foreground="#00E5FF" Margin="0,1,0,0" />
+                </StackPanel>
+
+                <!-- Anatomical Orientation Labels (Top, Bottom, Left, Right) -->
+                <TextBlock x:Name="TxtOrientTop" Text="S" FontSize="14" FontWeight="Bold" Foreground="#CCCCCC"
+                           HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,8,0,0" IsHitTestVisible="False" />
+                <TextBlock x:Name="TxtOrientBottom" Text="I" FontSize="14" FontWeight="Bold" Foreground="#CCCCCC"
+                           HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,8" IsHitTestVisible="False" />
+                <TextBlock x:Name="TxtOrientLeft" Text="R" FontSize="14" FontWeight="Bold" Foreground="#CCCCCC"
+                           HorizontalAlignment="Left" VerticalAlignment="Center" Margin="8,0,0,0" IsHitTestVisible="False" />
+                <TextBlock x:Name="TxtOrientRight" Text="L" FontSize="14" FontWeight="Bold" Foreground="#CCCCCC"
+                           HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,8,0" IsHitTestVisible="False" />
+            </Grid>
+        </Border>
+
+        <!-- 3. BOTTOM CONTROLS & STATUS BAR -->
+        <Border Grid.Row="2" Background="#141414" BorderBrush="#202020" BorderThickness="0,1,0,0" Padding="8,4">
+            <DockPanel LastChildFill="False">
+                <!-- Medical Interaction Guide Pill -->
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="Controls: " FontSize="11" FontWeight="Bold" Foreground="#888888" />
+                    <TextBlock Text="[Left-Drag] Rotate   |   [Middle-Drag] WL / WW   |   [Right-Drag] Pan   |   [Wheel] Zoom   |   [Shift+Left-Drag] Roll"
+                               FontSize="11" Foreground="#B0B0B0" />
+                </StackPanel>
+
+                <TextBlock x:Name="TxtRenderTime" DockPanel.Dock="Right" Text="" FontSize="11" Foreground="#777777" VerticalAlignment="Center" />
+            </DockPanel>
+        </Border>
+    </Grid>
+</Window>

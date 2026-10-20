@@ -1,0 +1,45 @@
+# .cursorrules — Rules and Directives for AI Agents & IDEs
+
+## Mandatory Initialization Directive
+Before modifying or creating any code in this repository:
+1. **Always read [AGENT.md](file:///F:/Rad/AGENT.md)** (or [CLAUDE.md](file:///F:/Rad/CLAUDE.md)) to understand the system architecture, data flow, and key files.
+2. **Consult [STRUCTURE.md](file:///F:/Rad/STRUCTURE.md)** for folder organization and placement rules.
+3. When creating a new file, **always prepend the standard 3-tag Header Docblock**:
+   ```csharp
+   // @purpose: <Precise description of what this file does>
+   // @depends: <Main modules or services it relies on>
+   // @exports: <Key classes, interfaces, or enums it exposes>
+   ```
+4. If you add a new module, service, or major view, **update [STRUCTURE.md](file:///F:/Rad/STRUCTURE.md)** to reflect the new file.
+
+---
+
+## Coding Standards & C# Rules
+- **Language Level:** C# 12 on `.NET 8.0-windows`. Nullable reference types are strictly enabled (`<Nullable>enable</Nullable>`).
+- **Typing Integrity:**
+  - Never use `dynamic`.
+  - Avoid casting to `object` when typed models (`DicomSliceModel`, `SeriesModel`, `PacsStudyResult`) exist.
+  - Do not introduce placeholder `TODO` comments or stubbed methods in place of real implementations.
+- **MVVM Pattern:**
+  - Use `CommunityToolkit.Mvvm` (`[ObservableProperty]`, `[RelayCommand]`, `ObservableObject`).
+  - ViewModels must not directly import or control WPF visual elements (`FrameworkElement`, `Image`, `Canvas`).
+- **Performance & Concurrency:**
+  - All heavy DICOM file reading, decompression, transcoding, and MPR volume matrix slicing MUST run asynchronously on background threads (`Task.Run` or `Parallel.ForEach`).
+  - Never block the WPF Dispatcher / UI thread.
+  - Pixel buffer operations use unmanaged pointers (`unsafe`) within fixed blocks inside `PixelRenderer.cs`.
+
+---
+
+## DICOM & Clinical Domain Rules
+- **Modality Preservation:** Single-slice projection radiographs (`CR`, `DX`, `RG`, `XA`) must NEVER be treated as scouts or dimmed.
+- **Compressed Syntax Handling:** Whenever opening encapsulated DICOM files (`InternalTransferSyntax.IsEncapsulated`), decompress them with `DicomTranscoder` to `ExplicitVRLittleEndian` before extracting frames.
+- **PACS SCP Listener:** The C-STORE SCP service must always accept standard lossless syntaxes, notably `JPEGProcess14SV1`, `JPEGProcess14`, `JPEG2000Lossless`, `JPEGLSLossless`, and Little/Big Endian.
+- **Window Level / Window Width:** If DICOM lacks window level/width tags, calculate dynamic range from `[MinPixelValue, MaxPixelValue]` to prevent blown-out/all-white display.
+- **Inversion Consistency:** Radiographs with `MONOCHROME1` or `PresentationLUTShape == "INVERSE"` must render inverted by default so dense bone appears bright on dark background.
+
+---
+
+## Build Verification
+- After making changes, always verify by building Release:
+  `dotnet build -c Release "F:\Rad\OpenRadViewer\OpenRadViewer.csproj"`
+- Ensure `0 Error(s)`.

@@ -1,0 +1,22 @@
+<Window x:Class="OpenRadViewer.Views.SplashWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        ShowInTaskbar="False"
+        Topmost="False"
+        WindowStartupLocation="CenterScreen"
+        Width="240" Height="240">
+
+    <Grid x:Name="RootGrid" HorizontalAlignment="Center" VerticalAlignment="Center">
+        <Image Source="pack://application:,,,/Views/app_icon.png" 
+               Width="210" Height="210" 
+               Stretch="Uniform" 
+               RenderOptions.BitmapScalingMode="HighQuality">
+            <Image.Effect>
+                <DropShadowEffect BlurRadius="25" ShadowDepth="0" Color="#F5AF28" Opacity="0.45" />
+            </Image.Effect>
+        </Image>
+    </Grid>
+</Window>

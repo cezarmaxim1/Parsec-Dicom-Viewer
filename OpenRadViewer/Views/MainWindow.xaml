@@ -1,0 +1,1201 @@
+<Window x:Class="OpenRadViewer.Views.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:views="clr-namespace:OpenRadViewer.Views"
+        xmlns:vm="clr-namespace:OpenRadViewer.ViewModels"
+        mc:Ignorable="d"
+        Title="Parsec - Medical DICOM Viewer" 
+        Height="850" Width="1350"
+        WindowStartupLocation="CenterScreen"
+        WindowState="Maximized"
+        Background="#111111" Foreground="#E0E0E0">
+
+    <Window.InputBindings>
+        <KeyBinding Modifiers="Control+Alt" Key="F5" Command="{Binding ToggleMenuBarCommand}" />
+        <KeyBinding Modifiers="Control+Alt" Key="M" Command="{Binding ToggleMenuBarCommand}" />
+    </Window.InputBindings>
+
+    <Window.Resources>
+        <!-- Sleek Monochrome ToolButton Style (CornerRadius="4", Darker Hover #121212) -->
+        <Style x:Key="IconButton" TargetType="Button">
+            <Setter Property="Background" Value="#202020" />
+            <Setter Property="Foreground" Value="#CCCCCC" />
+            <Setter Property="BorderBrush" Value="#333333" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="7,5" />
+            <Setter Property="Margin" Value="2,1" />
+            <Setter Property="Height" Value="32" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Border" 
+                                Background="{TemplateBinding Background}" 
+                                BorderBrush="{TemplateBinding BorderBrush}" 
+                                BorderThickness="{TemplateBinding BorderThickness}" 
+                                CornerRadius="4" 
+                                Padding="{TemplateBinding Padding}"
+                                SnapsToDevicePixels="True">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Border" Property="Background" Value="#121212" />
+                                <Setter TargetName="Border" Property="BorderBrush" Value="#F5AF28" />
+                                <Setter Property="Foreground" Value="#FFFFFF" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Border" Property="Background" Value="#0A0A0A" />
+                                <Setter TargetName="Border" Property="BorderBrush" Value="#FFA500" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Border" Property="Opacity" Value="0.4" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" /> <!-- Main Menu -->
+            <RowDefinition Height="Auto" /> <!-- Quick Toolbar with Monochrome Icons -->
+            <RowDefinition Height="*" />    <!-- Workspace (Series Bar + Viewports) -->
+            <RowDefinition Height="Auto" /> <!-- Status Bar -->
+        </Grid.RowDefinitions>
+
+        <!-- 1. MAIN MENU BAR (Dark styling with high-contrast text) -->
+        <Menu Grid.Row="0" Background="#181818" Foreground="#E0E0E0" BorderBrush="#252525" BorderThickness="0,0,0,1" Padding="2"
+              Visibility="{Binding IsMenuBarVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <MenuItem Header="_File">
+                <MenuItem Header="Search _PACS Archive... (Ctrl+P)" Click="OnOpenPacsSearch" />
+                <MenuItem Header="Send Active Study to PACS (C-STORE)..." Click="OnSendActiveStudyToPacs" />
+                <MenuItem Header="Configure PACS Locations..." Click="OnOpenPacsConfig" />
+                <Separator Background="#333333" />
+                <MenuItem Header="Open Local _Database... (Ctrl+D)" Click="OnOpenDatabase" />
+                <MenuItem Header="Import Active Study to Database..." Click="OnImportActiveStudyToDb" />
+                <Separator Background="#333333" />
+                <MenuItem Header="Open DICOM _Files... (Ctrl+O)" Click="OnOpenFiles" />
+                <MenuItem Header="Scan DICOM _Folder... (Ctrl+Shift+O)" Click="OnScanFolder" />
+                <MenuItem Header="Load Sample Spine MRI Study" Click="OnLoadSampleStudy" />
+                <Separator Background="#333333" />
+                <MenuItem Header="_Export Images... (Ctrl+E)" Click="OnExportImages" />
+                <MenuItem Header="_Copy to Clipboard (Ctrl+C)" Click="OnCopyToClipboard" />
+                <Separator Background="#333333" />
+                <MenuItem Header="E_xit (Ctrl+Alt+F4)" Click="OnExit" />
+            </MenuItem>
+
+            <MenuItem Header="_Layout">
+                <MenuItem Header="Grid Matrix Selector..." Click="OnToggleGridPicker" />
+                <Separator Background="#333333" />
+                <MenuItem Header="Maximize / Restore Active Panel (Ctrl+M)" Click="OnToggleMaximizePanel" />
+                <MenuItem Header="Close Active Panel (Ctrl+F4)" Click="OnCloseActivePanel" />
+                <MenuItem Header="Close All Panels (Shift+F4)" Click="OnCloseAllPanels" />
+            </MenuItem>
+
+            <MenuItem Header="_Synchronization">
+                <MenuItem Header="Cycle Sync Mode: Off / Auto / Manual (F5)" Click="OnToggleSync" />
+                <Separator Background="#333333" />
+                <MenuItem Header="Lock Manual Offsets Now" Click="OnLockManualSync" />
+                <MenuItem Header="Synchronize 3D Slice Position" IsCheckable="True" IsChecked="{Binding SyncSlicePosition}" />
+                <MenuItem Header="Synchronize Zoom &amp; Pan" IsCheckable="True" IsChecked="{Binding SyncZoomPan}" />
+                <MenuItem Header="Synchronize Window / Level" IsCheckable="True" IsChecked="{Binding SyncWindowLevel}" />
+            </MenuItem>
+
+            <MenuItem Header="_Window Presets">
+                <MenuItem Header="0: Default Window Setting (0)" Click="OnWindowPreset0" />
+                <MenuItem Header="1: Full Dynamic (1)" Click="OnWindowPreset1" />
+                <MenuItem Header="2: Abdomen CT (WL: 40, WW: 350) (2)" Click="OnWindowPreset2" />
+                <MenuItem Header="3: Angio CT (WL: 300, WW: 600) (3)" Click="OnWindowPreset3" />
+                <MenuItem Header="4: Bone CT (WL: 300, WW: 1500) (4)" Click="OnWindowPreset4" />
+                <MenuItem Header="5: Brain CT (WL: 40, WW: 80) (5)" Click="OnWindowPreset5" />
+                <MenuItem Header="6: Chest CT (WL: 50, WW: 350) (6)" Click="OnWindowPreset6" />
+                <MenuItem Header="7: Lung CT (WL: -600, WW: 1500) (7)" Click="OnWindowPreset7" />
+                <MenuItem Header="8: Liver CT (WL: 60, WW: 160) (8)" Click="OnWindowPreset8" />
+                <Separator Background="#333333" />
+                <MenuItem Header="Custom Window / Level... (Ctrl+W)" Click="OnCustomWindow" />
+                <MenuItem Header="Negative / Invert (F11)" Click="OnToggleNegative" />
+            </MenuItem>
+
+            <MenuItem Header="_Measurements">
+                <MenuItem Header="Length (L)" Click="OnToolLength" />
+                <MenuItem Header="Ellipse ROI (E)" Click="OnToolEllipse" />
+                <MenuItem Header="Rectangle ROI (U)" Click="OnToolRectangle" />
+                <MenuItem Header="Angle (A)" Click="OnToolAngle" />
+                <MenuItem Header="Insall-Salvati Ratio (TL / PL)" Click="OnToolInsallSalvati" />
+                <MenuItem Header="Arrow (Y)" Click="OnToolArrow" />
+                <MenuItem Header="Pencil (P)" Click="OnToolPencil" />
+                <MenuItem Header="Text Annotation (T)" Click="OnToolTextAnnotation" />
+                <Separator Background="#333333" />
+                <MenuItem Header="Duplicate ROI to Other Series (Ctrl+Shift+D)" Click="OnDuplicateRoi" />
+                <MenuItem Header="Clear Measurements (Del)" Click="OnClearMeasurements" />
+            </MenuItem>
+
+            <MenuItem Header="_Tools">
+                <MenuItem Header="3D Cursor Crosshair (Q)" Click="OnToolCursor3D" />
+                <MenuItem Header="Browse Series (B)" Click="OnToolBrowse" />
+                <MenuItem Header="Window / Level (W)" Click="OnToolWindowLevel" />
+                <MenuItem Header="Pan Image (M)" Click="OnToolPan" />
+                <MenuItem Header="Zoom Image (Z)" Click="OnToolZoom" />
+                <Separator Background="#333333" />
+                <MenuItem Header="Mouse Settings &amp; Bindings..." Click="OnOpenMouseSettings" />
+            </MenuItem>
+
+            <MenuItem Header="_Extra Tools">
+                <MenuItem Header="Vertebral Body Labeling (Spine)">
+                    <MenuItem Header="Lumbar (L5)" Click="OnSelectSpineLumbar" />
+                    <MenuItem Header="Thoracic (T12)" Click="OnSelectSpineThoracic" />
+                    <MenuItem Header="Cervical (C7)" Click="OnSelectSpineCervical" />
+                    <Separator Background="#333333" />
+                    <MenuItem Header="Clear Vertebra Labels" Click="OnClearVertebraLabels" />
+                </MenuItem>
+                <MenuItem Header="Insall-Salvati Ratio (TL / PL)" Click="OnToolInsallSalvati" />
+                <Separator Background="#333333" />
+                <MenuItem Header="Adrenal CT Washout Calculator (APW / RPW)..." Click="OnOpenAdrenalWashout" />
+                <Separator Background="#333333" />
+                <MenuItem Header="Classifications" x:Name="MenuClassifications">
+                    <MenuItem Header="Pfirrmann (Lumbar Disc)" Click="OnOpenPfirrmannClassification" />
+                    <MenuItem Header="Scheltens (MTA Scale - Hippocampus)" Click="OnOpenScheltensClassification" />
+                    <MenuItem Header="Fazekas (White Matter Hyperintensities)" Click="OnOpenFazekasClassification" />
+                    <MenuItem Header="Bosniak (Cystic Renal Masses)" Click="OnOpenBosniakClassification" />
+                    <MenuItem Header="LI-RADS (Hepatocellular Carcinoma)" Click="OnOpenLiRadsClassification" />
+                    <Separator Background="#333333" />
+                    <MenuItem Header="+ Add Classification..." Click="OnAddCustomClassification" FontWeight="SemiBold" Foreground="#64D2B4" />
+                </MenuItem>
+                <MenuItem Header="Tables" x:Name="MenuTables">
+                    <MenuItem Header="Ischemic Infarct MRI Evolution (DWI / ADC / T2)" Click="OnOpenInfarctTable" />
+                    <Separator Background="#333333" />
+                    <MenuItem Header="+ Add Table..." Click="OnAddCustomTable" FontWeight="SemiBold" Foreground="#64D2B4" />
+                </MenuItem>
+                <Separator Background="#333333" />
+                <MenuItem Header="AI Assistant &amp; Consultation">
+                    <MenuItem Header="AI Lesion Crop Tool" Click="OnToolAiLesionCrop" />
+                    <MenuItem Header="AI Configuration &amp; Style Settings..." Click="OnOpenAiSettings" />
+                </MenuItem>
+            </MenuItem>
+
+            <MenuItem Header="_View">
+                <MenuItem Header="Cross Reference / Scout Lines (Ctrl+F12)" IsCheckable="True" IsChecked="{Binding ShowScoutLines}" Click="OnToggleScoutLines" />
+                <Separator Background="#333333" />
+                <MenuItem Header="Reconstruct Coronal Plane (Alt+1)" Click="OnMprCoronal" />
+                <MenuItem Header="Reconstruct Sagittal Plane (Alt+2)" Click="OnMprSagittal" />
+                <MenuItem Header="3D Multiplanar Reconstruction (3D MPR)" Click="OnToggle3DMpr" />
+                <MenuItem Header="3D Volume Rendering (3D VR) (Ctrl+Shift+V)" Click="OnOpen3DVr" />
+                <Separator Background="#333333" />
+                <MenuItem Header="Main Menu Bar (Ctrl+Alt+F5)" IsCheckable="True" IsChecked="{Binding ShowMenuBar, Mode=TwoWay}" />
+                <MenuItem Header="Series Preview Bar (Ctrl+Alt+F2)" IsCheckable="True" IsChecked="{Binding ShowSeriesPreviewBar}" />
+                <MenuItem Header="Toolbars &amp; Status Bar (Ctrl+Alt+F3)" IsCheckable="True" IsChecked="{Binding ShowToolbars}" />
+                <MenuItem Header="Full Screen Mode (F)" Click="OnToggleFullScreen" />
+            </MenuItem>
+        </Menu>
+
+        <!-- 2. QUICK TOOLBAR: CLEAN MONOCHROME (ALB-GRI-NEGRU) ICONS -->
+        <Border Grid.Row="1" Background="#191919" BorderBrush="#262626" BorderThickness="0,0,0,1" Padding="4,2"
+                Visibility="{Binding ShowToolbars, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <WrapPanel Orientation="Horizontal" VerticalAlignment="Center">
+                
+                <!-- Database Archive Button -->
+                <Button Style="{StaticResource IconButton}" Click="OnOpenDatabase" ToolTip="Parsec Local Database (Ctrl+D)&#x0a;Open Study Archive &amp; Import">
+                    <StackPanel Orientation="Horizontal">
+                        <Path Fill="#CCCCCC" Data="M3,5 C3,3.5 7,2.5 12,2.5 C17,2.5 21,3.5 21,5 C21,6.5 17,7.5 12,7.5 C7,7.5 3,6.5 3,5 Z M3,5 L3,9 C3,10.5 7,11.5 12,11.5 C17,11.5 21,10.5 21,9 L21,5 M3,9 L3,13 C3,14.5 7,15.5 12,15.5 C17,15.5 21,14.5 21,13 L21,9 M3,13 L3,17 C3,18.5 7,19.5 12,19.5 C17,19.5 21,18.5 21,17 L21,13" Width="15" Height="15" Stretch="Uniform" />
+                        <TextBlock Text=" Database" FontSize="11" Margin="3,0,0,0" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+
+                <!-- PACS Search & Retrieve Button (Monochrome Network Server Icon) -->
+                <Button Style="{StaticResource IconButton}" Click="OnOpenPacsSearch" ToolTip="PACS Search &amp; Transfer (Ctrl+P)&#x0a;C-FIND, C-MOVE / C-GET, C-STORE">
+                    <StackPanel Orientation="Horizontal">
+                        <Path Stroke="#CCCCCC" StrokeThickness="1.2" Fill="Transparent" Data="M2,3 L16,3 L16,7 L2,7 Z M2,8 L16,8 L16,12 L2,12 Z M2,13 L16,13 L16,17 L2,17 Z M5,5 L5.01,5 M5,10 L5.01,10 M5,15 L5.01,15 M9,17 L9,20 M6,20 L12,20" Width="16" Height="16" Stretch="Uniform" />
+                        <TextBlock Text=" PACS" FontSize="11" Margin="3,0,0,0" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+
+                <Border Width="1" Height="22" Background="#333333" Margin="5,0" />
+
+                <!-- Open Folder (Monochrome Folder Icon) -->
+                <Button Style="{StaticResource IconButton}" Click="OnScanFolder" ToolTip="Scan / Open DICOM Folder (Ctrl+Shift+O)">
+                    <Path Fill="#CCCCCC" Data="M2,4 A1,1 0 0,1 3,3 L7,3 L9,5 L17,5 A1,1 0 0,1 18,6 L18,15 A1,1 0 0,1 17,16 L3,16 A1,1 0 0,1 2,15 Z" Width="16" Height="15" Stretch="Uniform" />
+                </Button>
+
+                <Border Width="1" Height="22" Background="#333333" Margin="5,0" />
+
+                <!-- Grid Picker Matrix Button (Opens 6x5 matrix popup!) -->
+                <Button x:Name="BtnGridPicker" Style="{StaticResource IconButton}" Click="OnToggleGridPicker" ToolTip="Select Viewport Grid (up to 6x5)">
+                    <StackPanel Orientation="Horizontal">
+                        <Path Fill="#CCCCCC" Data="M2,2 L8,2 L8,8 L2,8 Z M10,2 L16,2 L16,8 L10,8 Z M2,10 L8,10 L8,16 L2,16 Z M10,10 L16,10 L16,16 L10,16 Z" Width="15" Height="15" Stretch="Uniform" />
+                        <Path Fill="#888888" Data="M0,0 L6,0 L3,4 Z" Width="6" Height="4" Margin="4,0,0,0" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+
+                <!-- Grid Picker Popup Container -->
+                <Popup x:Name="GridPickerPopup" StaysOpen="False" PlacementTarget="{Binding ElementName=BtnGridPicker}" Placement="Bottom">
+                    <views:GridMatrixPickerControl x:Name="GridMatrixPicker" />
+                </Popup>
+
+                <!-- Split Series Split Button (Auto-split on click + Dropdown menu) -->
+                <Border Background="#202020" BorderBrush="#333333" BorderThickness="1" CornerRadius="4" Height="32" Margin="2,1">
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Stretch">
+                        <!-- Left Action: Auto-Split Series -->
+                        <Button x:Name="BtnSplitSeries" Click="OnSplitSeriesAuto"
+                                PreviewMouseRightButtonDown="OnOpenSplitMenuRight"
+                                ToolTip="Split Series&#x0a;[Left-Click: Auto-detect split by b-value, TE, Phase]&#x0a;[Right-Click: Split options menu]"
+                                Cursor="Hand" Background="Transparent" BorderThickness="0" Padding="7,0" Height="30">
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Border x:Name="Bd" Background="{TemplateBinding Background}" CornerRadius="3,0,0,3" Padding="{TemplateBinding Padding}" SnapsToDevicePixels="True">
+                                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="Bd" Property="Background" Value="#121212" />
+                                        </Trigger>
+                                        <Trigger Property="IsPressed" Value="True">
+                                            <Setter TargetName="Bd" Property="Background" Value="#0A0A0A" />
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Button.Template>
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <Path Stroke="#CCCCCC" StrokeThickness="1.3" Data="M2,2 L14,2 L14,14 L2,14 Z M8,2 L8,14" Width="14" Height="14" Stretch="Uniform" />
+                                <TextBlock Text=" Split" FontSize="11" Margin="3,0,0,0" VerticalAlignment="Center" Foreground="#CCCCCC" />
+                            </StackPanel>
+                        </Button>
+
+                        <!-- Fine Vertical Separator -->
+                        <Border Width="1" Background="#333333" Margin="0,4" />
+
+                        <!-- Right Action: Dropdown Menu Trigger -->
+                        <Button x:Name="BtnSplitDropdown" Click="OnOpenSplitMenu"
+                                ToolTip="Split Series Options (Click to choose criteria)&#x0a;b-value, TE, Phase, Orientation"
+                                Cursor="Hand" Background="Transparent" BorderThickness="0" Padding="6,0" Height="30">
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Border x:Name="Bd" Background="{TemplateBinding Background}" CornerRadius="0,3,3,0" Padding="{TemplateBinding Padding}" SnapsToDevicePixels="True">
+                                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="Bd" Property="Background" Value="#121212" />
+                                        </Trigger>
+                                        <Trigger Property="IsPressed" Value="True">
+                                            <Setter TargetName="Bd" Property="Background" Value="#0A0A0A" />
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Button.Template>
+                            <Path Fill="#888888" Data="M0,0 L6,0 L3,4 Z" Width="6" Height="4" VerticalAlignment="Center" />
+                            <Button.ContextMenu>
+                                <ContextMenu x:Name="SplitContextMenu">
+                                    <MenuItem Header="Split Series: Auto-Detect (b-value, TE, Phase)" Click="OnSplitSeriesAuto" FontWeight="Bold" />
+                                    <Separator Background="#333333" />
+                                    <MenuItem Header="Split by Diffusion b-value" Click="OnSplitSeriesByBValue" />
+                                    <MenuItem Header="Split by Echo Time (TE / Dixon)" Click="OnSplitSeriesByEchoTime" />
+                                    <MenuItem Header="Split by Temporal Phase / Time" Click="OnSplitSeriesByPhase" />
+                                    <MenuItem Header="Split by Spatial Orientation (Localizer)" Click="OnSplitSeriesByOrientation" />
+                                </ContextMenu>
+                            </Button.ContextMenu>
+                        </Button>
+                    </StackPanel>
+                </Border>
+
+                <Border Width="1" Height="22" Background="#333333" Margin="5,0" />
+
+                <!-- Sync Mode Direct Dropdown & Toggle (OFF / AUTO / MANUAL) -->
+                <Button x:Name="BtnSyncMenu" Style="{StaticResource IconButton}" Click="OnOpenSyncMenu" ToolTip="Series Synchronization (F5)&#x0a;Select Off, Auto (3D IPP), or Manual (Locked Offset)">
+                    <StackPanel Orientation="Horizontal">
+                        <Path Fill="#CCCCCC" Data="M4,9 C4,7 6,5 8,5 L11,5 M10,9 L13,9 C15,9 17,11 17,13 C17,15 15,17 13,17 L10,17 M7,13 L14,13" Stroke="#CCCCCC" StrokeThickness="1.5" Width="16" Height="14" Stretch="Uniform" />
+                        <TextBlock Text=" Sync" FontSize="11" Margin="4,0,0,0" VerticalAlignment="Center">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="FontWeight" Value="Normal" />
+                                    <Setter Property="Foreground" Value="#CCCCCC" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding CurrentSyncMode}" Value="{x:Static vm:SyncMode.Automatic}">
+                                            <Setter Property="FontWeight" Value="Bold" />
+                                            <Setter Property="Foreground" Value="#F5AF28" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding CurrentSyncMode}" Value="{x:Static vm:SyncMode.Manual}">
+                                            <Setter Property="FontWeight" Value="Bold" />
+                                            <Setter Property="Foreground" Value="#FFFFFF" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                        <Path Fill="#888888" Data="M0,0 L6,0 L3,4 Z" Width="6" Height="4" Margin="4,0,0,0" VerticalAlignment="Center" />
+                    </StackPanel>
+                    <Button.ContextMenu>
+                        <ContextMenu x:Name="SyncContextMenu">
+                            <MenuItem Header="Synchronization: OFF" Click="OnSyncOff" />
+                            <MenuItem Header="Synchronization: AUTOMATIC (3D Spatial Matching)" Click="OnSyncAuto" />
+                            <MenuItem Header="Synchronization: MANUAL (Lock Current Offsets)" Click="OnSyncManual" />
+                            <Separator Background="#333333" />
+                            <MenuItem Header="Lock Manual Offsets Now" Click="OnLockManualSync" />
+                        </ContextMenu>
+                    </Button.ContextMenu>
+                </Button>
+
+                <Border Width="1" Height="22" Background="#333333" Margin="5,0" />
+
+                <!-- 1. 3D Cursor Crosshair (Q) with perfectly centered circle -->
+                <Button Style="{StaticResource IconButton}" 
+                        Click="OnToolbarCursor3DLeft"
+                        PreviewMouseRightButtonDown="OnToolbarCursor3DRight"
+                        PreviewMouseDown="OnToolbarCursor3DMouseDown"
+                        ToolTip="3D Crosshair Spatial Cursor (Q)&#x0a;[Left-Click: Bind Left mouse]&#x0a;[Right-Click: Bind Right mouse]&#x0a;[Wheel-Click: Bind Hold Wheel]">
+                    <Path Stroke="#CCCCCC" StrokeThickness="1.5" Data="M8,1 L8,4 M8,12 L8,15 M1,8 L4,8 M12,8 L15,8 M8,5 A3,3 0 1,0 8,11 A3,3 0 1,0 8,5" Width="15" Height="15" Stretch="Uniform" />
+                </Button>
+
+                <!-- 2. Browse Slices (B) with Sensitivity Selector (Parallel horizontal planes) -->
+                <Button x:Name="BtnBrowse" Style="{StaticResource IconButton}" 
+                        Click="OnToolbarBrowseLeft"
+                        PreviewMouseRightButtonDown="OnToolbarBrowseRight"
+                        PreviewMouseDown="OnToolbarBrowseMouseDown"
+                        ToolTip="Browse Series (B)&#x0a;[Left-Click: Bind Left mouse]&#x0a;[Right-Click: Bind Right mouse]&#x0a;[Wheel-Click: Bind Hold Wheel]&#x0a;[Click arrow: Choose Sensitivity]">
+                    <StackPanel Orientation="Horizontal">
+                        <Path Stroke="#CCCCCC" StrokeThickness="1.3" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                              Data="M 8,1 L 15,4.5 L 8,8 L 1,4.5 Z M 1,8 L 8,11.5 L 15,8 M 1,11.5 L 8,15 L 15,11.5" Width="16" Height="15" Stretch="Uniform" />
+                        <Button Style="{StaticResource IconButton}" Background="Transparent" BorderThickness="0" Height="20" Padding="2,0" Margin="2,0,0,0" Click="OnOpenBrowseMenu">
+                            <Path Fill="#888888" Data="M0,0 L6,0 L3,4 Z" Width="6" Height="4" VerticalAlignment="Center" />
+                        </Button>
+                    </StackPanel>
+                    <Button.ContextMenu>
+                        <ContextMenu x:Name="BrowseSensitivityContextMenu">
+                            <MenuItem Header="Sensitivity: Very Fast (3 px / slice)" Click="OnBrowseSensitivityVeryFast" />
+                            <MenuItem Header="Sensitivity: Fast (6 px / slice)" Click="OnBrowseSensitivityFast" />
+                            <MenuItem Header="Sensitivity: Normal (12 px / slice)" Click="OnBrowseSensitivityMedium" />
+                            <MenuItem Header="Sensitivity: Precise (20 px / slice)" Click="OnBrowseSensitivityPrecise" />
+                        </ContextMenu>
+                    </Button.ContextMenu>
+                </Button>
+
+                <!-- 3. Pan Image (M) -->
+                <Button Style="{StaticResource IconButton}" 
+                        Click="OnToolbarPanLeft"
+                        PreviewMouseRightButtonDown="OnToolbarPanRight"
+                        PreviewMouseDown="OnToolbarPanMouseDown"
+                        ToolTip="Pan Image (M)&#x0a;[Left-Click: Bind Left mouse]&#x0a;[Right-Click: Bind Right mouse]&#x0a;[Wheel-Click: Bind Hold Wheel]">
+                    <Path Fill="#CCCCCC" Data="M7.5,1 L4.5,4 L6.5,4 L6.5,6.5 L4,6.5 L4,4.5 L1,7.5 L4,10.5 L4,8.5 L6.5,8.5 L6.5,11 L4.5,11 L7.5,14 L10.5,11 L8.5,11 L8.5,8.5 L11,8.5 L11,10.5 L14,7.5 L11,4.5 L11,6.5 L8.5,6.5 L8.5,4 L10.5,4 Z" Width="14" Height="14" Stretch="Uniform" />
+                </Button>
+
+                <!-- 4. Zoom Image (Z) -->
+                <Button Style="{StaticResource IconButton}" 
+                        Click="OnToolbarZoomLeft"
+                        PreviewMouseRightButtonDown="OnToolbarZoomRight"
+                        PreviewMouseDown="OnToolbarZoomMouseDown"
+                        ToolTip="Zoom Image (Z)&#x0a;[Left-Click: Bind Left mouse]&#x0a;[Right-Click: Bind Right mouse]&#x0a;[Wheel-Click: Bind Hold Wheel]">
+                    <Path Stroke="#CCCCCC" StrokeThickness="1.5" Data="M7,2 A5,5 0 1,0 7,12 A5,5 0 1,0 7,2 M11,11 L16,16" Width="15" Height="15" Stretch="Uniform" />
+                </Button>
+
+                <!-- 5. Window / Level (W) Split Button (Assign tool + Presets menu) - Placed after Zoom as requested -->
+                <Border Background="#202020" BorderBrush="#333333" BorderThickness="1" CornerRadius="4" Height="32" Margin="2,1">
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Stretch">
+                        <!-- Left Action: Bind W/L tool -->
+                        <Button x:Name="BtnWindowTool" Click="OnToolbarWindowLevelLeft"
+                                PreviewMouseRightButtonDown="OnToolbarWindowLevelRight"
+                                PreviewMouseDown="OnToolbarWindowLevelMouseDown"
+                                ToolTip="Window / Level (W)&#x0a;[Left-Click: Bind Left mouse]&#x0a;[Right-Click: Bind Right mouse]&#x0a;[Wheel-Click: Bind Hold Wheel]"
+                                Cursor="Hand" Background="Transparent" BorderThickness="0" Padding="7,0" Height="30">
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Border x:Name="Bd" Background="{TemplateBinding Background}" CornerRadius="3,0,0,3" Padding="{TemplateBinding Padding}" SnapsToDevicePixels="True">
+                                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="Bd" Property="Background" Value="#121212" />
+                                        </Trigger>
+                                        <Trigger Property="IsPressed" Value="True">
+                                            <Setter TargetName="Bd" Property="Background" Value="#0A0A0A" />
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Button.Template>
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <Path Fill="#CCCCCC" Stroke="#CCCCCC" StrokeThickness="1" Data="M8,1 A7,7 0 1,0 8,15 L8,1 Z" Width="14" Height="14" Stretch="Uniform" />
+                                <TextBlock Text=" W/L" FontSize="11" Margin="3,0,0,0" VerticalAlignment="Center" Foreground="#CCCCCC" />
+                            </StackPanel>
+                        </Button>
+
+                        <!-- Fine Vertical Separator -->
+                        <Border Width="1" Background="#333333" Margin="0,4" />
+
+                        <!-- Right Action: Presets Dropdown Menu Trigger -->
+                        <Button x:Name="BtnWindowMenu" Click="OnOpenWindowMenu"
+                                ToolTip="Window / Level Presets (0-8)&#x0a;CT Abdomen, Angio, Bone, Brain, Chest, Lung, Liver, Negative"
+                                Cursor="Hand" Background="Transparent" BorderThickness="0" Padding="6,0" Height="30">
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Border x:Name="Bd" Background="{TemplateBinding Background}" CornerRadius="0,3,3,0" Padding="{TemplateBinding Padding}" SnapsToDevicePixels="True">
+                                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="Bd" Property="Background" Value="#121212" />
+                                        </Trigger>
+                                        <Trigger Property="IsPressed" Value="True">
+                                            <Setter TargetName="Bd" Property="Background" Value="#0A0A0A" />
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Button.Template>
+                            <Path Fill="#888888" Data="M0,0 L6,0 L3,4 Z" Width="6" Height="4" VerticalAlignment="Center" />
+                            <Button.ContextMenu>
+                                <ContextMenu x:Name="WindowPresetsContextMenu">
+                                    <MenuItem Header="0: Default Window (0)" Click="OnWindowPreset0" />
+                                    <MenuItem Header="1: Full Dynamic (1)" Click="OnWindowPreset1" />
+                                    <MenuItem Header="2: Abdomen CT (2)" Click="OnWindowPreset2" />
+                                    <MenuItem Header="3: Angio CT (3)" Click="OnWindowPreset3" />
+                                    <MenuItem Header="4: Bone CT (4)" Click="OnWindowPreset4" />
+                                    <MenuItem Header="5: Brain CT (5)" Click="OnWindowPreset5" />
+                                    <MenuItem Header="6: Chest CT (6)" Click="OnWindowPreset6" />
+                                    <MenuItem Header="7: Lung CT (7)" Click="OnWindowPreset7" />
+                                    <MenuItem Header="8: Liver CT (8)" Click="OnWindowPreset8" />
+                                    <Separator Background="#333333" />
+                                    <MenuItem Header="Custom Window / Level... (Ctrl+W)" Click="OnCustomWindow" />
+                                    <MenuItem Header="Negative / Invert (F11)" Click="OnToggleNegative" />
+                                </ContextMenu>
+                            </Button.ContextMenu>
+                        </Button>
+                    </StackPanel>
+                </Border>
+
+                <Border Width="1" Height="22" Background="#333333" Margin="5,0" />
+
+                <!-- 6. 3D MPR Mode (Interactive Multiplanar Reconstruction) -->
+                <Button x:Name="Btn3DMpr" Style="{StaticResource IconButton}" Click="OnToggle3DMpr" 
+                        ToolTip="3D Multiplanar Reconstruction (3D MPR) (Ctrl+M / Alt+M)&#x0a;3-Plane real-time orthogonal workspace (Sagittal, Axial, Coronal) with interactive crosshairs">
+                    <StackPanel Orientation="Horizontal">
+                        <Path StrokeThickness="1.3" Data="M2,4 L10,4 L10,12 L2,12 Z M6,2 L14,2 L14,10 L6,10 Z M6,2 L6,4 M10,10 L10,12 M14,2 L10,6" Width="14" Height="14" Stretch="Uniform">
+                            <Path.Style>
+                                <Style TargetType="Path">
+                                    <Setter Property="Stroke" Value="#CCCCCC" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsMprMode}" Value="True">
+                                            <Setter Property="Stroke" Value="#00E5FF" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Path.Style>
+                        </Path>
+                        <TextBlock Text=" 3D MPR" FontSize="11" FontWeight="Bold" Margin="3,0,0,0" VerticalAlignment="Center">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Foreground" Value="#E0E0E0" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsMprMode}" Value="True">
+                                            <Setter Property="Foreground" Value="#00E5FF" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </StackPanel>
+                </Button>
+
+                <!-- Single Orthogonal Plane Selector (Coronal, Sagittal, Axial) + Scout Lines -->
+                <Button x:Name="BtnMprMenu" Style="{StaticResource IconButton}" Click="OnOpenMprMenu" ToolTip="Orthogonal Plane (Coronal Alt+1, Sagittal Alt+2, Axial Alt+3)&#x0a;Scout Reference Lines (Ctrl+F12)">
+                    <StackPanel Orientation="Horizontal">
+                        <Path Stroke="#CCCCCC" StrokeThickness="1.2" Data="M3,3 L13,3 L13,13 L3,13 Z M8,3 L8,13 M3,8 L13,8" Width="14" Height="14" Stretch="Uniform" />
+                        <TextBlock Text=" Plane" FontSize="11" Margin="3,0,0,0" VerticalAlignment="Center" />
+                        <Path Fill="#888888" Data="M0,0 L6,0 L3,4 Z" Width="6" Height="4" Margin="3,0,0,0" VerticalAlignment="Center" />
+                    </StackPanel>
+                    <Button.ContextMenu>
+                        <ContextMenu x:Name="MprContextMenu">
+                            <MenuItem Header="3D Multiplanar Reconstruction (3D MPR)" Click="OnToggle3DMpr" FontWeight="Bold" />
+                            <Separator Background="#333333" />
+                            <MenuItem Header="Coronal (Alt+1)" Click="OnMprCoronal" />
+                            <MenuItem Header="Sagittal (Alt+2)" Click="OnMprSagittal" />
+                            <MenuItem Header="Axial (Alt+3)" Click="OnMprAxial" />
+                            <Separator Background="#333333" />
+                            <MenuItem Header="Scout Reference Lines (Ctrl+F12)" Click="OnToggleScoutLines" IsCheckable="True" IsChecked="{Binding ShowScoutLines}" />
+                        </ContextMenu>
+                    </Button.ContextMenu>
+                </Button>
+
+                <!-- 3D Volume Rendering (3D VR) Dropdown + Toggle MPR Axes -->
+                <Button x:Name="Btn3DVr" Style="{StaticResource IconButton}" Click="OnOpen3DVr" 
+                        ToolTip="3D Volume Rendering (3D VR) (Ctrl+Shift+V)&#x0a;[Click: Open 3D VR Raycasting]&#x0a;[Arrow: 3D Menu &amp; Toggle MPR Axes (H)]">
+                    <StackPanel Orientation="Horizontal">
+                        <Path Stroke="#CCCCCC" StrokeThickness="1.4" Data="M8,1 L15,5 L15,13 L8,17 L1,13 L1,5 Z M1,5 L8,9 L15,5 M8,9 L8,17" Width="14" Height="14" Stretch="Uniform" />
+                        <TextBlock Text=" 3D VR" FontWeight="Bold" FontSize="11" Margin="3,0,0,0" VerticalAlignment="Center" Foreground="#E0E0E0" />
+                        <Button Style="{StaticResource IconButton}" Background="Transparent" BorderThickness="0" Height="20" Padding="2,0" Margin="3,0,0,0" Click="OnOpen3DVrMenu">
+                            <Path Fill="#888888" Data="M0,0 L6,0 L3,4 Z" Width="6" Height="4" VerticalAlignment="Center" />
+                        </Button>
+                    </StackPanel>
+                    <Button.ContextMenu>
+                        <ContextMenu x:Name="VrContextMenu">
+                            <MenuItem Header="3D Volume Rendering (3D VR)... (Ctrl+Shift+V)" Click="OnOpen3DVr" FontWeight="Bold" />
+                            <Separator Background="#333333" />
+                            <MenuItem Header="Show / Hide MPR Axes (H)" Click="OnToggleMprAxes" IsCheckable="True" IsChecked="{Binding ShowMprAxes}" />
+                        </ContextMenu>
+                    </Button.ContextMenu>
+                </Button>
+
+                <Border Width="1" Height="22" Background="#333333" Margin="5,0" />
+
+                <!-- Measurement Tools Dropdown (Length, Ellipse ROI, Rectangle ROI, Angle, Arrow, Pencil, Text) -->
+                <Button x:Name="BtnMeasureMenu" Style="{StaticResource IconButton}" Click="OnOpenMeasureMenu" ToolTip="Measurement &amp; ROI Tools (L, E, U, A, Y, P, T)">
+                    <StackPanel Orientation="Horizontal">
+                        <Path Stroke="#CCCCCC" StrokeThickness="1.5" Data="M2,14 L14,2 M2,10 L6,14 M6,6 L10,10 M10,2 L14,6" Width="15" Height="15" Stretch="Uniform" />
+                        <TextBlock Text=" Tools" FontSize="11" Margin="4,0,0,0" VerticalAlignment="Center" />
+                        <Path Fill="#888888" Data="M0,0 L6,0 L3,4 Z" Width="6" Height="4" Margin="4,0,0,0" VerticalAlignment="Center" />
+                    </StackPanel>
+                    <Button.ContextMenu>
+                        <ContextMenu x:Name="MeasureContextMenu">
+                            <MenuItem Header="Length Ruler (L)" Click="OnToolLength" />
+                            <MenuItem Header="Ellipse ROI (Area, Mean HU, SD) (E)" Click="OnToolEllipse" />
+                            <MenuItem Header="Rectangle ROI (U)" Click="OnToolRectangle" />
+                            <MenuItem Header="Angle (A)" Click="OnToolAngle" />
+                            <MenuItem Header="Insall-Salvati Ratio (TL / PL)" Click="OnToolInsallSalvati" />
+                            <MenuItem Header="Arrow (Y)" Click="OnToolArrow" />
+                            <MenuItem Header="Pencil (P)" Click="OnToolPencil" />
+                            <MenuItem Header="Text Annotation (T)" Click="OnToolTextAnnotation" />
+                            <Separator Background="#333333" />
+                            <MenuItem Header="Measurements on Current Slice Only" IsCheckable="True" IsChecked="{Binding MeasurementsCurrentSliceOnly, Mode=TwoWay}" />
+                            <Separator Background="#333333" />
+                            <MenuItem Header="Duplicate ROI to Other Series (Ctrl+Shift+D)" Click="OnDuplicateRoi" />
+                            <MenuItem Header="Clear Measurements (Del)" Click="OnClearMeasurements" />
+                        </ContextMenu>
+                    </Button.ContextMenu>
+                </Button>
+
+                <!-- Extras Dropdown (Complex multi-tool icon, ready for user expansion) -->
+                <Button x:Name="BtnExtraToolsMenu" Style="{StaticResource IconButton}" Click="OnOpenExtraToolsMenu" ToolTip="Extras&#x0a;Extended radiological tools">
+                    <StackPanel Orientation="Horizontal">
+                        <!-- Complex multi-tool icon: compass calipers with fine gear, crosshead, and precision reticle -->
+                        <Canvas Width="16" Height="15" Margin="0,0,1,0">
+                            <!-- Tool 1: Wrench / Spanner angle -->
+                            <Path Stroke="#CCCCCC" StrokeThickness="1.2" Data="M3,3 L7,7 M2,4 L4,2 M6,8 L4,10" />
+                            <!-- Tool 2: Screwdriver / stylus cross-diagonal -->
+                            <Path Stroke="#CCCCCC" StrokeThickness="1.2" Data="M13,3 L9,7 M13,2 L14,3 M8,8 L7,9" />
+                            <!-- Center Precision Gear / Reticle Core -->
+                            <Path Stroke="#CCCCCC" StrokeThickness="1.1" Fill="#202020" Data="M8,5.5 A2.5,2.5 0 1,0 8,10.5 A2.5,2.5 0 1,0 8,5.5" />
+                            <!-- Precision center spark dot -->
+                            <Ellipse Fill="#F5AF28" Width="2" Height="2" Canvas.Left="7" Canvas.Top="6.5" />
+                            <!-- Caliper teeth / base calipers -->
+                            <Path Stroke="#CCCCCC" StrokeThickness="1.2" Data="M4,13 L8,10 L12,13 M2,14 L4,13 M14,14 L12,13" />
+                        </Canvas>
+                        <TextBlock Text=" Extras" FontSize="11" Margin="3,0,0,0" VerticalAlignment="Center" />
+                        <Path Fill="#888888" Data="M0,0 L6,0 L3,4 Z" Width="6" Height="4" Margin="4,0,0,0" VerticalAlignment="Center" />
+                    </StackPanel>
+                    <Button.ContextMenu>
+                        <ContextMenu x:Name="ExtraToolsContextMenu">
+                            <MenuItem Header="Vertebral Body Labeling (Spine)">
+                                <MenuItem Header="Lumbar (L5)" Click="OnSelectSpineLumbar" />
+                                <MenuItem Header="Thoracic (T12)" Click="OnSelectSpineThoracic" />
+                                <MenuItem Header="Cervical (C7)" Click="OnSelectSpineCervical" />
+                                <Separator Background="#333333" />
+                                <MenuItem Header="Clear Vertebra Labels" Click="OnClearVertebraLabels" />
+                            </MenuItem>
+                            <MenuItem Header="Insall-Salvati Ratio (TL / PL)" Click="OnToolInsallSalvati" />
+                            <Separator Background="#333333" />
+                            <MenuItem Header="Adrenal CT Washout Calculator (APW / RPW)..." Click="OnOpenAdrenalWashout" />
+                            <Separator Background="#333333" />
+                            <MenuItem Header="Classifications" x:Name="ToolbarClassificationsMenu">
+                                <MenuItem Header="Pfirrmann (Lumbar Disc)" Click="OnOpenPfirrmannClassification" />
+                                <MenuItem Header="Scheltens (MTA Scale - Hippocampus)" Click="OnOpenScheltensClassification" />
+                                <MenuItem Header="Fazekas (White Matter Hyperintensities)" Click="OnOpenFazekasClassification" />
+                                <MenuItem Header="Bosniak (Cystic Renal Masses)" Click="OnOpenBosniakClassification" />
+                                <MenuItem Header="LI-RADS (Hepatocellular Carcinoma)" Click="OnOpenLiRadsClassification" />
+                                <Separator Background="#333333" />
+                                <MenuItem Header="+ Add Classification..." Click="OnAddCustomClassification" FontWeight="SemiBold" Foreground="#64D2B4" />
+                            </MenuItem>
+                            <MenuItem Header="Tables" x:Name="ToolbarTablesMenu">
+                                <MenuItem Header="Ischemic Infarct MRI Evolution (DWI / ADC / T2)" Click="OnOpenInfarctTable" />
+                                <Separator Background="#333333" />
+                                <MenuItem Header="+ Add Table..." Click="OnAddCustomTable" FontWeight="SemiBold" Foreground="#64D2B4" />
+                            </MenuItem>
+                        </ContextMenu>
+                    </Button.ContextMenu>
+                </Button>
+
+                <!-- AI Assistant Split Button (Instant Consultation + Dropdown Menu) -->
+                <Border Background="#202020" BorderBrush="#333333" BorderThickness="1" CornerRadius="4" Height="32" Margin="2,1">
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Stretch">
+                        <!-- Left Action: Instant Consult -->
+                        <Button x:Name="BtnAiConsult" Click="OnInstantAiConsult"
+                                PreviewMouseRightButtonDown="OnOpenAiMenuRight"
+                                ToolTip="Instant AI Consultation (Gemini / Claude)&#x0a;[Left-Click: Instant consult on open slice(s) with arrows &amp; ROIs]&#x0a;[Right-Click: AI Options Menu]"
+                                Cursor="Hand" Background="Transparent" BorderThickness="0" Padding="7,0" Height="30">
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Border x:Name="Bd" Background="{TemplateBinding Background}" CornerRadius="3,0,0,3" Padding="{TemplateBinding Padding}" SnapsToDevicePixels="True">
+                                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="Bd" Property="Background" Value="#121212" />
+                                        </Trigger>
+                                        <Trigger Property="IsPressed" Value="True">
+                                            <Setter TargetName="Bd" Property="Background" Value="#0A0A0A" />
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Button.Template>
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <Path Stroke="#00E5FF" StrokeThickness="1.4" Fill="#1A2D33"
+                                      Data="M7,1 L8.5,5 L12.5,6.5 L8.5,8 L7,12 L5.5,8 L1.5,6.5 L5.5,5 Z M12,9 L13,11 L15,12 L13,13 L12,15 L11,13 L9,12 L11,11 Z"
+                                      Width="14" Height="14" Stretch="Uniform" />
+                                <TextBlock Text=" AI" FontSize="11" FontWeight="Bold" Margin="4,0,0,0" VerticalAlignment="Center" Foreground="#00E5FF" />
+                            </StackPanel>
+                        </Button>
+
+                        <!-- Fine Vertical Separator -->
+                        <Border Width="1" Background="#333333" Margin="0,4" />
+
+                        <!-- Right Action: Dropdown Menu Trigger -->
+                        <Button x:Name="BtnAiDropdown" Click="OnOpenAiMenu"
+                                ToolTip="AI Menu &amp; Configuration&#x0a;Settings, manual crop, arrow targeting"
+                                Cursor="Hand" Background="Transparent" BorderThickness="0" Padding="6,0" Height="30">
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Border x:Name="Bd" Background="{TemplateBinding Background}" CornerRadius="0,3,3,0" Padding="{TemplateBinding Padding}" SnapsToDevicePixels="True">
+                                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="Bd" Property="Background" Value="#121212" />
+                                        </Trigger>
+                                        <Trigger Property="IsPressed" Value="True">
+                                            <Setter TargetName="Bd" Property="Background" Value="#0A0A0A" />
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Button.Template>
+                            <Path Fill="#888888" Data="M0,0 L6,0 L3,4 Z" Width="6" Height="4" VerticalAlignment="Center" />
+                            <Button.ContextMenu>
+                                <ContextMenu x:Name="AiContextMenu">
+                                    <MenuItem Header="⚡ Instant AI Consult (Open Series with Arrows/ROIs)" Click="OnInstantAiConsult" FontWeight="Bold" />
+                                    <MenuItem Header="✂️ Crop Rectangular Region (Manual Drag)..." Click="OnToolAiLesionCrop" />
+                                    <MenuItem Header="🎯 Consult AI on Arrow Target (All Slices)" Click="OnConsultAiOnArrowTarget" />
+                                    <Separator Background="#333333" />
+                                    <MenuItem Header="⚙️ AI Configuration &amp; Style Settings (API Key)..." Click="OnOpenAiSettings" />
+                                </ContextMenu>
+                            </Button.ContextMenu>
+                        </Button>
+                    </StackPanel>
+                </Border>
+
+                <Border Width="1" Height="22" Background="#333333" Margin="5,0" />
+
+                <!-- Transformations: Rotate, Flip, Fit -->
+                <Button Style="{StaticResource IconButton}" Click="OnRotateCCW" ToolTip="Rotate 90° CCW (Ctrl+[)">
+                    <Path Stroke="#CCCCCC" StrokeThickness="1.5" Data="M8,3 A6,6 0 1,0 14,9 M8,0 L8,4 L12,2" Width="14" Height="14" Stretch="Uniform" />
+                </Button>
+                <Button Style="{StaticResource IconButton}" Click="OnRotateCW" ToolTip="Rotate 90° CW (Ctrl+])">
+                    <Path Stroke="#CCCCCC" StrokeThickness="1.5" Data="M10,3 A6,6 0 1,1 4,9 M10,0 L10,4 L6,2" Width="14" Height="14" Stretch="Uniform" />
+                </Button>
+                <Button Style="{StaticResource IconButton}" Click="OnFlipH" ToolTip="Flip Horizontal (Ctrl+Shift+[)">
+                    <Path Stroke="#CCCCCC" StrokeThickness="1.5" Data="M2,9 L16,9 M6,5 L2,9 L6,13 M12,5 L16,9 L12,13" Width="15" Height="13" Stretch="Uniform" />
+                </Button>
+                <Border Width="1" Height="22" Background="#333333" Margin="5,0" />
+
+                <!-- Cine Play / Export -->
+                <Button Style="{StaticResource IconButton}" Click="OnToggleCine" ToolTip="Play / Stop Cine Loop (Space)">
+                    <Path Fill="#CCCCCC" Data="M4,2 L14,8 L4,14 Z" Width="12" Height="12" Stretch="Uniform" />
+                </Button>
+
+                <Button Style="{StaticResource IconButton}" Click="OnExportImages" ToolTip="Export Images to PNG/JPEG/DICOM (Ctrl+E)">
+                    <Path Stroke="#CCCCCC" StrokeThickness="1.5" Data="M3,14 L13,14 M8,2 L8,11 M4,7 L8,11 L12,7" Width="14" Height="14" Stretch="Uniform" />
+                </Button>
+
+                <Border Width="1" Height="22" Background="#333333" Margin="5,0" />
+
+                <!-- Close Actions Dropdown Button -->
+                <Button x:Name="BtnCloseMenu" Style="{StaticResource IconButton}" Click="OnCloseActivePanel" ToolTip="Close Panel (Ctrl+F4)&#x0a;[Click: Close active panel]&#x0a;[Arrow: Close options menu]">
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <Path Stroke="#E0E0E0" StrokeThickness="1.5" Data="M3,3 L11,11 M11,3 L3,11" Width="12" Height="12" Stretch="Uniform" VerticalAlignment="Center" />
+                        <Button Style="{StaticResource IconButton}" Background="Transparent" BorderThickness="0" Height="20" Padding="2,0" Margin="2,0,0,0" Click="OnOpenCloseMenu">
+                            <Path Fill="#888888" Data="M0,0 L6,0 L3,4 Z" Width="6" Height="4" VerticalAlignment="Center" />
+                        </Button>
+                    </StackPanel>
+                    <Button.ContextMenu>
+                        <ContextMenu x:Name="CloseContextMenu">
+                            <MenuItem Header="Close Active Panel (Ctrl+F4)" Click="OnCloseActivePanel" FontWeight="Bold" />
+                            <MenuItem Header="Close All Panels (Shift+F4)" Click="OnCloseAllPanels" />
+                            <Separator Background="#333333" />
+                            <MenuItem Header="Close Patient" Click="OnCloseActivePatient" />
+                            <MenuItem Header="Close All Patients" Click="OnCloseAllPatients" />
+                        </ContextMenu>
+                    </Button.ContextMenu>
+                </Button>
+                <Button Style="{StaticResource IconButton}" Click="OnToggleFullScreen" ToolTip="Toggle Full Screen (F)">
+                    <Path Stroke="#E0E0E0" StrokeThickness="1.2" Data="M2,5 L2,2 L5,2 M11,2 L14,2 L14,5 M14,11 L14,14 L11,14 M5,14 L2,14 L2,11" Width="13" Height="13" Stretch="Uniform" />
+                </Button>
+                <!-- Patient Button -->
+                <Button Style="{StaticResource IconButton}" Click="OnShowPatientDetails" ToolTip="Patient &amp; Study Details (Name, CNP, Age, Scan Type, Total DLP)">
+                    <StackPanel Orientation="Horizontal">
+                        <Path Stroke="#00E5FF" StrokeThickness="1.3" Data="M8,2 A3,3 0 1,0 8,8 A3,3 0 1,0 8,2 M2,14 C2,10.5 5,9.5 8,9.5 C11,9.5 14,10.5 14,14 M11,10 L15,10 M13,8 L13,12" Width="14" Height="14" Stretch="Uniform" />
+                        <TextBlock Text=" Patient" FontSize="11" Margin="3,0,0,0" VerticalAlignment="Center" Foreground="#E0E0E0" />
+                    </StackPanel>
+                </Button>
+                <!-- Clinical Report Button (Toggle side panel) -->
+                <Button Click="OnToggleProtocolsPanel" ToolTip="Clinical Report (Toggle side panel)">
+                    <Button.Style>
+                        <Style TargetType="Button" BasedOn="{StaticResource IconButton}">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsProtocolsPanelOpen}" Value="True">
+                                    <Setter Property="Background" Value="#173456" />
+                                    <Setter Property="BorderBrush" Value="#2F74C7" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Button.Style>
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <Path StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                              Data="M 14,2 L 6.5,2 A 2.5,2.5 0 0 0 4,4.5 L 4,19.5 A 2.5,2.5 0 0 0 6.5,22 L 17.5,22 A 2.5,2.5 0 0 0 20,19.5 L 20,8 L 14,2 Z M 14,2 L 14,7 A 1,1 0 0 0 15,8 L 20,8 M 8,9.5 L 10.5,9.5 M 8,13.5 L 16,13.5 M 8,17.5 L 16,17.5"
+                              Width="14" Height="15" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <Path.Style>
+                                <Style TargetType="Path">
+                                    <Setter Property="Stroke" Value="#E0E0E0" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsProtocolsPanelOpen}" Value="True">
+                                            <Setter Property="Stroke" Value="#FFFFFF" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Path.Style>
+                        </Path>
+                        <TextBlock Text=" Report" FontSize="11" Margin="3,0,0,0" VerticalAlignment="Center">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Foreground" Value="#E0E0E0" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsProtocolsPanelOpen}" Value="True">
+                                            <Setter Property="Foreground" Value="#FFFFFF" />
+                                            <Setter Property="FontWeight" Value="SemiBold" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </StackPanel>
+                </Button>
+                <!-- About Parsec Button (Icon only) -->
+                <Button Style="{StaticResource IconButton}" Click="OnShowAboutDialog" ToolTip="About Parsec">
+                    <Path Stroke="#F5AF28" StrokeThickness="1.2" Data="M7,1 A6,6 0 1,0 7,13 A6,6 0 1,0 7,1 M7,4 L7,5 M7,7 L7,10" Width="14" Height="14" Stretch="Uniform" />
+                </Button>
+            </WrapPanel>
+        </Border>
+
+        <!-- 3. MAIN WORKSPACE: SERIES PREVIEW BAR + DYNAMIC VIEWPORT GRID -->
+        <Grid Grid.Row="2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition x:Name="ColSeriesBar" Width="160" MinWidth="28" MaxWidth="450" /> <!-- Left: Series Preview Bar -->
+                <ColumnDefinition Width="Auto" />                              <!-- Resizable Splitter -->
+                <ColumnDefinition Width="*" />                                 <!-- Center: Viewport Grid -->
+                <ColumnDefinition Width="Auto" />                              <!-- Right: Protocols Container (collapses to 0 when closed) -->
+            </Grid.ColumnDefinitions>
+
+            <!-- Series Preview Bar (Sidebar with middle-slice real thumbnails) -->
+            <views:SeriesPreviewBar x:Name="SeriesBarControl"
+                                    Grid.Column="0" 
+                                    Visibility="{Binding ShowSeriesPreviewBar, Converter={StaticResource BooleanToVisibilityConverter}}" />
+
+            <!-- Resizable Splitter for Sidebar Width -->
+            <GridSplitter x:Name="SplitterSeriesBar"
+                          Grid.Column="1" 
+                          Width="4" 
+                          HorizontalAlignment="Center" 
+                          VerticalAlignment="Stretch" 
+                          Background="#181818" 
+                          ShowsPreview="False" 
+                          Cursor="SizeWE"
+                          MouseDoubleClick="OnSplitterSeriesBarDoubleClick"
+                          Visibility="{Binding ShowSeriesPreviewBar, Converter={StaticResource BooleanToVisibilityConverter}}" />
+
+            <!-- Dynamic Viewports Grid -->
+            <Grid Grid.Column="2" x:Name="ViewportsGridContainer" Background="#0A0A0A">
+                <!-- Standard Uniform Viewports Grid -->
+                <ItemsControl ItemsSource="{Binding DisplayedViewports}"
+                              Visibility="{Binding IsMprMode, Converter={StaticResource InverseBooleanToVisibilityConverter}}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <UniformGrid Rows="{Binding DataContext.GridRows, RelativeSource={RelativeSource AncestorType=Window}}" 
+                                         Columns="{Binding DataContext.GridColumns, RelativeSource={RelativeSource AncestorType=Window}}" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate DataType="{x:Type vm:ViewportViewModel}">
+                            <views:ViewportControl Margin="1" />
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <!-- 3D MPR Dedicated Orthogonal Workspace (Sagittal top-left, Axial bottom-left, Coronal right) -->
+                <Grid Visibility="{Binding IsMprMode, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" MinWidth="150" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="1.1*" MinWidth="150" />
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Left Column: Sagittal (Top) & Axial (Bottom) -->
+                    <Grid Grid.Column="0">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="*" MinHeight="100" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" MinHeight="100" />
+                        </Grid.RowDefinitions>
+
+                        <!-- Viewport 0: Sagittal -->
+                        <ContentControl Grid.Row="0" Content="{Binding Viewports[0]}" Margin="1">
+                            <ContentControl.ContentTemplate>
+                                <DataTemplate DataType="{x:Type vm:ViewportViewModel}">
+                                    <views:ViewportControl />
+                                </DataTemplate>
+                            </ContentControl.ContentTemplate>
+                        </ContentControl>
+
+                        <!-- Horizontal Splitter between Sagittal and Axial -->
+                        <GridSplitter Grid.Row="1" Height="4" HorizontalAlignment="Stretch" VerticalAlignment="Center"
+                                      Background="#181818" ShowsPreview="False" Cursor="SizeNS" />
+
+                        <!-- Viewport 1: Axial -->
+                        <ContentControl Grid.Row="2" Content="{Binding Viewports[1]}" Margin="1">
+                            <ContentControl.ContentTemplate>
+                                <DataTemplate DataType="{x:Type vm:ViewportViewModel}">
+                                    <views:ViewportControl />
+                                </DataTemplate>
+                            </ContentControl.ContentTemplate>
+                        </ContentControl>
+                    </Grid>
+
+                    <!-- Vertical Splitter between Left views and Coronal view -->
+                    <GridSplitter Grid.Column="1" Width="4" HorizontalAlignment="Center" VerticalAlignment="Stretch"
+                                  Background="#181818" ShowsPreview="False" Cursor="SizeWE" />
+
+                    <!-- Right Column: Viewport 2: Coronal (Full Height) -->
+                    <ContentControl Grid.Column="2" Content="{Binding Viewports[2]}" Margin="1">
+                        <ContentControl.ContentTemplate>
+                            <DataTemplate DataType="{x:Type vm:ViewportViewModel}">
+                                <views:ViewportControl />
+                            </DataTemplate>
+                        </ContentControl.ContentTemplate>
+                    </ContentControl>
+                </Grid>
+            </Grid>
+
+            <!-- Right: Protocols Container with custom Thumb Splitter and Pinned Close Button -->
+            <Grid Grid.Column="3" Visibility="{Binding IsProtocolsPanelOpen, Converter={StaticResource BooleanToVisibilityConverter}}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <!-- Resizable Thumb Splitter -->
+                <Thumb Grid.Column="0" Width="5" Cursor="SizeWE" DragDelta="OnProtocolsSplitterDragDelta">
+                    <Thumb.Template>
+                        <ControlTemplate TargetType="Thumb">
+                            <Border Background="#181818" Width="5">
+                                <Rectangle Width="1" Fill="#2E2E2E" HorizontalAlignment="Center" />
+                            </Border>
+                        </ControlTemplate>
+                    </Thumb.Template>
+                </Thumb>
+
+                <!-- Document Panel -->
+                <Border x:Name="ProtocolsContentBorder" Grid.Column="1"
+                        Background="#141414" BorderBrush="#252525" BorderThickness="1,0,0,0"
+                        Width="400" MinWidth="220" MaxWidth="850">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" /> <!-- Row 0: Top Header: Title + Close Button -->
+                            <RowDefinition Height="Auto" /> <!-- Row 1: Protocol Template Selection: Combobox + Insert -->
+                            <RowDefinition Height="Auto" /> <!-- Row 2: Voice Dictation Toolbar: Record button + Format AI + Settings -->
+                            <RowDefinition Height="Auto" /> <!-- Row 3: Conversational AI Refinement Bar: Voice F6 + Text Prompt + Apply + Undo -->
+                            <RowDefinition Height="*" />    <!-- Row 4: Document Text Editor -->
+                            <RowDefinition Height="Auto" /> <!-- Row 5: Bottom Action Bar: Save as docx + Clear + Status -->
+                        </Grid.RowDefinitions>
+
+                        <!-- Row 0: Header with Title and Close Button -->
+                        <Border Grid.Row="0" Background="#181818" BorderBrush="#262626" BorderThickness="0,0,0,1" Padding="8,4">
+                            <Grid>
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="2,0,0,0">
+                                    <Path Stroke="#888888" StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                                          Data="M 14,2 L 6.5,2 A 2.5,2.5 0 0 0 4,4.5 L 4,19.5 A 2.5,2.5 0 0 0 6.5,22 L 17.5,22 A 2.5,2.5 0 0 0 20,19.5 L 20,8 L 14,2 Z M 14,2 L 14,7 A 1,1 0 0 0 15,8 L 20,8 M 8,9.5 L 10.5,9.5 M 8,13.5 L 16,13.5 M 8,17.5 L 16,17.5"
+                                          Width="13" Height="14" Stretch="Uniform" VerticalAlignment="Center" Margin="0,0,6,0" />
+                                    <TextBlock Text="CLINICAL REPORT" Foreground="#888888" FontWeight="Bold" FontSize="11" VerticalAlignment="Center" />
+                                </StackPanel>
+                                <Button HorizontalAlignment="Right" Style="{StaticResource IconButton}" Height="22" Width="22" Padding="0" Click="OnCloseProtocolsPanel" ToolTip="Close panel">
+                                    <Path Stroke="#888888" StrokeThickness="1.5" Data="M3,3 L9,9 M9,3 L3,9" Width="10" Height="10" Stretch="Uniform" />
+                                </Button>
+                            </Grid>
+                        </Border>
+
+                        <!-- Row 1: Protocol Template Selection: Combobox + Insert Button -->
+                        <Border Grid.Row="1" Background="#1B1B1B" BorderBrush="#262626" BorderThickness="0,0,0,1" Padding="6,5">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+
+                                <!-- Dropdown Protocol Template List (items remain in Romanian) -->
+                                <ComboBox Grid.Column="0" x:Name="ComboClinicalProtocols"
+                                          ItemsSource="{Binding ClinicalProtocols}"
+                                          SelectedItem="{Binding SelectedClinicalProtocol, Mode=TwoWay}"
+                                          Background="#222222" Foreground="#FFFFFF"
+                                          BorderBrush="#383838" Height="26"
+                                          ToolTip="Select clinical examination template (IRM / CT)">
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <StackPanel Orientation="Horizontal">
+                                                <Border Background="#2C2C2C" CornerRadius="2" Padding="4,1" Margin="0,0,6,0">
+                                                    <TextBlock Text="{Binding Category}" FontSize="9" FontWeight="Bold" Foreground="#F5AF28" />
+                                                </Border>
+                                                <TextBlock Text="{Binding Title}" FontSize="11" Foreground="#E0E0E0" VerticalAlignment="Center" />
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                </ComboBox>
+
+                                <!-- Insert Button on the right of the templates list -->
+                                <Button Grid.Column="1" Height="26" Margin="6,0,0,0" Padding="10,2" Click="OnInsertProtocolAtCaret"
+                                        Background="#252525" Foreground="#E0E0E0" BorderBrush="#3A3A3A"
+                                        ToolTip="Insert selected template at cursor position">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBlock Text="➕" Foreground="#00E676" Margin="0,0,4,0" FontSize="10" VerticalAlignment="Center" />
+                                        <TextBlock Text="Insert" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Button>
+                            </Grid>
+                        </Border>
+
+                        <!-- Row 2: Voice Dictation & AI Formatting Toolbar -->
+                        <Border Grid.Row="2" Background="#171717" BorderBrush="#262626" BorderThickness="0,0,0,1" Padding="6,5">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+
+                                <!-- Main Dictate Button (Records and inserts transcribed text at caret) -->
+                                <Button Grid.Column="0" x:Name="BtnVoiceDictation" Height="28" Click="OnToggleVoiceDictation"
+                                        ToolTip="Click to start voice dictation in Romanian (Key F4). Text will be inserted at cursor position.">
+                                    <Button.Style>
+                                        <Style TargetType="Button">
+                                            <Setter Property="Background" Value="#222222" />
+                                            <Setter Property="BorderBrush" Value="#383838" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsVoiceRecording}" Value="True">
+                                                    <Setter Property="Background" Value="#4A1010" />
+                                                    <Setter Property="BorderBrush" Value="#E53935" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <Ellipse Width="10" Height="10" Margin="0,0,5,0">
+                                            <Ellipse.Style>
+                                                <Style TargetType="Ellipse">
+                                                    <Setter Property="Fill" Value="#4CAF50" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsVoiceRecording}" Value="True">
+                                                            <Setter Property="Fill" Value="#FF1744" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Ellipse.Style>
+                                        </Ellipse>
+                                        <TextBlock Text="{Binding VoiceRecordingButtonText}" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Foreground" Value="#E0E0E0" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsVoiceRecording}" Value="True">
+                                                            <Setter Property="Foreground" Value="#FF8A80" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                        <TextBlock Text="{Binding VoiceRecordingDurationText, StringFormat=' ({0})'}" FontSize="11" FontWeight="Bold"
+                                                   Foreground="#FF5252" VerticalAlignment="Center"
+                                                   Visibility="{Binding IsVoiceRecording, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                                    </StackPanel>
+                                </Button>
+
+                                <!-- AI Protocol Formatter Button -->
+                                <Button Grid.Column="1" x:Name="BtnFormatProtocolAi" Height="28" Margin="5,0,0,0" Click="OnFormatProtocolWithAi"
+                                        Background="#1A2636" Foreground="#64B5F6" BorderBrush="#2D4A6A"
+                                        ToolTip="Format dictated text into a structured radiological report (Key F5)">
+                                    <TextBlock Text="{Binding AiFormatButtonText}" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                </Button>
+
+                                <!-- Voice Settings Dialog Button -->
+                                <Button Grid.Column="2" Height="28" Padding="7,2" Margin="5,0,0,0" Click="OnOpenVoiceSettings"
+                                        Background="#222222" Foreground="#D0D0D0" BorderBrush="#383838"
+                                        ToolTip="Voice &amp; AI Settings (Google Gemini API &amp; Reference Vocabulary)">
+                                    <TextBlock Text="⚙️" FontSize="12" VerticalAlignment="Center" />
+                                </Button>
+                            </Grid>
+                        </Border>
+
+                        <!-- Row 3: Conversational AI Refinement Bar (Voice F6 + Text Prompt + Apply + Undo) -->
+                        <Border Grid.Row="3" Background="#161A20" BorderBrush="#262F3A" BorderThickness="0,0,0,1" Padding="6,4">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+
+                                <!-- Voice Instruction Button (F6) -->
+                                <Button Grid.Column="0" x:Name="BtnVoiceRefine" Height="26" Padding="8,2" Click="OnToggleVoiceRefine"
+                                        ToolTip="Press F6 and speak your refinement instruction (e.g. 'shorten conclusion', 'add protrusion at L2-L3'). Press F6 again to apply.">
+                                    <Button.Style>
+                                        <Style TargetType="Button">
+                                            <Setter Property="Background" Value="#202834" />
+                                            <Setter Property="BorderBrush" Value="#34465D" />
+                                            <Setter Property="Foreground" Value="#90CAF9" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsVoiceRefineRecording}" Value="True">
+                                                    <Setter Property="Background" Value="#4A1010" />
+                                                    <Setter Property="BorderBrush" Value="#E53935" />
+                                                    <Setter Property="Foreground" Value="#FF8A80" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding VoiceRefineButtonText}" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                        <TextBlock Text="{Binding VoiceRecordingDurationText, StringFormat=' ({0})'}" FontSize="10" FontWeight="Bold"
+                                                   Foreground="#FF5252" VerticalAlignment="Center"
+                                                   Visibility="{Binding IsVoiceRefineRecording, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                                    </StackPanel>
+                                </Button>
+
+                                <!-- Text Instruction Input Box -->
+                                <Grid Grid.Column="1" Margin="5,0,0,0">
+                                    <TextBox x:Name="TxtAiRefinePrompt" Height="26"
+                                             Background="#111418" Foreground="#E0E0E0" BorderBrush="#2E3B4E" BorderThickness="1"
+                                             CaretBrush="#64B5F6" FontSize="11" VerticalContentAlignment="Center" Padding="6,0"
+                                             KeyDown="OnAiRefinePromptKeyDown"
+                                             ToolTip="Type an instruction (e.g. 'shorten conclusions') and press Enter or Apply" />
+                                    <TextBlock Text="Speak (F6) or type changes here..."
+                                               Foreground="#607080" FontSize="10.5" FontStyle="Italic"
+                                               VerticalAlignment="Center" Margin="8,0,0,0" IsHitTestVisible="False">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding Text, ElementName=TxtAiRefinePrompt}" Value="">
+                                                        <Setter Property="Visibility" Value="Visible" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </Grid>
+
+                                <!-- Apply Instruction Button (Clean text Apply, broken icon removed) -->
+                                <Button Grid.Column="2" Height="26" Padding="10,2" Margin="5,0,0,0" Click="OnApplyAiRefine"
+                                        Background="#233246" Foreground="#81D4FA" BorderBrush="#375375"
+                                        ToolTip="Apply instruction to report">
+                                    <TextBlock Text="Apply" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                </Button>
+
+                                <!-- Undo Last AI Change Button -->
+                                <Button Grid.Column="3" Height="26" Width="26" Padding="0" Margin="4,0,0,0" Click="OnUndoAiRefine"
+                                        Background="#222222" Foreground="#B0B0B0" BorderBrush="#383838"
+                                        ToolTip="Undo last AI change and restore previous text">
+                                    <TextBlock Text="↩" FontSize="12" FontWeight="Bold" VerticalAlignment="Center" HorizontalAlignment="Center" />
+                                </Button>
+                            </Grid>
+                        </Border>
+
+                        <!-- Row 4: Document Text Editor (Copy, Paste, Edit, Persisted) -->
+                        <TextBox Grid.Row="4" x:Name="ProtocolsTextBox"
+                                 Text="{Binding ProtocolsText, UpdateSourceTrigger=PropertyChanged}"
+                                 Background="#131313" Foreground="#E0E0E0" CaretBrush="#F5AF28"
+                                 FontFamily="Segoe UI, Consolas" FontSize="12"
+                                 AcceptsReturn="True" AcceptsTab="True" TextWrapping="Wrap"
+                                 VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
+                                 BorderThickness="0" Padding="8,6"
+                                 ToolTip="Paste and edit clinical report here. Cursor position indicates where voice dictation or selected template will be inserted." />
+
+                        <!-- Row 5: Bottom Action Bar: Save as .docx, Clear, and Status Message -->
+                        <Border Grid.Row="5" Background="#181818" BorderBrush="#262626" BorderThickness="0,1,0,0" Padding="8,6">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+
+                                <!-- Save as .docx Button -->
+                                <Button Grid.Column="0" Height="26" Padding="10,2" Click="OnSaveAsDocx"
+                                        Background="#1A2D42" Foreground="#42A5F5" BorderBrush="#2B4C70"
+                                        ToolTip="Save complete medical report as Microsoft Word document (.docx)">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBlock Text="💾" FontSize="11" Margin="0,0,5,0" VerticalAlignment="Center" />
+                                        <TextBlock Text="Save as .docx" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Button>
+
+                                <!-- Clear Text Button -->
+                                <Button Grid.Column="1" Height="26" Padding="8,2" Margin="6,0,0,0" Click="OnClearProtocolsText"
+                                        Background="#222222" Foreground="#999999" BorderBrush="#383838"
+                                        ToolTip="Clear all text in editor">
+                                    <TextBlock Text="Clear" FontSize="11" VerticalAlignment="Center" />
+                                </Button>
+
+                                <!-- Status Message -->
+                                <TextBlock Grid.Column="2" Text="{Binding ProtocolsStatusMessage}"
+                                           Foreground="#888888" FontSize="10.5" VerticalAlignment="Center"
+                                           HorizontalAlignment="Right" Margin="8,0,0,0" TextTrimming="CharacterEllipsis" />
+                            </Grid>
+                        </Border>
+                    </Grid>
+                </Border>
+            </Grid>
+        </Grid>
+
+        <!-- 4. BOTTOM STATUS BAR -->
+        <Border Grid.Row="3" Background="#181818" BorderBrush="#252525" BorderThickness="0,1,0,0" Padding="8,4"
+                Visibility="{Binding ShowToolbars, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <TextBlock Grid.Column="0" Text="{Binding StatusMessage}" Foreground="#A0A0A0" FontSize="11" VerticalAlignment="Center" />
+
+                <!-- Progress indicator if loading -->
+                <ProgressBar Grid.Column="1" Width="140" Height="12" Margin="10,0"
+                             Value="{Binding ProgressPercent}" 
+                             Visibility="{Binding IsLoading, Converter={StaticResource BooleanToVisibilityConverter}}" />
+
+                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                    <!-- Clickable Mouse Binding Indicators (Left, Right, Wheel) -->
+                    <Border Background="#202020" BorderBrush="#333333" BorderThickness="1" CornerRadius="3" Padding="6,2" Margin="0,0,12,0"
+                            Cursor="Hand" MouseLeftButtonDown="OnOpenMouseSettings" ToolTip="Click to customize mouse bindings" VerticalAlignment="Center">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Text="Left: " Foreground="#888888" FontSize="11" VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding LeftTool}" Foreground="#F5AF28" FontSize="11" FontWeight="Bold" Margin="0,0,10,0" VerticalAlignment="Center" />
+                            <TextBlock Text="Right: " Foreground="#888888" FontSize="11" VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding RightTool}" Foreground="#40C0FF" FontSize="11" FontWeight="Bold" Margin="0,0,10,0" VerticalAlignment="Center" />
+                            <TextBlock Text="Hold Wheel: " Foreground="#888888" FontSize="11" VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding MiddleTool}" Foreground="#80E880" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Border>
+
+                    <TextBlock Text="Sync: " Foreground="#666666" FontSize="11" VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding CurrentSyncModeDisplay}" Foreground="#00E5FF" FontSize="11" FontWeight="SemiBold" Margin="0,0,12,0" VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding GridColumns, StringFormat='{}Layout: {0}'}" Foreground="#888888" FontSize="11" VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding GridRows, StringFormat='{}×{0}'}" Foreground="#888888" FontSize="11" VerticalAlignment="Center" />
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

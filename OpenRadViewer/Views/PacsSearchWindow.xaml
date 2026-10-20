@@ -1,0 +1,370 @@
+<Window x:Class="OpenRadViewer.Views.PacsSearchWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        Title="PACS Archive Search &amp; Retrieve (DICOM Query &amp; Retrieve)" 
+        Height="780" Width="1180"
+        MinHeight="550" MinWidth="850"
+        WindowStartupLocation="CenterOwner"
+        Background="#181818" Foreground="#E0E0E0">
+
+    <Window.Resources>
+        <SolidColorBrush x:Key="BorderBrush" Color="#333333" />
+        <SolidColorBrush x:Key="HeaderBackground" Color="#222222" />
+        <SolidColorBrush x:Key="AccentGold" Color="#F5AF28" />
+
+        <Style x:Key="DarkButton" TargetType="Button">
+            <Setter Property="Background" Value="#2A2A2A" />
+            <Setter Property="Foreground" Value="#E0E0E0" />
+            <Setter Property="BorderBrush" Value="#444444" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="10,5" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="3" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#383838" />
+                                <Setter TargetName="bd" Property="BorderBrush" Value="#666666" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#1A1A1A" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.4" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="GoldButton" TargetType="Button" BasedOn="{StaticResource DarkButton}">
+            <Setter Property="Background" Value="#D9971E" />
+            <Setter Property="Foreground" Value="#121212" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="BorderBrush" Value="#F5AF28" />
+        </Style>
+
+        <Style TargetType="TextBox">
+            <Setter Property="Background" Value="#222222" />
+            <Setter Property="Foreground" Value="#EEEEEE" />
+            <Setter Property="BorderBrush" Value="#3A3A3A" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="6,4" />
+            <Setter Property="CaretBrush" Value="#F5AF28" />
+        </Style>
+
+        <Style TargetType="{x:Type DatePickerTextBox}">
+            <Setter Property="Background" Value="#222222" />
+            <Setter Property="Foreground" Value="#EEEEEE" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+
+        <Style TargetType="DatePicker">
+            <Setter Property="Background" Value="#222222" />
+            <Setter Property="Foreground" Value="#EEEEEE" />
+            <Setter Property="BorderBrush" Value="#3A3A3A" />
+        </Style>
+
+        <!-- Modern DataGrid Style -->
+        <Style TargetType="DataGrid">
+            <Setter Property="Background" Value="#181818" />
+            <Setter Property="Foreground" Value="#CCCCCC" />
+            <Setter Property="BorderBrush" Value="#2A2A2A" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="GridLinesVisibility" Value="Horizontal" />
+            <Setter Property="HorizontalGridLinesBrush" Value="#252525" />
+            <Setter Property="VerticalGridLinesBrush" Value="Transparent" />
+            <Setter Property="RowBackground" Value="#181818" />
+            <Setter Property="AlternatingRowBackground" Value="#1D1D1D" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="SelectionMode" Value="Extended" />
+            <Setter Property="SelectionUnit" Value="FullRow" />
+            <Setter Property="AutoGenerateColumns" Value="False" />
+            <Setter Property="IsReadOnly" Value="True" />
+            <Setter Property="CanUserAddRows" Value="False" />
+            <Setter Property="CanUserDeleteRows" Value="False" />
+            <Setter Property="CanUserResizeRows" Value="False" />
+            <Setter Property="HeadersVisibility" Value="Column" />
+        </Style>
+
+        <Style TargetType="DataGridColumnHeader">
+            <Setter Property="Background" Value="#222222" />
+            <Setter Property="Foreground" Value="#A0A0A0" />
+            <Setter Property="BorderBrush" Value="#2E2E2E" />
+            <Setter Property="BorderThickness" Value="0,0,1,1" />
+            <Setter Property="Padding" Value="8,6" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="FontSize" Value="11.5" />
+        </Style>
+
+        <Style TargetType="DataGridRow">
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Background" Value="#181818" />
+            <Setter Property="Foreground" Value="#CCCCCC" />
+            <Style.Triggers>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Background" Value="#25384D" />
+                    <Setter Property="Foreground" Value="#FFFFFF" />
+                </Trigger>
+                <MultiTrigger>
+                    <MultiTrigger.Conditions>
+                        <Condition Property="IsSelected" Value="True" />
+                        <Condition Property="Selector.IsSelectionActive" Value="False" />
+                    </MultiTrigger.Conditions>
+                    <Setter Property="Background" Value="#25384D" />
+                    <Setter Property="Foreground" Value="#FFFFFF" />
+                </MultiTrigger>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#202A36" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" /> <!-- Top Search & Filter Bar -->
+            <RowDefinition Height="*" MinHeight="180" /> <!-- Studies Table -->
+            <RowDefinition Height="5" />    <!-- GridSplitter -->
+            <RowDefinition Height="200" MinHeight="100" /> <!-- Series Sub-Table -->
+            <RowDefinition Height="Auto" /> <!-- Bottom Action & Progress Bar -->
+        </Grid.RowDefinitions>
+
+        <!-- 1. TOP SEARCH & FILTER BAR -->
+        <Border Grid.Row="0" Background="#181818" BorderBrush="#252525" BorderThickness="0,0,0,1" Padding="12,10">
+            <WrapPanel Orientation="Horizontal" VerticalAlignment="Center">
+                
+                <!-- Server Location Selection -->
+                <StackPanel Orientation="Horizontal" Margin="0,0,16,6">
+                    <TextBlock Text="PACS Location:" Foreground="#AAAAAA" VerticalAlignment="Center" Margin="0,0,6,0" FontSize="11.5" />
+                    <ComboBox x:Name="CmbServerLocation" Width="140" SelectionChanged="OnServerLocationChanged" />
+                    <Button x:Name="BtnSetDefaultLocation" Style="{StaticResource DarkButton}" Margin="4,0,0,0" Padding="6,3" 
+                            Click="OnSetDefaultLocationClicked" ToolTip="Setează această locație ca implicită la deschidere">
+                        <StackPanel Orientation="Horizontal">
+                            <Path x:Name="IconDefaultStar" Stroke="#F5AF28" StrokeThickness="1.2" Fill="Transparent" 
+                                  Data="M6,1 L7.8,4.6 L11.8,5.2 L8.9,8 L9.6,12 L6,10.1 L2.4,12 L3.1,8 L0.2,5.2 L4.2,4.6 Z" 
+                                  Width="11" Height="11" Stretch="Uniform" VerticalAlignment="Center" />
+                            <TextBlock x:Name="TxtDefaultBtn" Text=" Default" FontSize="11" Foreground="#AAAAAA" Margin="3,0,0,0" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+
+                <!-- Modality Filter -->
+                <StackPanel Orientation="Horizontal" Margin="0,0,16,6">
+                    <TextBlock Text="Modality:" Foreground="#AAAAAA" VerticalAlignment="Center" Margin="0,0,6,0" FontSize="11.5" />
+                    <ComboBox x:Name="CmbModality" Width="90" SelectionChanged="OnFilterChanged">
+                        <ComboBoxItem Content="All" IsSelected="True" />
+                        <ComboBoxItem Content="CT" />
+                        <ComboBoxItem Content="MR" />
+                        <ComboBoxItem Content="CR / DX" />
+                        <ComboBoxItem Content="US" />
+                        <ComboBoxItem Content="NM / PT" />
+                        <ComboBoxItem Content="XA" />
+                    </ComboBox>
+                </StackPanel>
+
+                <!-- Date Filter Presets -->
+                <StackPanel Orientation="Horizontal" Margin="0,0,16,6">
+                    <TextBlock Text="Date Range:" Foreground="#AAAAAA" VerticalAlignment="Center" Margin="0,0,6,0" FontSize="11.5" />
+                    <ComboBox x:Name="CmbDatePreset" Width="120" SelectionChanged="OnDatePresetChanged">
+                        <ComboBoxItem Content="Any time" IsSelected="True" />
+                        <ComboBoxItem Content="Today" />
+                        <ComboBoxItem Content="Yesterday" />
+                        <ComboBoxItem Content="Last 3 days" />
+                        <ComboBoxItem Content="Last 7 days" />
+                        <ComboBoxItem Content="Last month" />
+                        <ComboBoxItem Content="Custom..." />
+                    </ComboBox>
+                </StackPanel>
+
+                <!-- Custom Date Range (Visible when Custom... is selected) -->
+                <StackPanel x:Name="PnlCustomDate" Orientation="Horizontal" Margin="0,0,16,6" Visibility="Collapsed">
+                    <TextBlock Text="From:" Foreground="#AAAAAA" VerticalAlignment="Center" Margin="0,0,4,0" FontSize="11" />
+                    <DatePicker x:Name="DpFrom" Width="105" Margin="0,0,6,0" SelectedDateChanged="OnCustomDateChanged" />
+                    <TextBlock Text="To:" Foreground="#AAAAAA" VerticalAlignment="Center" Margin="0,0,4,0" FontSize="11" />
+                    <DatePicker x:Name="DpTo" Width="105" SelectedDateChanged="OnCustomDateChanged" />
+                </StackPanel>
+
+                <!-- Patient / Text Search Box -->
+                <StackPanel Orientation="Horizontal" Margin="0,0,12,6">
+                    <TextBlock Text="Search:" Foreground="#AAAAAA" VerticalAlignment="Center" Margin="0,0,6,0" FontSize="11.5" />
+                    <TextBox x:Name="TxtSearchQuery" Width="180" ToolTip="Enter Patient Name, Patient ID, or Accession Number" KeyDown="OnSearchKeyDown" />
+                </StackPanel>
+
+                <!-- Action Buttons: Search, Stop & Reset -->
+                <StackPanel Orientation="Horizontal" Margin="0,0,12,6">
+                    <Button x:Name="BtnSearch" Style="{StaticResource GoldButton}" Content="🔍 Search PACS" Padding="12,5" Margin="0,0,6,0" Click="OnSearchClicked" />
+                    <Button x:Name="BtnStopSearch" Style="{StaticResource DarkButton}" Content="⏹ Stop" Padding="10,5" Margin="0,0,6,0" Click="OnStopSearchClicked" 
+                            Visibility="Collapsed" Background="#8A2323" BorderBrush="#FF5252" Foreground="#FFFFFF" FontWeight="SemiBold" ToolTip="Oprește căutarea în curs (sau tasta Escape)" />
+                    <Button Style="{StaticResource DarkButton}" Content="Reset" Padding="8,5" Click="OnResetFiltersClicked" />
+                </StackPanel>
+
+                <!-- PACS Configuration Button -->
+                <Button Style="{StaticResource DarkButton}" Content="⚙ Settings..." Margin="8,0,0,6" Click="OnOpenConfigClicked" ToolTip="Configure PACS servers and local C-STORE listener" />
+            </WrapPanel>
+        </Border>
+
+        <!-- 2. STUDIES DATAGRID (UPPER) -->
+        <Grid Grid.Row="1">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <!-- Table Header Bar -->
+            <Border Grid.Row="0" Background="#1A1A1A" BorderBrush="#282828" BorderThickness="0,0,0,1" Padding="12,6">
+                <Grid>
+                    <TextBlock x:Name="TxtStudiesCount" Text="Studies found: 0" FontWeight="SemiBold" FontSize="12" Foreground="#F5AF28" VerticalAlignment="Center" />
+                    <TextBlock Text="Double-click a study to download and open immediately" HorizontalAlignment="Right" Foreground="#777777" FontSize="11" VerticalAlignment="Center" FontStyle="Italic" />
+                </Grid>
+            </Border>
+
+            <DataGrid x:Name="GridStudies" Grid.Row="1" ItemsSource="{Binding FoundStudies}" 
+                      SelectionMode="Extended" SelectionUnit="FullRow"
+                      SelectionChanged="OnStudySelectionChanged" MouseDoubleClick="OnStudyDoubleClick"
+                      KeyDown="OnGridStudiesKeyDown">
+                <DataGrid.ContextMenu>
+                    <ContextMenu>
+                        <MenuItem Header="Open in Viewer" Click="OnDownloadAndOpenClicked" FontWeight="Bold" />
+                        <MenuItem Header="Toggle Reviewed (Space)" Click="OnToggleReviewedContextMenu" />
+                        <Separator Background="#333333" />
+                        <MenuItem Header="Import into Local Database" Click="OnImportToDatabaseClicked" />
+                        <MenuItem Header="Find all studies for this patient" Click="OnFindAllPatientStudiesClicked" />
+                        <Separator Background="#333333" />
+                        <MenuItem Header="Send study to PACS..." Click="OnSendStudyToPacsClicked" />
+                    </ContextMenu>
+                </DataGrid.ContextMenu>
+                <DataGrid.Columns>
+                    <!-- Reviewed Checkmark column -->
+                    <DataGridTemplateColumn Header="" Width="36">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <Border Background="Transparent" Cursor="Hand" MouseLeftButtonDown="OnToggleStudyReviewedClick" ToolTip="Toggle Reviewed (Space)">
+                                    <Grid HorizontalAlignment="Center" VerticalAlignment="Center">
+                                        <Path Visibility="{Binding IsReviewed, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                              Stroke="#00E676" StrokeThickness="2.2" Data="M2,6 L5,9 L11,2" Width="13" Height="11" Stretch="Uniform" />
+                                        <Path Visibility="{Binding IsReviewed, Converter={StaticResource InverseBooleanToVisibilityConverter}}"
+                                              Stroke="#444444" StrokeThickness="1.2" Data="M2,6 L5,9 L11,2" Width="13" Height="11" Stretch="Uniform" Opacity="0.3" />
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+
+                    <DataGridTextColumn Header="Study Date &amp; Time" Binding="{Binding FormattedDateTime}" SortMemberPath="SortDateTimeKey" SortDirection="Descending" Width="150" FontWeight="SemiBold" />
+                    <DataGridTextColumn Header="Patient Name" Binding="{Binding DisplayPatientName}" Width="180" FontWeight="SemiBold" />
+                    <DataGridTextColumn Header="Patient ID" Binding="{Binding PatientId}" Width="120" />
+
+                    <!-- Soft Pale Modality Pill Badge -->
+                    <DataGridTemplateColumn Header="Modality" Width="70">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <Border Background="{Binding Modality, Converter={StaticResource ModalityToBackgroundConverter}}"
+                                        BorderBrush="{Binding Modality, Converter={StaticResource ModalityToBorderBrushConverter}}"
+                                        BorderThickness="1" CornerRadius="3" Padding="5,1" HorizontalAlignment="Left">
+                                    <TextBlock Text="{Binding Modality}" FontSize="10.5" FontWeight="SemiBold"
+                                               Foreground="{Binding Modality, Converter={StaticResource ModalityToForegroundConverter}}" />
+                                </Border>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+
+                    <DataGridTextColumn Header="Study Description" Binding="{Binding StudyDescription}" Width="260" />
+                    <DataGridTextColumn Header="Accession #" Binding="{Binding AccessionNumber}" Width="100" />
+                    <DataGridTextColumn Header="Series" Binding="{Binding SeriesCount}" Width="50" />
+                    <DataGridTextColumn Header="Instances" Binding="{Binding InstanceCount}" Width="65" />
+                    <DataGridTextColumn Header="Referring Physician" Binding="{Binding ReferringPhysician}" Width="140" />
+                    <DataGridTextColumn Header="PACS Server" Binding="{Binding ServerDescription}" Width="100" />
+                </DataGrid.Columns>
+            </DataGrid>
+        </Grid>
+
+        <!-- 3. GRIDSPLITTER -->
+        <GridSplitter Grid.Row="2" Height="5" HorizontalAlignment="Stretch" Background="#262626" ResizeDirection="Rows" Cursor="SizeNS" />
+
+        <!-- 4. SERIES SUB-TABLE (LOWER) -->
+        <Grid Grid.Row="3">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <Border Grid.Row="0" Background="#1A1A1A" BorderBrush="#282828" BorderThickness="0,0,0,1" Padding="12,5">
+                <Grid>
+                    <TextBlock x:Name="TxtSeriesHeader" Text="Series in selected study: 0" FontWeight="SemiBold" FontSize="11.5" Foreground="#CCCCCC" VerticalAlignment="Center" />
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                        <Button Style="{StaticResource DarkButton}" Content="Open Selected Series Only" Padding="8,3" FontSize="11" Click="OnDownloadSelectedSeriesClicked" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <DataGrid x:Name="GridSeries" Grid.Row="1" ItemsSource="{Binding SelectedStudySeries}" MouseDoubleClick="OnSeriesDoubleClick">
+                <DataGrid.ContextMenu>
+                    <ContextMenu>
+                        <MenuItem Header="Open selected series only" Click="OnDownloadSelectedSeriesClicked" FontWeight="Bold" />
+                        <MenuItem Header="Send selected series to PACS..." Click="OnSendSeriesToPacsClicked" />
+                    </ContextMenu>
+                </DataGrid.ContextMenu>
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Series #" Binding="{Binding SeriesNumber}" Width="70" FontWeight="SemiBold" />
+
+                    <!-- Soft Pale Modality Pill Badge -->
+                    <DataGridTemplateColumn Header="Modality" Width="70">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <Border Background="{Binding Modality, Converter={StaticResource ModalityToBackgroundConverter}}"
+                                        BorderBrush="{Binding Modality, Converter={StaticResource ModalityToBorderBrushConverter}}"
+                                        BorderThickness="1" CornerRadius="3" Padding="5,1" HorizontalAlignment="Left">
+                                    <TextBlock Text="{Binding Modality}" FontSize="10.5" FontWeight="SemiBold"
+                                               Foreground="{Binding Modality, Converter={StaticResource ModalityToForegroundConverter}}" />
+                                </Border>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+
+                    <DataGridTextColumn Header="Series Description" Binding="{Binding SeriesDescription}" Width="350" />
+                    <DataGridTextColumn Header="Instances" Binding="{Binding InstanceCount}" Width="70" />
+                    <DataGridTextColumn Header="Series Instance UID" Binding="{Binding SeriesInstanceUid}" Width="*" />
+                </DataGrid.Columns>
+            </DataGrid>
+
+        </Grid>
+
+        <!-- 5. BOTTOM ACTION & STATUS / PROGRESS BAR -->
+        <Border Grid.Row="4" Background="#141414" BorderBrush="#282828" BorderThickness="0,1,0,0" Padding="12,8">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <!-- Left: Progress & Status -->
+                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                        <TextBlock x:Name="TxtTransferStatus" Text="Ready to search." Foreground="#AAAAAA" FontSize="11.5" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" />
+                        <Button x:Name="BtnBottomStop" Content="⏹ Stop" Click="OnStopSearchClicked" Visibility="Collapsed"
+                                Style="{StaticResource DarkButton}" Background="#752020" BorderBrush="#FF4545" Foreground="#FFFFFF"
+                                FontSize="10.5" Padding="6,1" Margin="8,0,0,0" VerticalAlignment="Center" ToolTip="Oprește căutarea în curs (sau tasta Escape)" />
+                    </StackPanel>
+                    <ProgressBar x:Name="PbTransfer" Height="6" Maximum="100" Value="0" Background="#222222" Foreground="#F5AF28" BorderThickness="0" Visibility="Collapsed" />
+                </StackPanel>
+
+                <!-- Right: Action Buttons -->
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="16,0,0,0">
+                    <Button x:Name="BtnSendStudyToPacs" Style="{StaticResource DarkButton}" Content="⬆ Send to PACS..." Margin="0,0,8,0" Click="OnSendActiveStudyToPacsClicked" ToolTip="Send active study or series to the selected PACS server" />
+                    <Button x:Name="BtnImportToDb" Style="{StaticResource DarkButton}" Content="Import to Database" Margin="0,0,8,0" Click="OnImportToDatabaseClicked" IsEnabled="False" />
+                    <Button x:Name="BtnDownloadAndOpen" Style="{StaticResource GoldButton}" Content="Open" Padding="18,6" Click="OnDownloadAndOpenClicked" IsEnabled="False" ToolTip="Download and open selected study in the viewer with live streaming" />
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

@@ -1,0 +1,95 @@
+<Window x:Class="OpenRadViewer.Views.MouseSettingsDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:config="clr-namespace:OpenRadViewer.Core.Config"
+        xmlns:local="clr-namespace:OpenRadViewer.Views"
+        mc:Ignorable="d"
+        Title="Mouse Button &amp; Wheel Configuration (Up to 7 Buttons)" 
+        Height="540" Width="580"
+        WindowStartupLocation="CenterOwner"
+        Background="#181818" Foreground="#E0E0E0">
+
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <StackPanel Grid.Row="0" Margin="0,0,0,12">
+            <TextBlock Text="Custom Mouse &amp; Wheel Mapping" FontSize="16" FontWeight="Bold" Foreground="#F5AF28" />
+            <TextBlock Text="Configure actions for Left/Right/Middle buttons, Wheel, and Extra Side Buttons (Mouse 4/5)."
+                       FontSize="11" Foreground="#999999" Margin="0,3,0,0" />
+        </StackPanel>
+
+        <!-- Mapping List / Grid -->
+        <DataGrid x:Name="BindingsGrid" Grid.Row="1"
+                  AutoGenerateColumns="False" 
+                  CanUserAddRows="False"
+                  CanUserDeleteRows="False"
+                  Background="#202020" 
+                  RowBackground="#242424" 
+                  AlternatingRowBackground="#2A2A2A"
+                  Foreground="#E0E0E0"
+                  BorderBrush="#333333"
+                  HeadersVisibility="Column"
+                  GridLinesVisibility="Horizontal"
+                  HorizontalGridLinesBrush="#383838">
+            <DataGrid.Resources>
+                <Style TargetType="{x:Type DataGridColumnHeader}">
+                    <Setter Property="Background" Value="#2D2D2D" />
+                    <Setter Property="Foreground" Value="#E0E0E0" />
+                    <Setter Property="FontWeight" Value="SemiBold" />
+                    <Setter Property="Padding" Value="8,5" />
+                    <Setter Property="BorderBrush" Value="#404040" />
+                </Style>
+                <Style TargetType="{x:Type DataGridCell}">
+                    <Setter Property="Foreground" Value="#E0E0E0" />
+                    <Setter Property="Background" Value="Transparent" />
+                    <Setter Property="BorderThickness" Value="0" />
+                    <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+                    <Style.Triggers>
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter Property="Background" Value="Transparent" />
+                            <Setter Property="Foreground" Value="#FFFFFF" />
+                        </Trigger>
+                    </Style.Triggers>
+                </Style>
+                <Style TargetType="{x:Type DataGridRow}">
+                    <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+                    <Style.Triggers>
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter Property="Background" Value="#303030" />
+                        </Trigger>
+                    </Style.Triggers>
+                </Style>
+            </DataGrid.Resources>
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Mouse Input Trigger" Binding="{Binding Trigger}" IsReadOnly="True" Width="220" />
+                <DataGridTemplateColumn Header="Assigned Tool Action" Width="*">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <ComboBox SelectedItem="{Binding Action, UpdateSourceTrigger=PropertyChanged}"
+                                      ItemsSource="{Binding Source={x:Static local:MouseSettingsDialog.AllActions}}"
+                                      Background="#262626" Foreground="#FFFFFF" BorderBrush="#444444"
+                                      Padding="6,3" Margin="2,1" />
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <!-- Footer Buttons -->
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
+            <Button Content="Reset to Defaults" Click="OnResetDefaults" Margin="0,0,10,0" Padding="12,5"
+                    Background="#303030" Foreground="#D0D0D0" BorderBrush="#444444" />
+            <Button Content="Cancel" Click="OnCancel" Margin="0,0,8,0" Padding="12,5"
+                    Background="#303030" Foreground="#D0D0D0" BorderBrush="#444444" />
+            <Button Content="Save &amp; Apply" Click="OnSave" Padding="16,5"
+                    Background="#F5AF28" Foreground="Black" FontWeight="Bold" BorderBrush="#F5AF28" />
+        </StackPanel>
+    </Grid>
+</Window>

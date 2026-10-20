@@ -1,0 +1,220 @@
+<UserControl x:Class="OpenRadViewer.Views.SeriesPreviewBar"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:models="clr-namespace:OpenRadViewer.Core.Models"
+             xmlns:vm="clr-namespace:OpenRadViewer.ViewModels"
+             mc:Ignorable="d" 
+             d:DataContext="{d:DesignInstance vm:MainViewModel}"
+             Background="#141414"
+             MinWidth="28"
+             HorizontalAlignment="Stretch">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- Top Header: Normal Expanded State -->
+        <Border x:Name="BorderNormalHeader" Grid.Row="0" Background="#1E1E1E" BorderBrush="#2A2A2A" BorderThickness="0,0,0,1" Padding="8,4">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <TextBlock Grid.Column="0" Text="SERIES" Foreground="#888888" FontWeight="Bold" FontSize="11" VerticalAlignment="Center" Margin="2,0,0,0" />
+
+                <!-- Button on top right to collapse series bar partially for extra viewport space -->
+                <Button Grid.Column="1" x:Name="BtnCollapseSeries" Click="OnToggleCollapseClicked"
+                        Width="22" Height="22" Background="Transparent" BorderThickness="0" Cursor="Hand"
+                        ToolTip="Collapse series bar">
+                    <Button.Template>
+                        <ControlTemplate TargetType="Button">
+                            <Border x:Name="bd" Background="{TemplateBinding Background}" CornerRadius="3">
+                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="bd" Property="Background" Value="#2E2E2E" />
+                                </Trigger>
+                                <Trigger Property="IsPressed" Value="True">
+                                    <Setter TargetName="bd" Property="Background" Value="#1A1A1A" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Button.Template>
+                    <Path Stroke="#AAAAAA" StrokeThickness="1.5" Data="M7,2 L2,6 L7,10" Width="7" Height="10" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                </Button>
+            </Grid>
+        </Border>
+
+        <!-- Top Header: Collapsed State (28px mini-strip) -->
+        <Border x:Name="BorderCollapsedHeader" Grid.Row="0" Background="#1E1E1E" BorderBrush="#2A2A2A" BorderThickness="0,0,0,1" Padding="2,4" Visibility="Collapsed">
+            <Button Click="OnToggleCollapseClicked"
+                    Width="22" Height="22" Background="Transparent" BorderThickness="0" Cursor="Hand"
+                    ToolTip="Expand series bar">
+                <Button.Template>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bd" Background="{TemplateBinding Background}" CornerRadius="3">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#2E2E2E" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#1A1A1A" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Button.Template>
+                <Path Stroke="#00E5FF" StrokeThickness="1.5" Data="M2,2 L7,6 L2,10" Width="7" Height="10" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center" />
+            </Button>
+        </Border>
+
+        <!-- Grouped Patient / Study Series List (Thumbnails + Labels + Slice Counts) -->
+        <ScrollViewer x:Name="SeriesScrollViewer" Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <ItemsControl ItemsSource="{Binding GroupedPatientStudies}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate DataType="{x:Type models:PatientGroupModel}">
+                        <StackPanel Margin="0,0,0,8">
+                            <!-- Patient Header Banner (Name & Date, displayed once per patient/study) -->
+                            <Border Background="#252525" BorderBrush="#3A3A3A" BorderThickness="0,1,0,1" Padding="6,4" Margin="0,2,0,2">
+                                <Border.ContextMenu>
+                                    <ContextMenu>
+                                        <MenuItem Header="Copy Patient Name" Click="OnCopyPatientNameClicked" />
+                                        <MenuItem Header="Copy CNP (Patient ID)" Click="OnCopyPatientIdClicked" />
+                                        <Separator Background="#3A3A3A" />
+                                        <MenuItem Header="Close Patient Exam" Click="OnClosePatientClicked" />
+                                    </ContextMenu>
+                                </Border.ContextMenu>
+                                <StackPanel>
+                                    <TextBlock Text="{Binding PatientName}" 
+                                               Foreground="#FFE87C" 
+                                               FontSize="11" 
+                                               FontWeight="Bold" 
+                                               TextWrapping="Wrap" 
+                                               ToolTip="Right-click to copy name or CNP" />
+                                    <TextBlock Text="{Binding FormattedIdAndAge}" 
+                                               Foreground="#CCCCCC" 
+                                               FontSize="10" 
+                                               Margin="0,1,0,0" 
+                                               TextWrapping="Wrap" />
+                                    <TextBlock Text="{Binding StudyDescription}" 
+                                               Foreground="#AAAAAA" 
+                                               FontSize="9.5" 
+                                               Margin="0,2,0,0" 
+                                               TextWrapping="Wrap" />
+                                    <TextBlock Text="{Binding DisplayExamDate}" 
+                                               Foreground="#64B5F6" 
+                                               FontSize="9.5" 
+                                               FontWeight="SemiBold" 
+                                               Margin="0,1,0,0" 
+                                               TextWrapping="Wrap" />
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Series under this patient -->
+                            <ItemsControl ItemsSource="{Binding SeriesList}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate DataType="{x:Type models:SeriesModel}">
+                                        <Border x:Name="SeriesCard"
+                                                Background="#1C1C1C" 
+                                                BorderBrush="#2D2D2D" 
+                                                BorderThickness="1" 
+                                                CornerRadius="2" 
+                                                Margin="4,2" 
+                                                Padding="4"
+                                                Opacity="{Binding CardOpacity}"
+                                                Cursor="Hand"
+                                                MouseLeftButtonDown="OnSeriesCardClicked"
+                                                MouseLeftButtonUp="OnSeriesCardMouseUp"
+                                                MouseMove="OnSeriesCardMouseMove">
+                                            <Border.ContextMenu>
+                                                <ContextMenu>
+                                                    <MenuItem Header="Split Series" Click="OnSplitSeriesClicked" />
+                                                    <Separator Background="#3A3A3A" />
+                                                    <MenuItem Header="Close Series" Click="OnCloseSeriesClicked" />
+                                                </ContextMenu>
+                                            </Border.ContextMenu>
+                                            
+                                            <Grid>
+                                                <Grid.RowDefinitions>
+                                                    <RowDefinition Height="Auto" />
+                                                    <RowDefinition Height="Auto" />
+                                                </Grid.RowDefinitions>
+
+                                                <!-- Series Thumbnail Preview Box -->
+                                                <Border Grid.Row="0" Background="#0A0A0A" BorderBrush="#222222" BorderThickness="1" Margin="0,1"
+                                                        MaxHeight="{Binding ThumbnailMaxHeight}" ClipToBounds="True">
+                                                    <Grid>
+                                                        <Image Source="{Binding ThumbnailImage}"
+                                                               Stretch="{Binding ThumbnailStretch}"
+                                                               HorizontalAlignment="Center"
+                                                               VerticalAlignment="Center"
+                                                               RenderOptions.BitmapScalingMode="LowQuality" />
+
+                                                        <!-- Slice Count Badge (Bottom-Right, RadiAnt style) -->
+                                                        <Border Background="#C0000000" BorderBrush="#505050" BorderThickness="1"
+                                                                CornerRadius="2" Padding="4,1"
+                                                                HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="3">
+                                                            <TextBlock Text="{Binding SliceCount}" Foreground="#FFE87C" FontSize="10" FontWeight="Bold" />
+                                                        </Border>
+                                                    </Grid>
+                                                </Border>
+
+                                                <!-- Series Description Label (Clean, e.g. t1_tse_cor) -->
+                                                <TextBlock Grid.Row="1" 
+                                                           Text="{Binding DisplayTitle}" 
+                                                           Foreground="#D4D4D4" 
+                                                           FontSize="10" 
+                                                           FontWeight="SemiBold"
+                                                           Margin="0,2,0,0" 
+                                                           TextWrapping="Wrap" 
+                                                           MaxHeight="32"
+                                                           TextTrimming="CharacterEllipsis"
+                                                           ToolTip="{Binding FullToolTip}" />
+                                            </Grid>
+                                        </Border>
+
+                                        <DataTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="SeriesCard" Property="BorderBrush" Value="#F5AF28" />
+                                                <Setter TargetName="SeriesCard" Property="Background" Value="#252525" />
+                                                <Setter TargetName="SeriesCard" Property="Opacity" Value="1.0" />
+                                            </Trigger>
+                                        </DataTemplate.Triggers>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </ScrollViewer>
+
+        <!-- Collapsed Vertical Strip (28px) -->
+        <Border x:Name="BorderCollapsedStrip" Grid.Row="1" Background="#141414" Cursor="Hand" Visibility="Collapsed"
+                MouseLeftButtonDown="OnCollapsedStripClicked" ToolTip="Click to expand series bar">
+            <Border.Style>
+                <Style TargetType="Border">
+                    <Style.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter Property="Background" Value="#1C1C1C" />
+                        </Trigger>
+                    </Style.Triggers>
+                </Style>
+            </Border.Style>
+            <Grid>
+                <TextBlock Text="SERIES" Foreground="#777777" FontSize="11" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <TextBlock.LayoutTransform>
+                        <RotateTransform Angle="90" />
+                    </TextBlock.LayoutTransform>
+                </TextBlock>
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>
