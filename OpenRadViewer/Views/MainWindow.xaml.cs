@@ -4,6 +4,7 @@
 
 using System.IO;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using Microsoft.Win32;
@@ -551,13 +552,19 @@ public partial class MainWindow : Window
                 return;
             }
 
-            // Presets 0-8 (8 = Liver CT)
-            if (!isCtrl && !isAlt && e.Key >= Key.D0 && e.Key <= Key.D8)
+            // Presets 0-9 (0 = Default, ..., 8 = Liver CT, 9 = Stroke CT)
+            if (!isCtrl && !isAlt)
             {
-                int presetNum = e.Key - Key.D0;
-                active.ApplyWindowPresetNumber(presetNum);
-                e.Handled = true;
-                return;
+                int? presetNum = null;
+                if (e.Key >= Key.D0 && e.Key <= Key.D9) presetNum = e.Key - Key.D0;
+                else if (e.Key >= Key.NumPad0 && e.Key <= Key.NumPad9) presetNum = e.Key - Key.NumPad0;
+
+                if (presetNum.HasValue)
+                {
+                    active.ApplyWindowPresetNumber(presetNum.Value);
+                    e.Handled = true;
+                    return;
+                }
             }
 
             // Transformations: Rotate / Flip
@@ -1252,6 +1259,7 @@ public partial class MainWindow : Window
     private void OnWindowPreset6(object sender, RoutedEventArgs e) => ViewModel.ActiveViewport?.ApplyWindowPresetNumber(6);
     private void OnWindowPreset7(object sender, RoutedEventArgs e) => ViewModel.ActiveViewport?.ApplyWindowPresetNumber(7);
     private void OnWindowPreset8(object sender, RoutedEventArgs e) => ViewModel.ActiveViewport?.ApplyWindowPresetNumber(8);
+    private void OnWindowPreset9(object sender, RoutedEventArgs e) => ViewModel.ActiveViewport?.ApplyWindowPresetNumber(9);
     private void OnToggleNegative(object sender, RoutedEventArgs e) => ViewModel.ActiveViewport?.ToggleNegative();
 
     private void OnCustomWindow(object sender, RoutedEventArgs e)
@@ -1261,6 +1269,73 @@ public partial class MainWindow : Window
             var dlg = new CustomWindowDialog(ViewModel.ActiveViewport) { Owner = this };
             dlg.ShowDialog();
         }
+    }
+
+    private void OnAddCurrentAsPreset(object sender, RoutedEventArgs e)
+    {
+        if (ViewModel.ActiveViewport == null)
+        {
+            MessageBox.Show("Please open a series first to capture window levels.", "No Active Viewport", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        var dlg = new CustomWindowDialog(ViewModel.ActiveViewport) { Owner = this };
+        dlg.ChkSavePreset.IsChecked = true;
+        dlg.ShowDialog();
+    }
+
+    private void OnWindowPresetsMenuOpened(object sender, RoutedEventArgs e)
+    {
+        if (MenuWindowPresets != null && MenuAddCurrentPreset != null)
+        {
+            int insertIndex = MenuWindowPresets.Items.IndexOf(MenuAddCurrentPreset);
+            if (insertIndex >= 0)
+            {
+                PopulateCustomPresetsInMenu(MenuWindowPresets.Items, insertIndex);
+            }
+        }
+    }
+
+    private void OnWindowPresetsContextMenuOpened(object sender, RoutedEventArgs e)
+    {
+        if (WindowPresetsContextMenu != null && ContextMenuAddCurrentPreset != null)
+        {
+            int insertIndex = WindowPresetsContextMenu.Items.IndexOf(ContextMenuAddCurrentPreset);
+            if (insertIndex >= 0)
+            {
+                PopulateCustomPresetsInMenu(WindowPresetsContextMenu.Items, insertIndex);
+            }
+        }
+    }
+
+    private void PopulateCustomPresetsInMenu(ItemCollection items, int insertIndexBefore)
+    {
+        var itemsToRemove = items.OfType<MenuItem>().Where(m => m.Tag is WindowPresetModel).ToList();
+        var separatorsToRemove = items.OfType<Separator>().Where(s => s.Tag is string t && t == "CustomPresetsSeparator").ToList();
+        foreach (var item in itemsToRemove) items.Remove(item);
+        foreach (var sep in separatorsToRemove) items.Remove(sep);
+
+        var customPresets = WindowPresetService.Instance.GetCustomPresets();
+        if (customPresets.Count == 0) return;
+
+        int idx = insertIndexBefore;
+        foreach (var preset in customPresets)
+        {
+            var mi = new MenuItem
+            {
+                Header = $"★ {preset.Name} (WL: {(int)preset.WindowCenter}, WW: {(int)preset.WindowWidth})",
+                Tag = preset
+            };
+            mi.Click += (s, e) =>
+            {
+                ViewModel.ActiveViewport?.SetWindowPreset(preset.WindowCenter, preset.WindowWidth);
+                ViewModel.StatusMessage = $"Window Preset applied: {preset.Name} (WL: {(int)preset.WindowCenter}, WW: {(int)preset.WindowWidth})";
+            };
+            items.Insert(idx++, mi);
+        }
+
+        var customSep = new Separator { Background = new SolidColorBrush(Color.FromRgb(0x33, 0x33, 0x33)), Tag = "CustomPresetsSeparator" };
+        items.Insert(idx, customSep);
     }
 
     private void OnRotateCW(object sender, RoutedEventArgs e) => ViewModel.ActiveViewport?.RotateClockwise();
