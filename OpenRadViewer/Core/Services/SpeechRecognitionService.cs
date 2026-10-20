@@ -44,7 +44,7 @@ public class SpeechRecognitionService : IDisposable
     public int RecordingSeconds { get; private set; }
     public string StatusMessage { get; private set; } = string.Empty;
     public string GeminiApiKey { get; set; } = string.Empty;
-    public string SelectedGeminiModel { get; set; } = "gemini-3.5-flash"; // User can enter any model string
+    public string SelectedGeminiModel { get; set; } = "gemini-3.8-flash"; // User can enter any model string
     public string LastAiError { get; private set; } = string.Empty;
     public string SelectedWhisperModel { get; set; } = "base"; // "base", "small", "tiny"
     public string ReferenceReportsDir => _referenceReportsDir;
@@ -91,10 +91,10 @@ public class SpeechRecognitionService : IDisposable
                 string m = File.ReadAllText(_geminiModelPath).Trim();
                 if (!string.IsNullOrEmpty(m))
                 {
-                    // Auto-migrate retired models or slow defaults to gemini-3.5-flash
-                    if (m.Contains("2.5") || m.Contains("2.0") || m.Contains("1.5") || m.Equals("gemini-3.8-flash", StringComparison.OrdinalIgnoreCase))
+                    // Auto-migrate retired 1.5, 2.0, 2.5 models
+                    if (m.Contains("2.5") || m.Contains("2.0") || m.Contains("1.5"))
                     {
-                        m = "gemini-3.5-flash";
+                        m = "gemini-3.8-flash";
                         try { File.WriteAllText(_geminiModelPath, m); } catch { }
                     }
                     SelectedGeminiModel = m;
@@ -170,7 +170,7 @@ public class SpeechRecognitionService : IDisposable
 
     public void SaveGeminiModel(string model)
     {
-        SelectedGeminiModel = string.IsNullOrWhiteSpace(model) ? "gemini-3.5-flash" : model.Trim();
+        SelectedGeminiModel = string.IsNullOrWhiteSpace(model) ? "gemini-3.8-flash" : model.Trim();
         try
         {
             File.WriteAllText(_geminiModelPath, SelectedGeminiModel);
@@ -1194,8 +1194,8 @@ public class SpeechRecognitionService : IDisposable
 
         var pool = new[]
         {
-            "gemini-3.5-flash",
             "gemini-3.8-flash",
+            "gemini-3.5-flash",
             "gemini-3.5-flash-lite",
             "gemini-flash-latest"
         };
@@ -1208,16 +1208,23 @@ public class SpeechRecognitionService : IDisposable
             }
         }
 
-        using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(90) };
+        using var client = new HttpClient();
 
-        foreach (var model in modelsToTry)
+        for (int i = 0; i < modelsToTry.Count; i++)
         {
+            var model = modelsToTry[i];
             try
             {
+                if (i > 0)
+                {
+                    SetStatus($"✨ Se comută pe modelul de rezervă ({model})...");
+                }
+
                 string url = $"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={apiKey}";
                 using var content = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(45));
 
-                var response = await client.PostAsync(url, content);
+                var response = await client.PostAsync(url, content, cts.Token);
                 if (!response.IsSuccessStatusCode)
                 {
                     LastAiError = $"[{model}] HTTP {(int)response.StatusCode}";

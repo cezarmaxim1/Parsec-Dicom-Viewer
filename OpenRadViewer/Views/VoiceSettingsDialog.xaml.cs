@@ -19,15 +19,15 @@ public partial class VoiceSettingsDialog : Window
 
         var availableModels = new List<string>
         {
-            "gemini-3.5-flash",
             "gemini-3.8-flash",
+            "gemini-3.5-flash",
             "gemini-3.5-flash-lite",
             "gemini-flash-latest",
             "Auto"
         };
 
         string currentGeminiModel = SpeechRecognitionService.Instance.SelectedGeminiModel?.Trim() ?? "";
-        if (string.IsNullOrWhiteSpace(currentGeminiModel)) currentGeminiModel = "gemini-3.5-flash";
+        if (string.IsNullOrWhiteSpace(currentGeminiModel)) currentGeminiModel = "gemini-3.8-flash";
 
         if (!availableModels.Contains(currentGeminiModel, StringComparer.OrdinalIgnoreCase))
         {
