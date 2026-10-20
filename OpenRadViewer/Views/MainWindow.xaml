@@ -497,8 +497,8 @@
                     </StackPanel>
                 </Button>
 
-                <!-- Single Orthogonal Plane Selector (Coronal, Sagittal, Axial) + Scout Lines -->
-                <Button x:Name="BtnMprMenu" Style="{StaticResource IconButton}" Click="OnOpenMprMenu" ToolTip="Orthogonal Plane (Coronal Alt+1, Sagittal Alt+2, Axial Alt+3)&#x0a;Scout Reference Lines (Ctrl+F12)">
+                <!-- Single Orthogonal Plane Selector (Coronal, Sagittal, Axial) + MPR Axes -->
+                <Button x:Name="BtnMprMenu" Style="{StaticResource IconButton}" Click="OnOpenMprMenu" ToolTip="Orthogonal Plane (Coronal Alt+1, Sagittal Alt+2, Axial Alt+3)&#x0a;Toggle MPR Reference Axes (H)">
                     <StackPanel Orientation="Horizontal">
                         <Path Stroke="#CCCCCC" StrokeThickness="1.2" Data="M3,3 L13,3 L13,13 L3,13 Z M8,3 L8,13 M3,8 L13,8" Width="14" Height="14" Stretch="Uniform" />
                         <TextBlock Text=" Plane" FontSize="11" Margin="3,0,0,0" VerticalAlignment="Center" />
@@ -512,28 +512,18 @@
                             <MenuItem Header="Sagittal (Alt+2)" Click="OnMprSagittal" />
                             <MenuItem Header="Axial (Alt+3)" Click="OnMprAxial" />
                             <Separator Background="#333333" />
-                            <MenuItem Header="Scout Reference Lines (Ctrl+F12)" Click="OnToggleScoutLines" IsCheckable="True" IsChecked="{Binding ShowScoutLines}" />
+                            <MenuItem Header="Show / Hide MPR Axes (H)" Click="OnToggleMprAxes" IsCheckable="True" IsChecked="{Binding ShowMprAxes}" />
                         </ContextMenu>
                     </Button.ContextMenu>
                 </Button>
 
-                <!-- 3D Volume Rendering (3D VR) Dropdown + Toggle MPR Axes -->
+                <!-- 3D Volume Rendering (3D VR) -->
                 <Button x:Name="Btn3DVr" Style="{StaticResource IconButton}" Click="OnOpen3DVr" 
-                        ToolTip="3D Volume Rendering (3D VR) (Ctrl+Shift+V)&#x0a;[Click: Open 3D VR Raycasting]&#x0a;[Arrow: 3D Menu &amp; Toggle MPR Axes (H)]">
+                        ToolTip="3D Volume Rendering (3D VR) (Ctrl+Shift+V)&#x0a;GPU Direct3D 11 Raycasting">
                     <StackPanel Orientation="Horizontal">
                         <Path Stroke="#CCCCCC" StrokeThickness="1.4" Data="M8,1 L15,5 L15,13 L8,17 L1,13 L1,5 Z M1,5 L8,9 L15,5 M8,9 L8,17" Width="14" Height="14" Stretch="Uniform" />
                         <TextBlock Text=" 3D VR" FontWeight="Bold" FontSize="11" Margin="3,0,0,0" VerticalAlignment="Center" Foreground="#E0E0E0" />
-                        <Button Style="{StaticResource IconButton}" Background="Transparent" BorderThickness="0" Height="20" Padding="2,0" Margin="3,0,0,0" Click="OnOpen3DVrMenu">
-                            <Path Fill="#888888" Data="M0,0 L6,0 L3,4 Z" Width="6" Height="4" VerticalAlignment="Center" />
-                        </Button>
                     </StackPanel>
-                    <Button.ContextMenu>
-                        <ContextMenu x:Name="VrContextMenu">
-                            <MenuItem Header="3D Volume Rendering (3D VR)... (Ctrl+Shift+V)" Click="OnOpen3DVr" FontWeight="Bold" />
-                            <Separator Background="#333333" />
-                            <MenuItem Header="Show / Hide MPR Axes (H)" Click="OnToggleMprAxes" IsCheckable="True" IsChecked="{Binding ShowMprAxes}" />
-                        </ContextMenu>
-                    </Button.ContextMenu>
                 </Button>
 
                 <Border Width="1" Height="22" Background="#333333" Margin="5,0" />

@@ -108,6 +108,7 @@ public partial class MainViewModel : ObservableObject
     {
         if (IsMprMode)
         {
+            for (int i = 0; i < Viewports.Count; i++) Viewports[i].ShowScoutLine = false;
             UpdateMprLines();
             return;
         }
@@ -2337,6 +2338,7 @@ public partial class MainViewModel : ObservableObject
             Viewports[2].MprPlane = OrthogonalPlane.Coronal;
 
             IsMprMode = true;
+            foreach (var vp in Viewports) vp.ShowScoutLine = false;
             SetActiveViewport(Viewports[1]); // Axial active by default
 
             UpdateMprLines();

@@ -1618,8 +1618,8 @@ public partial class ViewportControl : UserControl
         var vm = ViewModel;
         if (vm == null || !vm.ShowAnnotations) return;
 
-        // Draw Scout / Cross-reference lines (Thin #FFA500 orange line)
-        if (vm.ShowScoutLine && vm.ScoutLineStart != null && vm.ScoutLineEnd != null)
+        // Draw Scout / Cross-reference lines (Thin #FFA500 orange line, standard 2D viewports only)
+        if (!vm.IsMprViewport && vm.ShowScoutLine && vm.ScoutLineStart != null && vm.ScoutLineEnd != null)
         {
             Point sStart = ImageToScreenCoords(vm.ScoutLineStart.Value);
             Point sEnd = ImageToScreenCoords(vm.ScoutLineEnd.Value);
