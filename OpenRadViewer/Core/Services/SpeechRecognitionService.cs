@@ -44,7 +44,8 @@ public class SpeechRecognitionService : IDisposable
     public int RecordingSeconds { get; private set; }
     public string StatusMessage { get; private set; } = string.Empty;
     public string GeminiApiKey { get; set; } = string.Empty;
-    public string SelectedGeminiModel { get; set; } = "gemini-3.8-flash"; // User can enter any model string
+    public string SelectedGeminiModel { get; set; } = "gemini-3.5-flash"; // User can enter any model string
+    public string LastAiError { get; private set; } = string.Empty;
     public string SelectedWhisperModel { get; set; } = "base"; // "base", "small", "tiny"
     public string ReferenceReportsDir => _referenceReportsDir;
     public string CustomAiRules { get; set; } = string.Empty;
@@ -88,7 +89,16 @@ public class SpeechRecognitionService : IDisposable
             if (File.Exists(_geminiModelPath))
             {
                 string m = File.ReadAllText(_geminiModelPath).Trim();
-                if (!string.IsNullOrEmpty(m)) SelectedGeminiModel = m;
+                if (!string.IsNullOrEmpty(m))
+                {
+                    // Auto-migrate retired models or slow defaults to gemini-3.5-flash
+                    if (m.Contains("2.5") || m.Contains("2.0") || m.Contains("1.5") || m.Equals("gemini-3.8-flash", StringComparison.OrdinalIgnoreCase))
+                    {
+                        m = "gemini-3.5-flash";
+                        try { File.WriteAllText(_geminiModelPath, m); } catch { }
+                    }
+                    SelectedGeminiModel = m;
+                }
             }
         }
         catch { }
@@ -160,7 +170,7 @@ public class SpeechRecognitionService : IDisposable
 
     public void SaveGeminiModel(string model)
     {
-        SelectedGeminiModel = string.IsNullOrWhiteSpace(model) ? "gemini-3.8-flash" : model.Trim();
+        SelectedGeminiModel = string.IsNullOrWhiteSpace(model) ? "gemini-3.5-flash" : model.Trim();
         try
         {
             File.WriteAllText(_geminiModelPath, SelectedGeminiModel);
@@ -434,7 +444,7 @@ public class SpeechRecognitionService : IDisposable
     /// <summary>
     /// Transcribes WAV audio using Google Gemini multimodal endpoint (Gemini 2.0 Flash / 1.5 Flash) with full medical context.
     /// </summary>
-    public static async Task<string> TranscribeWithGeminiAsync(string wavFilePath, string apiKey, string preferredModel = "gemini-2.0-flash")
+    public static async Task<string> TranscribeWithGeminiAsync(string wavFilePath, string apiKey, string preferredModel = "gemini-3.5-flash")
     {
         byte[] audioBytes = await File.ReadAllBytesAsync(wavFilePath);
         string base64Audio = Convert.ToBase64String(audioBytes);
@@ -963,7 +973,8 @@ public class SpeechRecognitionService : IDisposable
             return result;
         }
 
-        SetStatus("Eroare la formatarea AI. Verificați conexiunea la internet sau cheia API.");
+        string errDetail = !string.IsNullOrWhiteSpace(LastAiError) ? $" ({LastAiError})" : "";
+        SetStatus($"Eroare la formatarea AI{errDetail}. Verificați conexiunea la internet sau cheia API.");
         return string.Empty;
     }
 
@@ -1047,7 +1058,8 @@ public class SpeechRecognitionService : IDisposable
             return result;
         }
 
-        SetStatus("Eroare la retușarea AI. Verificați conexiunea sau cheia API.");
+        string errDetail = !string.IsNullOrWhiteSpace(LastAiError) ? $" ({LastAiError})" : "";
+        SetStatus($"Eroare la retușarea AI{errDetail}. Verificați conexiunea sau cheia API.");
         return string.Empty;
     }
 
@@ -1155,7 +1167,8 @@ public class SpeechRecognitionService : IDisposable
                 return result;
             }
 
-            SetStatus("Eroare la retușarea vocală AI.");
+            string errDetail = !string.IsNullOrWhiteSpace(LastAiError) ? $" ({LastAiError})" : "";
+            SetStatus($"Eroare la retușarea vocală AI{errDetail}.");
             return string.Empty;
         }
         catch (Exception ex)
@@ -1171,6 +1184,7 @@ public class SpeechRecognitionService : IDisposable
 
     private async Task<string> SendGeminiGenerateContentAsync(string jsonPayload, string apiKey)
     {
+        LastAiError = string.Empty;
         var modelsToTry = new List<string>();
         string target = SelectedGeminiModel?.Trim() ?? "";
         if (!string.IsNullOrWhiteSpace(target) && !target.Equals("auto", StringComparison.OrdinalIgnoreCase))
@@ -1180,12 +1194,9 @@ public class SpeechRecognitionService : IDisposable
 
         var pool = new[]
         {
-            "gemini-3.8-flash",
             "gemini-3.5-flash",
+            "gemini-3.8-flash",
             "gemini-3.5-flash-lite",
-            "gemini-2.5-flash",
-            "gemini-2.0-flash",
-            "gemini-1.5-flash",
             "gemini-flash-latest"
         };
 
@@ -1197,7 +1208,7 @@ public class SpeechRecognitionService : IDisposable
             }
         }
 
-        using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
+        using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(90) };
 
         foreach (var model in modelsToTry)
         {
@@ -1207,7 +1218,11 @@ public class SpeechRecognitionService : IDisposable
                 using var content = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
 
                 var response = await client.PostAsync(url, content);
-                if (!response.IsSuccessStatusCode) continue;
+                if (!response.IsSuccessStatusCode)
+                {
+                    LastAiError = $"[{model}] HTTP {(int)response.StatusCode}";
+                    continue;
+                }
 
                 string respJson = await response.Content.ReadAsStringAsync();
                 using var doc = JsonDocument.Parse(respJson);
@@ -1233,8 +1248,9 @@ public class SpeechRecognitionService : IDisposable
                     }
                 }
             }
-            catch
+            catch (Exception ex)
             {
+                LastAiError = $"[{model}] {ex.Message}";
                 // try next model
             }
         }
