@@ -11,7 +11,7 @@
 
 ## ⚡ Overview & Key Capabilities
 
-**Parsec** is a high-performance, hardware-accelerated radiological desktop application built on **C# 12, .NET 8.0-windows, and WPF (DirectX 11 / HLSL)**, optimized for seamless 60+ FPS navigation, high-throughput DICOM streaming, and ergonomic reporting workflows.
+**Parsec** is a high-performance, hardware-accelerated radiological desktop application built on **C# 12, .NET 8.0-windows, and WPF (DirectX 11 / HLSL)**, optimized for seamless 60+ FPS navigation, high-throughput DICOM streaming, integrated offline voice dictation, and AI-assisted clinical report generation.
 
 ### 1. High-Throughput Engine & GPU Acceleration
 - **Zero-Latency Decoding:** Asynchronous streaming decoder powered by `fo-dicom` and native C/C++ codecs (`fo-dicom.Codecs`) supporting JPEG Lossless, JPEG 2000, JPEG-LS, and RLE.
@@ -39,7 +39,18 @@
 - Preset CT/MRI windowing (`1` - Dynamic, `2` - Abdomen, `3` - Angio, `4` - Bone, `5` - Brain, `6` - Thorax, `7` - Lung).
 - Invert monochrome (`F11`), continuous Cine playback (`Space`), and geometric flips/rotations.
 
-### 6. Built-in PACS Networking
+### 6. Integrated Medical Voice Dictation (Speech-to-Text)
+- **Local Neural Speech Recognition:** Embedded offline Whisper speech-to-text engine (`Whisper.net` with GGML models) ensuring patient privacy with zero external voice transmission.
+- **Specialized Medical Vocabulary Engine:** Custom phonetic and terminology dictionary tailored for complex radiological reporting (anatomy, pathological findings, Latin nomenclature, and measurement units).
+- **Hands-Free Workflow:** Configurable push-to-talk / toggle hotkeys, real-time audio VU-meter level feedback, and intelligent verbal punctuation formatting.
+
+### 7. AI-Powered Report Formatting & LLM Clinical Assistant
+- **Automated Report Structuring:** Transforms raw, unformatted transcribed dictations into standardized, professional radiological reports (Technique & Protocol, Findings by organ system, and Concise Conclusions).
+- **Multi-Model Cloud Intelligence:** Seamless integration with Google Gemini and Anthropic Claude APIs with customizable system prompts, personal reporting style preferences, and persistent formatting rules.
+- **Multi-Phase Lesion Consultation:** Multi-slice volumetric stack extraction centered on marked lesions (arrows or ROIs) across dynamic acquisition phases (Native, Arterial, Portal Venous, Delayed) for differential diagnosis analysis.
+- **One-Click Word Export:** Instant export of structured reports directly into styled Microsoft Word (`.docx`) documents or clipboard text ready for PACS/RIS insertion.
+
+### 8. Built-in PACS Networking
 - Full DIMSE networking support: **C-ECHO**, **C-FIND** (Query), **C-MOVE** (Retrieve), and local **C-STORE SCP** listener service.
 - Local PACS synchronization and direct DICOM export.
 
