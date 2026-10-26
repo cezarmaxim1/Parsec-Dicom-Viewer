@@ -920,31 +920,17 @@ public partial class PacsSearchWindow : Window
             if (responses.Count == 0 || ct.IsCancellationRequested) return;
 
             var allReviewed = new HashSet<string>(responses.Values.SelectMany(v => v), StringComparer.OrdinalIgnoreCase);
-            var serverById = PacsService.Instance.Settings.Servers
-                .Where(s => !string.IsNullOrEmpty(s.Id))
-                .GroupBy(s => s.Id)
-                .ToDictionary(g => g.Key, g => g.First());
 
             foreach (var study in FoundStudies.ToList())
             {
                 if (string.IsNullOrWhiteSpace(study.StudyInstanceUid)) continue;
 
-                bool? newState = null;
-                if (allReviewed.Contains(study.StudyInstanceUid))
+                // Additive sync only: if a remote ParsecPACS server reports a study as reviewed, mark it reviewed locally.
+                // Never overwrite or erase a study that the doctor marked as reviewed locally!
+                if (allReviewed.Contains(study.StudyInstanceUid.Trim()) && !study.IsReviewed)
                 {
-                    newState = true;
-                }
-                else if (serverById.TryGetValue(study.ServerId, out var src) &&
-                         responses.ContainsKey(ParsecPacsSyncService.NormalizeHost(src.IpAddress)))
-                {
-                    // The study's own server answered and does not list it -> it was un-marked there
-                    newState = false;
-                }
-
-                if (newState.HasValue && study.IsReviewed != newState.Value)
-                {
-                    study.IsReviewed = newState.Value;
-                    DatabaseService.SetStudyReviewed(study.StudyInstanceUid, newState.Value);
+                    study.IsReviewed = true;
+                    DatabaseService.SetStudyReviewed(study.StudyInstanceUid, true);
                 }
             }
         }

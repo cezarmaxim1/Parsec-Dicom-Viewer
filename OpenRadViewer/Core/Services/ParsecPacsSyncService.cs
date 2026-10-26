@@ -78,6 +78,7 @@ public static class ParsecPacsSyncService
                 cts.CancelAfter(RequestTimeout);
 
                 var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                bool anyEndpointSucceeded = false;
 
                 // 1. Try /api/reviewed-studies
                 try
@@ -89,6 +90,7 @@ public static class ParsecPacsSyncService
                         var parsed = JsonSerializer.Deserialize<ReviewedListResponse>(json);
                         if (parsed?.ReviewedUids != null)
                         {
+                            anyEndpointSucceeded = true;
                             foreach (var u in parsed.ReviewedUids)
                             {
                                 if (!string.IsNullOrWhiteSpace(u)) set.Add(u.Trim());
@@ -108,6 +110,7 @@ public static class ParsecPacsSyncService
                         using var doc = JsonDocument.Parse(json2);
                         if (doc.RootElement.ValueKind == JsonValueKind.Array)
                         {
+                            anyEndpointSucceeded = true;
                             foreach (var item in doc.RootElement.EnumerateArray())
                             {
                                 string? uid = null;
@@ -146,12 +149,13 @@ public static class ParsecPacsSyncService
                 }
                 catch { }
 
-                if (set.Count > 0)
+                if (!anyEndpointSucceeded)
                 {
-                    MarkAvailable(host);
-                    return (host, (HashSet<string>?)set);
+                    MarkUnavailable(host);
+                    return (host, (HashSet<string>?)null);
                 }
 
+                MarkAvailable(host);
                 return (host, (HashSet<string>?)set);
             }
             catch (Exception ex)

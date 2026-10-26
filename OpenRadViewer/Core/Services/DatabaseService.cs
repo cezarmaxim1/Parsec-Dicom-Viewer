@@ -226,6 +226,7 @@ public class DatabaseService
             {
                 _reviewedPacsCache.Clear();
                 if (File.Exists(ReviewedPacsFile)) File.Delete(ReviewedPacsFile);
+                if (File.Exists(LegacyReviewedPacsFile)) File.Delete(LegacyReviewedPacsFile);
             }
             catch { }
         }
@@ -325,7 +326,9 @@ public class DatabaseService
         }
     }
 
-    private static readonly string ReviewedPacsFile = Path.Combine(DbDirectory, "reviewed_pacs.json");
+    private static readonly string AppDataParsecDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Parsec");
+    private static readonly string ReviewedPacsFile = Path.Combine(AppDataParsecDir, "reviewed_pacs.json");
+    private static readonly string LegacyReviewedPacsFile = Path.Combine(DbDirectory, "reviewed_pacs.json");
     private static readonly HashSet<string> _reviewedPacsCache = new(StringComparer.OrdinalIgnoreCase);
     private static bool _reviewedPacsLoaded = false;
 
@@ -335,6 +338,7 @@ public class DatabaseService
         lock (_fileLock)
         {
             if (_reviewedPacsLoaded) return;
+            bool migrated = false;
             try
             {
                 if (File.Exists(ReviewedPacsFile))
@@ -343,12 +347,40 @@ public class DatabaseService
                     var list = JsonSerializer.Deserialize<List<string>>(json);
                     if (list != null)
                     {
-                        foreach (var uid in list) _reviewedPacsCache.Add(uid);
+                        foreach (var uid in list)
+                        {
+                            if (!string.IsNullOrWhiteSpace(uid)) _reviewedPacsCache.Add(uid.Trim().TrimEnd('\0'));
+                        }
                     }
                 }
             }
             catch { }
+
+            try
+            {
+                if (File.Exists(LegacyReviewedPacsFile))
+                {
+                    string json = File.ReadAllText(LegacyReviewedPacsFile);
+                    var list = JsonSerializer.Deserialize<List<string>>(json);
+                    if (list != null)
+                    {
+                        foreach (var uid in list)
+                        {
+                            if (!string.IsNullOrWhiteSpace(uid) && _reviewedPacsCache.Add(uid.Trim().TrimEnd('\0')))
+                            {
+                                migrated = true;
+                            }
+                        }
+                    }
+                }
+            }
+            catch { }
+
             _reviewedPacsLoaded = true;
+            if (migrated)
+            {
+                SaveReviewedPacs();
+            }
         }
     }
 
@@ -356,10 +388,18 @@ public class DatabaseService
     {
         lock (_fileLock)
         {
+            string json = JsonSerializer.Serialize(_reviewedPacsCache.ToList(), new JsonSerializerOptions { WriteIndented = true });
             try
             {
-                string json = JsonSerializer.Serialize(_reviewedPacsCache.ToList(), new JsonSerializerOptions { WriteIndented = true });
+                Directory.CreateDirectory(AppDataParsecDir);
                 File.WriteAllText(ReviewedPacsFile, json);
+            }
+            catch { }
+
+            try
+            {
+                GetDatabaseFolder();
+                File.WriteAllText(LegacyReviewedPacsFile, json);
             }
             catch { }
         }
@@ -368,16 +408,18 @@ public class DatabaseService
     public static bool IsStudyReviewed(string studyInstanceUid)
     {
         if (string.IsNullOrWhiteSpace(studyInstanceUid)) return false;
+        string cleanUid = studyInstanceUid.Trim().TrimEnd('\0');
         EnsureReviewedPacsLoaded();
 
         lock (_fileLock)
         {
-            if (_reviewedPacsCache.Contains(studyInstanceUid)) return true;
+            if (_reviewedPacsCache.Contains(cleanUid)) return true;
             var records = LoadRecords();
-            var match = records.FirstOrDefault(r => string.Equals(r.StudyInstanceUid, studyInstanceUid, StringComparison.OrdinalIgnoreCase));
+            var match = records.FirstOrDefault(r => string.Equals(r.StudyInstanceUid?.Trim().TrimEnd('\0'), cleanUid, StringComparison.OrdinalIgnoreCase));
             if (match != null && match.IsReviewed)
             {
-                _reviewedPacsCache.Add(studyInstanceUid);
+                _reviewedPacsCache.Add(cleanUid);
+                SaveReviewedPacs();
                 return true;
             }
         }
@@ -387,32 +429,33 @@ public class DatabaseService
     public static bool ToggleStudyReviewed(string studyInstanceUid)
     {
         if (string.IsNullOrWhiteSpace(studyInstanceUid)) return false;
+        string cleanUid = studyInstanceUid.Trim().TrimEnd('\0');
         EnsureReviewedPacsLoaded();
 
         bool newState;
         lock (_fileLock)
         {
-            if (_reviewedPacsCache.Contains(studyInstanceUid))
+            if (_reviewedPacsCache.Contains(cleanUid))
             {
-                _reviewedPacsCache.Remove(studyInstanceUid);
+                _reviewedPacsCache.Remove(cleanUid);
                 newState = false;
             }
             else
             {
-                _reviewedPacsCache.Add(studyInstanceUid);
+                _reviewedPacsCache.Add(cleanUid);
                 newState = true;
             }
             SaveReviewedPacs();
 
             var records = LoadRecords();
-            var match = records.FirstOrDefault(r => string.Equals(r.StudyInstanceUid, studyInstanceUid, StringComparison.OrdinalIgnoreCase));
+            var match = records.FirstOrDefault(r => string.Equals(r.StudyInstanceUid?.Trim().TrimEnd('\0'), cleanUid, StringComparison.OrdinalIgnoreCase));
             if (match != null)
             {
                 match.IsReviewed = newState;
                 SaveRecords(records);
             }
         }
-        OnStudyReviewedChanged?.Invoke(studyInstanceUid, newState);
+        OnStudyReviewedChanged?.Invoke(cleanUid, newState);
         return newState;
     }
 
@@ -422,26 +465,27 @@ public class DatabaseService
     public static bool SetStudyReviewed(string studyInstanceUid, bool isReviewed)
     {
         if (string.IsNullOrWhiteSpace(studyInstanceUid)) return false;
+        string cleanUid = studyInstanceUid.Trim().TrimEnd('\0');
         EnsureReviewedPacsLoaded();
 
         lock (_fileLock)
         {
-            bool current = _reviewedPacsCache.Contains(studyInstanceUid);
+            bool current = _reviewedPacsCache.Contains(cleanUid);
             if (current == isReviewed) return false;
 
-            if (isReviewed) _reviewedPacsCache.Add(studyInstanceUid);
-            else _reviewedPacsCache.Remove(studyInstanceUid);
+            if (isReviewed) _reviewedPacsCache.Add(cleanUid);
+            else _reviewedPacsCache.Remove(cleanUid);
             SaveReviewedPacs();
 
             var records = LoadRecords();
-            var match = records.FirstOrDefault(r => string.Equals(r.StudyInstanceUid, studyInstanceUid, StringComparison.OrdinalIgnoreCase));
+            var match = records.FirstOrDefault(r => string.Equals(r.StudyInstanceUid?.Trim().TrimEnd('\0'), cleanUid, StringComparison.OrdinalIgnoreCase));
             if (match != null && match.IsReviewed != isReviewed)
             {
                 match.IsReviewed = isReviewed;
                 SaveRecords(records);
             }
         }
-        OnStudyReviewedChanged?.Invoke(studyInstanceUid, isReviewed);
+        OnStudyReviewedChanged?.Invoke(cleanUid, isReviewed);
         return true;
     }
 
