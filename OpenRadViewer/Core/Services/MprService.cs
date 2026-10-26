@@ -15,6 +15,13 @@ public enum OrthogonalPlane
     Sagittal
 }
 
+public enum SlabProjectionMode
+{
+    Average,
+    Mip,
+    MinIp
+}
+
 public static class MprService
 {
     private static readonly ConcurrentDictionary<string, SeriesModel> _mprCache = new();
@@ -787,7 +794,257 @@ public static class MprService
     }
 
     /// <summary>
-    /// Resamples an oblique 2D slice from the 3D volume at a given center position and orientation vectors.
+    /// Computes a thick-slab projected slice (MIP, MinIP, or Average) across neighboring slices in an orthogonal/standard series.
+    /// </summary>
+    public static DicomSliceModel ComputeSlabSlice(
+        SeriesModel series,
+        int centerSliceIndex,
+        SlabProjectionMode mode,
+        double slabThicknessMm)
+    {
+        var slices = series.Slices;
+        int count = slices.Count;
+        centerSliceIndex = Math.Clamp(centerSliceIndex, 0, count - 1);
+        var centerSlice = slices[centerSliceIndex];
+
+        if (count < 2 || slabThicknessMm <= 0.1)
+        {
+            return centerSlice;
+        }
+
+        // Compute physical spacing between adjacent slices in mm
+        double sliceStepMm = Math.Max(0.1, centerSlice.SliceThickness);
+        if (centerSliceIndex + 1 < count &&
+            centerSlice.ImagePositionPatient is { Length: >= 3 } pA &&
+            slices[centerSliceIndex + 1].ImagePositionPatient is { Length: >= 3 } pB)
+        {
+            double dx = pB[0] - pA[0];
+            double dy = pB[1] - pA[1];
+            double dz = pB[2] - pA[2];
+            double dist = Math.Sqrt(dx * dx + dy * dy + dz * dz);
+            if (dist > 0.05) sliceStepMm = dist;
+        }
+        else if (centerSliceIndex > 0 &&
+                 centerSlice.ImagePositionPatient is { Length: >= 3 } pC &&
+                 slices[centerSliceIndex - 1].ImagePositionPatient is { Length: >= 3 } pD)
+        {
+            double dx = pC[0] - pD[0];
+            double dy = pC[1] - pD[1];
+            double dz = pC[2] - pD[2];
+            double dist = Math.Sqrt(dx * dx + dy * dy + dz * dz);
+            if (dist > 0.05) sliceStepMm = dist;
+        }
+
+        int halfRadius = (int)Math.Round((slabThicknessMm * 0.5) / sliceStepMm);
+        if (halfRadius < 1 && slabThicknessMm >= 1.5)
+        {
+            halfRadius = 1;
+        }
+        if (halfRadius < 1)
+        {
+            return centerSlice;
+        }
+
+        int startIdx = Math.Max(0, centerSliceIndex - halfRadius);
+        int endIdx = Math.Min(count - 1, centerSliceIndex + halfRadius);
+        if (startIdx >= endIdx)
+        {
+            return centerSlice;
+        }
+
+        int w = centerSlice.Columns;
+        int h = centerSlice.Rows;
+        int totalPixels = w * h;
+        if (totalPixels <= 0) return centerSlice;
+
+        // Ensure pixel buffers are loaded for the slab range
+        for (int i = startIdx; i <= endIdx; i++)
+        {
+            var sl = slices[i];
+            if (sl.RawPixelsSigned == null && sl.RawPixelsUnsigned == null && sl.RawRgbPixels == null)
+            {
+                DicomLoaderService.LoadPixelData(sl);
+            }
+        }
+
+        double effectiveThickness = Math.Max(slabThicknessMm, (endIdx - startIdx + 1) * sliceStepMm);
+        var result = CreateMprSliceMetadata(centerSlice, w, h, centerSlice.PixelSpacingX, centerSlice.PixelSpacingY, effectiveThickness);
+        result.SopInstanceUid = centerSlice.SopInstanceUid;
+        result.InstanceNumber = centerSlice.InstanceNumber;
+        result.FrameIndex = centerSlice.FrameIndex;
+        result.SliceLocation = centerSlice.SliceLocation;
+        result.ImagePositionPatient = centerSlice.ImagePositionPatient;
+        result.ImageOrientationPatient = centerSlice.ImageOrientationPatient;
+        result.OrientationLeft = centerSlice.OrientationLeft;
+        result.OrientationRight = centerSlice.OrientationRight;
+        result.OrientationTop = centerSlice.OrientationTop;
+        result.OrientationBottom = centerSlice.OrientationBottom;
+        result.RepetitionTime = centerSlice.RepetitionTime;
+        result.EchoTime = centerSlice.EchoTime;
+        result.MagneticFieldStrength = centerSlice.MagneticFieldStrength;
+        result.SequenceName = centerSlice.SequenceName;
+        result.ImageComments = centerSlice.ImageComments;
+        result.DiffusionBValue = centerSlice.DiffusionBValue;
+        result.AcquisitionTime = centerSlice.AcquisitionTime;
+
+        if (centerSlice.RawPixelsSigned != null)
+        {
+            var validBuffers = new List<short[]>(endIdx - startIdx + 1);
+            for (int i = startIdx; i <= endIdx; i++)
+            {
+                var buf = slices[i].RawPixelsSigned;
+                if (buf != null && buf.Length >= totalPixels)
+                {
+                    validBuffers.Add(buf);
+                }
+            }
+            if (validBuffers.Count <= 1) return centerSlice;
+
+            var buffersArr = validBuffers.ToArray();
+            int nBuf = buffersArr.Length;
+            short[] dst = new short[totalPixels];
+
+            if (mode == SlabProjectionMode.Mip)
+            {
+                Parallel.For(0, h, r =>
+                {
+                    int rowStart = r * w;
+                    int rowEnd = rowStart + w;
+                    var first = buffersArr[0];
+                    for (int p = rowStart; p < rowEnd; p++)
+                    {
+                        short maxVal = first[p];
+                        for (int b = 1; b < nBuf; b++)
+                        {
+                            short v = buffersArr[b][p];
+                            if (v > maxVal) maxVal = v;
+                        }
+                        dst[p] = maxVal;
+                    }
+                });
+            }
+            else if (mode == SlabProjectionMode.MinIp)
+            {
+                Parallel.For(0, h, r =>
+                {
+                    int rowStart = r * w;
+                    int rowEnd = rowStart + w;
+                    var first = buffersArr[0];
+                    for (int p = rowStart; p < rowEnd; p++)
+                    {
+                        short minVal = first[p];
+                        for (int b = 1; b < nBuf; b++)
+                        {
+                            short v = buffersArr[b][p];
+                            if (v < minVal) minVal = v;
+                        }
+                        dst[p] = minVal;
+                    }
+                });
+            }
+            else // Average
+            {
+                Parallel.For(0, h, r =>
+                {
+                    int rowStart = r * w;
+                    int rowEnd = rowStart + w;
+                    for (int p = rowStart; p < rowEnd; p++)
+                    {
+                        int sum = 0;
+                        for (int b = 0; b < nBuf; b++)
+                        {
+                            sum += buffersArr[b][p];
+                        }
+                        dst[p] = (short)((sum + (nBuf >> 1)) / nBuf);
+                    }
+                });
+            }
+
+            result.RawPixelsSigned = dst;
+            return result;
+        }
+        else if (centerSlice.RawPixelsUnsigned != null)
+        {
+            var validBuffers = new List<ushort[]>(endIdx - startIdx + 1);
+            for (int i = startIdx; i <= endIdx; i++)
+            {
+                var buf = slices[i].RawPixelsUnsigned;
+                if (buf != null && buf.Length >= totalPixels)
+                {
+                    validBuffers.Add(buf);
+                }
+            }
+            if (validBuffers.Count <= 1) return centerSlice;
+
+            var buffersArr = validBuffers.ToArray();
+            int nBuf = buffersArr.Length;
+            ushort[] dst = new ushort[totalPixels];
+
+            if (mode == SlabProjectionMode.Mip)
+            {
+                Parallel.For(0, h, r =>
+                {
+                    int rowStart = r * w;
+                    int rowEnd = rowStart + w;
+                    var first = buffersArr[0];
+                    for (int p = rowStart; p < rowEnd; p++)
+                    {
+                        ushort maxVal = first[p];
+                        for (int b = 1; b < nBuf; b++)
+                        {
+                            ushort v = buffersArr[b][p];
+                            if (v > maxVal) maxVal = v;
+                        }
+                        dst[p] = maxVal;
+                    }
+                });
+            }
+            else if (mode == SlabProjectionMode.MinIp)
+            {
+                Parallel.For(0, h, r =>
+                {
+                    int rowStart = r * w;
+                    int rowEnd = rowStart + w;
+                    var first = buffersArr[0];
+                    for (int p = rowStart; p < rowEnd; p++)
+                    {
+                        ushort minVal = first[p];
+                        for (int b = 1; b < nBuf; b++)
+                        {
+                            ushort v = buffersArr[b][p];
+                            if (v < minVal) minVal = v;
+                        }
+                        dst[p] = minVal;
+                    }
+                });
+            }
+            else // Average
+            {
+                Parallel.For(0, h, r =>
+                {
+                    int rowStart = r * w;
+                    int rowEnd = rowStart + w;
+                    for (int p = rowStart; p < rowEnd; p++)
+                    {
+                        int sum = 0;
+                        for (int b = 0; b < nBuf; b++)
+                        {
+                            sum += buffersArr[b][p];
+                        }
+                        dst[p] = (ushort)((sum + (nBuf >> 1)) / nBuf);
+                    }
+                });
+            }
+
+            result.RawPixelsUnsigned = dst;
+            return result;
+        }
+
+        return centerSlice;
+    }
+
+    /// <summary>
+    /// Resamples an oblique 2D slice (or thick slab MIP/MinIP/Average) from the 3D volume at a given center position and orientation vectors.
     /// Uses trilinear/bilinear interpolation for smooth, artifact-free medical display.
     /// </summary>
     public static DicomSliceModel? GenerateObliqueSlice(
@@ -798,7 +1055,9 @@ public static class MprService
         int outWidth,
         int outHeight,
         double spX,
-        double spY)
+        double spY,
+        SlabProjectionMode projectionMode = SlabProjectionMode.Average,
+        double slabThicknessMm = 0.0)
     {
         if (vol == null || outWidth <= 0 || outHeight <= 0) return null;
 
@@ -810,13 +1069,24 @@ public static class MprService
         double originY = centerPt[1] - halfW * rowDir[1] - halfH * colDir[1];
         double originZ = centerPt[2] - halfW * rowDir[2] - halfH * colDir[2];
 
-        var mprSlice = CreateMprSliceMetadata(vol.ReferenceSlice, outWidth, outHeight, spX, spY, (spX + spY) / 2.0);
+        double effectiveThickness = slabThicknessMm > 0.1 ? slabThicknessMm : (spX + spY) / 2.0;
+        var mprSlice = CreateMprSliceMetadata(vol.ReferenceSlice, outWidth, outHeight, spX, spY, effectiveThickness);
         mprSlice.ImageOrientationPatient = new double[]
         {
             rowDir[0], rowDir[1], rowDir[2],
             colDir[0], colDir[1], colDir[2]
         };
         mprSlice.ImagePositionPatient = new double[] { originX, originY, originZ };
+
+        // Compute normal vector of the slice plane for thick-slab integration
+        double nx = rowDir[1] * colDir[2] - rowDir[2] * colDir[1];
+        double ny = rowDir[2] * colDir[0] - rowDir[0] * colDir[2];
+        double nz = rowDir[0] * colDir[1] - rowDir[1] * colDir[0];
+        double nlen = Math.Sqrt(nx * nx + ny * ny + nz * nz);
+        if (nlen > 1e-5) { nx /= nlen; ny /= nlen; nz /= nlen; }
+
+        double sampleStepMm = Math.Max(0.6, Math.Min(vol.SpX, Math.Max(0.5, vol.SpZ)));
+        int halfSteps = slabThicknessMm > 0.5 ? Math.Clamp((int)Math.Round((slabThicknessMm * 0.5) / sampleStepMm), 1, 40) : 0;
 
         int totalPixels = outWidth * outHeight;
         int origCols = vol.OrigCols;
@@ -836,6 +1106,77 @@ public static class MprService
             short[] buffer = new short[totalPixels];
             var signedSlices = vol.SignedSlices!;
 
+            short SampleSignedPoint(double px, double py, double pz, out bool valid)
+            {
+                double dX = px - p0x;
+                double dY = py - p0y;
+                double dZ = pz - p0z;
+
+                double w = (dX * stepX + dY * stepY + dZ * stepZ) * invStepSq;
+                if (w < 0 || w > numSlices - 1)
+                {
+                    valid = false;
+                    return 0;
+                }
+
+                int w0 = (int)w;
+                int w1 = Math.Min(numSlices - 1, w0 + 1);
+                float tw = (float)(w - w0);
+
+                double s0x = p0x + w * stepX;
+                double s0y = p0y + w * stepY;
+                double s0z = p0z + w * stepZ;
+
+                double vX = px - s0x;
+                double vY = py - s0y;
+                double vZ = pz - s0z;
+
+                double uCol = (vX * rx + vY * ry + vZ * rz) * invSpX;
+                double uRow = (vX * cx + vY * cy + vZ * cz) * invSpY;
+
+                if (uCol < 0 || uCol >= origCols - 1 || uRow < 0 || uRow >= origRows - 1)
+                {
+                    int cu = (int)Math.Round(uCol);
+                    int ru = (int)Math.Round(uRow);
+                    if (cu >= 0 && cu < origCols && ru >= 0 && ru < origRows)
+                    {
+                        var s0 = signedSlices[w0];
+                        var s1 = signedSlices[w1];
+                        int idx = ru * origCols + cu;
+                        valid = true;
+                        return (short)Math.Round((1f - tw) * s0[idx] + tw * s1[idx]);
+                    }
+                    valid = false;
+                    return 0;
+                }
+
+                int c0 = (int)uCol;
+                int r0 = (int)uRow;
+                float tc = (float)(uCol - c0);
+                float tr = (float)(uRow - r0);
+
+                var sl0 = signedSlices[w0];
+                var sl1 = signedSlices[w1];
+
+                int idx00 = r0 * origCols + c0;
+                int idx01 = idx00 + 1;
+                int idx10 = idx00 + origCols;
+                int idx11 = idx10 + 1;
+
+                float v0 = (1f - tc) * (1f - tr) * sl0[idx00] +
+                           tc * (1f - tr) * sl0[idx01] +
+                           (1f - tc) * tr * sl0[idx10] +
+                           tc * tr * sl0[idx11];
+
+                float v1 = (1f - tc) * (1f - tr) * sl1[idx00] +
+                           tc * (1f - tr) * sl1[idx01] +
+                           (1f - tc) * tr * sl1[idx10] +
+                           tc * tr * sl1[idx11];
+
+                valid = true;
+                return (short)Math.Round((1f - tw) * v0 + tw * v1);
+            }
+
             Parallel.For(0, outHeight, r =>
             {
                 int dstRow = r * outWidth;
@@ -845,82 +1186,62 @@ public static class MprService
 
                 for (int c = 0; c < outWidth; c++)
                 {
-                    double px = rColX + c * spX * rowDir[0];
-                    double py = rColY + c * spX * rowDir[1];
-                    double pz = rColZ + c * spX * rowDir[2];
+                    double basePx = rColX + c * spX * rowDir[0];
+                    double basePy = rColY + c * spX * rowDir[1];
+                    double basePz = rColZ + c * spX * rowDir[2];
 
-                    double dX = px - p0x;
-                    double dY = py - p0y;
-                    double dZ = pz - p0z;
-
-                    // Continuous slice index
-                    double w = (dX * stepX + dY * stepY + dZ * stepZ) * invStepSq;
-                    if (w < 0 || w > numSlices - 1)
+                    if (halfSteps <= 0)
                     {
-                        buffer[dstRow + c] = 0;
-                        continue;
+                        buffer[dstRow + c] = SampleSignedPoint(basePx, basePy, basePz, out _);
                     }
-
-                    int w0 = (int)w;
-                    int w1 = Math.Min(numSlices - 1, w0 + 1);
-                    float tw = (float)(w - w0);
-
-                    // Slice plane origin
-                    double s0x = p0x + w * stepX;
-                    double s0y = p0y + w * stepY;
-                    double s0z = p0z + w * stepZ;
-
-                    double vX = px - s0x;
-                    double vY = py - s0y;
-                    double vZ = pz - s0z;
-
-                    double uCol = (vX * rx + vY * ry + vZ * rz) * invSpX;
-                    double uRow = (vX * cx + vY * cy + vZ * cz) * invSpY;
-
-                    if (uCol < 0 || uCol >= origCols - 1 || uRow < 0 || uRow >= origRows - 1)
+                    else if (projectionMode == SlabProjectionMode.Mip)
                     {
-                        int cu = (int)Math.Round(uCol);
-                        int ru = (int)Math.Round(uRow);
-                        if (cu >= 0 && cu < origCols && ru >= 0 && ru < origRows)
+                        short best = short.MinValue;
+                        bool anyValid = false;
+                        for (int s = -halfSteps; s <= halfSteps; s++)
                         {
-                            var s0 = signedSlices[w0];
-                            var s1 = signedSlices[w1];
-                            int idx = ru * origCols + cu;
-                            buffer[dstRow + c] = (short)Math.Round((1f - tw) * s0[idx] + tw * s1[idx]);
+                            double off = s * sampleStepMm;
+                            short val = SampleSignedPoint(basePx + off * nx, basePy + off * ny, basePz + off * nz, out bool v);
+                            if (v)
+                            {
+                                if (!anyValid || val > best) best = val;
+                                anyValid = true;
+                            }
                         }
-                        else
-                        {
-                            buffer[dstRow + c] = 0;
-                        }
-                        continue;
+                        buffer[dstRow + c] = anyValid ? best : (short)0;
                     }
-
-                    int c0 = (int)uCol;
-                    int r0 = (int)uRow;
-                    float tc = (float)(uCol - c0);
-                    float tr = (float)(uRow - r0);
-
-                    var sl0 = signedSlices[w0];
-                    var sl1 = signedSlices[w1];
-
-                    int idx00 = r0 * origCols + c0;
-                    int idx01 = idx00 + 1;
-                    int idx10 = idx00 + origCols;
-                    int idx11 = idx10 + 1;
-
-                    // Bilinear on slice 0
-                    float v0 = (1f - tc) * (1f - tr) * sl0[idx00] +
-                               tc * (1f - tr) * sl0[idx01] +
-                               (1f - tc) * tr * sl0[idx10] +
-                               tc * tr * sl0[idx11];
-
-                    // Bilinear on slice 1
-                    float v1 = (1f - tc) * (1f - tr) * sl1[idx00] +
-                               tc * (1f - tr) * sl1[idx01] +
-                               (1f - tc) * tr * sl1[idx10] +
-                               tc * tr * sl1[idx11];
-
-                    buffer[dstRow + c] = (short)Math.Round((1f - tw) * v0 + tw * v1);
+                    else if (projectionMode == SlabProjectionMode.MinIp)
+                    {
+                        short best = short.MaxValue;
+                        bool anyValid = false;
+                        for (int s = -halfSteps; s <= halfSteps; s++)
+                        {
+                            double off = s * sampleStepMm;
+                            short val = SampleSignedPoint(basePx + off * nx, basePy + off * ny, basePz + off * nz, out bool v);
+                            if (v)
+                            {
+                                if (!anyValid || val < best) best = val;
+                                anyValid = true;
+                            }
+                        }
+                        buffer[dstRow + c] = anyValid ? best : (short)0;
+                    }
+                    else
+                    {
+                        int sum = 0;
+                        int cnt = 0;
+                        for (int s = -halfSteps; s <= halfSteps; s++)
+                        {
+                            double off = s * sampleStepMm;
+                            short val = SampleSignedPoint(basePx + off * nx, basePy + off * ny, basePz + off * nz, out bool v);
+                            if (v)
+                            {
+                                sum += val;
+                                cnt++;
+                            }
+                        }
+                        buffer[dstRow + c] = cnt > 0 ? (short)((sum + (cnt >> 1)) / cnt) : (short)0;
+                    }
                 }
             });
 
@@ -931,6 +1252,77 @@ public static class MprService
             ushort[] buffer = new ushort[totalPixels];
             var unsignedSlices = vol.UnsignedSlices!;
 
+            ushort SampleUnsignedPoint(double px, double py, double pz, out bool valid)
+            {
+                double dX = px - p0x;
+                double dY = py - p0y;
+                double dZ = pz - p0z;
+
+                double w = (dX * stepX + dY * stepY + dZ * stepZ) * invStepSq;
+                if (w < 0 || w > numSlices - 1)
+                {
+                    valid = false;
+                    return 0;
+                }
+
+                int w0 = (int)w;
+                int w1 = Math.Min(numSlices - 1, w0 + 1);
+                float tw = (float)(w - w0);
+
+                double s0x = p0x + w * stepX;
+                double s0y = p0y + w * stepY;
+                double s0z = p0z + w * stepZ;
+
+                double vX = px - s0x;
+                double vY = py - s0y;
+                double vZ = pz - s0z;
+
+                double uCol = (vX * rx + vY * ry + vZ * rz) * invSpX;
+                double uRow = (vX * cx + vY * cy + vZ * cz) * invSpY;
+
+                if (uCol < 0 || uCol >= origCols - 1 || uRow < 0 || uRow >= origRows - 1)
+                {
+                    int cu = (int)Math.Round(uCol);
+                    int ru = (int)Math.Round(uRow);
+                    if (cu >= 0 && cu < origCols && ru >= 0 && ru < origRows)
+                    {
+                        var s0 = unsignedSlices[w0];
+                        var s1 = unsignedSlices[w1];
+                        int idx = ru * origCols + cu;
+                        valid = true;
+                        return (ushort)Math.Round((1f - tw) * s0[idx] + tw * s1[idx]);
+                    }
+                    valid = false;
+                    return 0;
+                }
+
+                int c0 = (int)uCol;
+                int r0 = (int)uRow;
+                float tc = (float)(uCol - c0);
+                float tr = (float)(uRow - r0);
+
+                var sl0 = unsignedSlices[w0];
+                var sl1 = unsignedSlices[w1];
+
+                int idx00 = r0 * origCols + c0;
+                int idx01 = idx00 + 1;
+                int idx10 = idx00 + origCols;
+                int idx11 = idx10 + 1;
+
+                float v0 = (1f - tc) * (1f - tr) * sl0[idx00] +
+                           tc * (1f - tr) * sl0[idx01] +
+                           (1f - tc) * tr * sl0[idx10] +
+                           tc * tr * sl0[idx11];
+
+                float v1 = (1f - tc) * (1f - tr) * sl1[idx00] +
+                           tc * (1f - tr) * sl1[idx01] +
+                           (1f - tc) * tr * sl1[idx10] +
+                           tc * tr * sl1[idx11];
+
+                valid = true;
+                return (ushort)Math.Round((1f - tw) * v0 + tw * v1);
+            }
+
             Parallel.For(0, outHeight, r =>
             {
                 int dstRow = r * outWidth;
@@ -940,78 +1332,62 @@ public static class MprService
 
                 for (int c = 0; c < outWidth; c++)
                 {
-                    double px = rColX + c * spX * rowDir[0];
-                    double py = rColY + c * spX * rowDir[1];
-                    double pz = rColZ + c * spX * rowDir[2];
+                    double basePx = rColX + c * spX * rowDir[0];
+                    double basePy = rColY + c * spY * rowDir[1];
+                    double basePz = rColZ + c * spX * rowDir[2];
 
-                    double dX = px - p0x;
-                    double dY = py - p0y;
-                    double dZ = pz - p0z;
-
-                    double w = (dX * stepX + dY * stepY + dZ * stepZ) * invStepSq;
-                    if (w < 0 || w > numSlices - 1)
+                    if (halfSteps <= 0)
                     {
-                        buffer[dstRow + c] = 0;
-                        continue;
+                        buffer[dstRow + c] = SampleUnsignedPoint(basePx, basePy, basePz, out _);
                     }
-
-                    int w0 = (int)w;
-                    int w1 = Math.Min(numSlices - 1, w0 + 1);
-                    float tw = (float)(w - w0);
-
-                    double s0x = p0x + w * stepX;
-                    double s0y = p0y + w * stepY;
-                    double s0z = p0z + w * stepZ;
-
-                    double vX = px - s0x;
-                    double vY = py - s0y;
-                    double vZ = pz - s0z;
-
-                    double uCol = (vX * rx + vY * ry + vZ * rz) * invSpX;
-                    double uRow = (vX * cx + vY * cy + vZ * cz) * invSpY;
-
-                    if (uCol < 0 || uCol >= origCols - 1 || uRow < 0 || uRow >= origRows - 1)
+                    else if (projectionMode == SlabProjectionMode.Mip)
                     {
-                        int cu = (int)Math.Round(uCol);
-                        int ru = (int)Math.Round(uRow);
-                        if (cu >= 0 && cu < origCols && ru >= 0 && ru < origRows)
+                        ushort best = ushort.MinValue;
+                        bool anyValid = false;
+                        for (int s = -halfSteps; s <= halfSteps; s++)
                         {
-                            var s0 = unsignedSlices[w0];
-                            var s1 = unsignedSlices[w1];
-                            int idx = ru * origCols + cu;
-                            buffer[dstRow + c] = (ushort)Math.Round((1f - tw) * s0[idx] + tw * s1[idx]);
+                            double off = s * sampleStepMm;
+                            ushort val = SampleUnsignedPoint(basePx + off * nx, basePy + off * ny, basePz + off * nz, out bool v);
+                            if (v)
+                            {
+                                if (!anyValid || val > best) best = val;
+                                anyValid = true;
+                            }
                         }
-                        else
-                        {
-                            buffer[dstRow + c] = 0;
-                        }
-                        continue;
+                        buffer[dstRow + c] = anyValid ? best : (ushort)0;
                     }
-
-                    int c0 = (int)uCol;
-                    int r0 = (int)uRow;
-                    float tc = (float)(uCol - c0);
-                    float tr = (float)(uRow - r0);
-
-                    var sl0 = unsignedSlices[w0];
-                    var sl1 = unsignedSlices[w1];
-
-                    int idx00 = r0 * origCols + c0;
-                    int idx01 = idx00 + 1;
-                    int idx10 = idx00 + origCols;
-                    int idx11 = idx10 + 1;
-
-                    float v0 = (1f - tc) * (1f - tr) * sl0[idx00] +
-                               tc * (1f - tr) * sl0[idx01] +
-                               (1f - tc) * tr * sl0[idx10] +
-                               tc * tr * sl0[idx11];
-
-                    float v1 = (1f - tc) * (1f - tr) * sl1[idx00] +
-                               tc * (1f - tr) * sl1[idx01] +
-                               (1f - tc) * tr * sl1[idx10] +
-                               tc * tr * sl1[idx11];
-
-                    buffer[dstRow + c] = (ushort)Math.Round((1f - tw) * v0 + tw * v1);
+                    else if (projectionMode == SlabProjectionMode.MinIp)
+                    {
+                        ushort best = ushort.MaxValue;
+                        bool anyValid = false;
+                        for (int s = -halfSteps; s <= halfSteps; s++)
+                        {
+                            double off = s * sampleStepMm;
+                            ushort val = SampleUnsignedPoint(basePx + off * nx, basePy + off * ny, basePz + off * nz, out bool v);
+                            if (v)
+                            {
+                                if (!anyValid || val < best) best = val;
+                                anyValid = true;
+                            }
+                        }
+                        buffer[dstRow + c] = anyValid ? best : (ushort)0;
+                    }
+                    else
+                    {
+                        int sum = 0;
+                        int cnt = 0;
+                        for (int s = -halfSteps; s <= halfSteps; s++)
+                        {
+                            double off = s * sampleStepMm;
+                            ushort val = SampleUnsignedPoint(basePx + off * nx, basePy + off * ny, basePz + off * nz, out bool v);
+                            if (v)
+                            {
+                                sum += val;
+                                cnt++;
+                            }
+                        }
+                        buffer[dstRow + c] = cnt > 0 ? (ushort)((sum + (cnt >> 1)) / cnt) : (ushort)0;
+                    }
                 }
             });
 

@@ -1346,6 +1346,15 @@ public partial class PacsSearchWindow : Window
                             int actualSlices = primaryStudy.Series.Sum(s => s.SliceCount);
                             if (actualSlices > 0) studyImagesCount = actualSlices;
 
+                            if (string.IsNullOrWhiteSpace(primaryStudy.ReadingPhysician) && !string.IsNullOrWhiteSpace(study.ReadingPhysician))
+                                primaryStudy.ReadingPhysician = study.ReadingPhysician;
+                            if (string.IsNullOrWhiteSpace(primaryStudy.PerformingPhysician) && !string.IsNullOrWhiteSpace(study.PerformingPhysician))
+                                primaryStudy.PerformingPhysician = study.PerformingPhysician;
+                            if (string.IsNullOrWhiteSpace(primaryStudy.ReferringPhysician) && !string.IsNullOrWhiteSpace(study.ReferringPhysician))
+                                primaryStudy.ReferringPhysician = study.ReferringPhysician;
+                            if (string.IsNullOrWhiteSpace(primaryStudy.AccessionNumber) && !string.IsNullOrWhiteSpace(study.AccessionNumber))
+                                primaryStudy.AccessionNumber = study.AccessionNumber;
+
                             DatabaseService.ImportStudy(primaryStudy, study.DisplayPatientName, study.PatientId, study.BirthDate);
                             Interlocked.Increment(ref imported);
                         }

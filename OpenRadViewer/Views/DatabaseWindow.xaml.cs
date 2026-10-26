@@ -81,7 +81,10 @@ public partial class DatabaseWindow : Window
                 r.StudyDescription.Contains(query, StringComparison.OrdinalIgnoreCase) ||
                 r.Modality.Contains(query, StringComparison.OrdinalIgnoreCase) ||
                 r.StudyDate.Contains(query, StringComparison.OrdinalIgnoreCase) ||
-                r.PerformingPhysician.Contains(query, StringComparison.OrdinalIgnoreCase)
+                (r.ReadingPhysician?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                (r.PerformingPhysician?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                (r.ReferringPhysician?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                (r.AccessionNumber?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false)
             ).ToList();
         }
 
@@ -206,6 +209,7 @@ public partial class DatabaseWindow : Window
             var record = selected[0];
             if (Directory.Exists(record.FolderPath))
             {
+                _mainViewModel.CloseAllPatients();
                 _ = _mainViewModel.ScanFolderAsync(record.FolderPath);
                 Close();
             }
@@ -226,6 +230,7 @@ public partial class DatabaseWindow : Window
                                        .ToList();
             if (validFolders.Count > 0)
             {
+                _mainViewModel.CloseAllPatients();
                 _ = _mainViewModel.ScanMultipleFoldersAsync(validFolders);
                 Close();
             }

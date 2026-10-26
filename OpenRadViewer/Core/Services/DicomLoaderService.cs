@@ -25,6 +25,10 @@ public class ParsedSliceBatchItem
     public string StudyDate { get; set; } = string.Empty;
     public string StudyTime { get; set; } = string.Empty;
     public string StudyDescription { get; set; } = string.Empty;
+    public string AccessionNumber { get; set; } = string.Empty;
+    public string ReadingPhysician { get; set; } = string.Empty;
+    public string PerformingPhysician { get; set; } = string.Empty;
+    public string ReferringPhysician { get; set; } = string.Empty;
     public string InstitutionName { get; set; } = string.Empty;
     public string ContrastBolusAgent { get; set; } = string.Empty;
     public string ContrastBolusRoute { get; set; } = string.Empty;
@@ -184,6 +188,12 @@ public class DicomLoaderService
                     string studyTime = ds.GetSingleValueOrDefault(DicomTag.StudyTime, "");
                     string studyDesc = ds.GetSingleValueOrDefault(DicomTag.StudyDescription, "Study");
                     string institution = ds.GetSingleValueOrDefault(DicomTag.InstitutionName, "");
+                    string accession = CleanDicomString(ds.GetSingleValueOrDefault(DicomTag.AccessionNumber, ""));
+                    string readingPhys = CleanDicomString(ds.GetSingleValueOrDefault(DicomTag.NameOfPhysiciansReadingStudy, ""));
+                    string performingPhys = CleanDicomString(ds.GetSingleValueOrDefault(DicomTag.PerformingPhysicianName, ""));
+                    if (string.IsNullOrWhiteSpace(performingPhys))
+                        performingPhys = CleanDicomString(ds.GetSingleValueOrDefault(DicomTag.OperatorsName, ""));
+                    string referringPhys = CleanDicomString(ds.GetSingleValueOrDefault(DicomTag.ReferringPhysicianName, ""));
 
                     string rawSeriesUid = ds.GetSingleValueOrDefault(DicomTag.SeriesInstanceUID, Guid.NewGuid().ToString());
                     string sopUid = ds.GetSingleValueOrDefault(DicomTag.SOPInstanceUID, Guid.NewGuid().ToString());
@@ -232,6 +242,10 @@ public class DicomLoaderService
                         StudyTime = studyTime,
                         StudyDescription = studyDesc,
                         InstitutionName = institution,
+                        AccessionNumber = accession,
+                        ReadingPhysician = readingPhys,
+                        PerformingPhysician = performingPhys,
+                        ReferringPhysician = referringPhys,
                         ContrastBolusAgent = contrastAgent,
                         ContrastBolusRoute = contrastRoute,
                         TotalDlp = dlp,
@@ -339,6 +353,12 @@ public class DicomLoaderService
             string studyTime = ds.GetSingleValueOrDefault(DicomTag.StudyTime, "");
             string studyDesc = ds.GetSingleValueOrDefault(DicomTag.StudyDescription, "Study");
             string institution = ds.GetSingleValueOrDefault(DicomTag.InstitutionName, "");
+            string accession = CleanDicomString(ds.GetSingleValueOrDefault(DicomTag.AccessionNumber, ""));
+            string readingPhys = CleanDicomString(ds.GetSingleValueOrDefault(DicomTag.NameOfPhysiciansReadingStudy, ""));
+            string performingPhys = CleanDicomString(ds.GetSingleValueOrDefault(DicomTag.PerformingPhysicianName, ""));
+            if (string.IsNullOrWhiteSpace(performingPhys))
+                performingPhys = CleanDicomString(ds.GetSingleValueOrDefault(DicomTag.OperatorsName, ""));
+            string referringPhys = CleanDicomString(ds.GetSingleValueOrDefault(DicomTag.ReferringPhysicianName, ""));
 
             string rawSeriesUid = ds.GetSingleValueOrDefault(DicomTag.SeriesInstanceUID, Guid.NewGuid().ToString());
             string sopUid = ds.GetSingleValueOrDefault(DicomTag.SOPInstanceUID, Guid.NewGuid().ToString());
@@ -386,6 +406,10 @@ public class DicomLoaderService
                 StudyTime = studyTime,
                 StudyDescription = studyDesc,
                 InstitutionName = institution,
+                AccessionNumber = accession,
+                ReadingPhysician = readingPhys,
+                PerformingPhysician = performingPhys,
+                ReferringPhysician = referringPhys,
                 ContrastBolusAgent = contrastAgent,
                 ContrastBolusRoute = contrastRoute,
                 TotalDlp = dlp,
@@ -468,6 +492,10 @@ public class DicomLoaderService
                         StudyTime = item.StudyTime,
                         StudyDescription = item.StudyDescription,
                         InstitutionName = item.InstitutionName,
+                        AccessionNumber = item.AccessionNumber,
+                        ReadingPhysician = item.ReadingPhysician,
+                        PerformingPhysician = item.PerformingPhysician,
+                        ReferringPhysician = item.ReferringPhysician,
                         ContrastBolusAgent = item.ContrastBolusAgent,
                         ContrastBolusRoute = item.ContrastBolusRoute,
                         TotalDlp = item.TotalDlp,
@@ -477,6 +505,14 @@ public class DicomLoaderService
                 }
                 else
                 {
+                    if (string.IsNullOrWhiteSpace(study.AccessionNumber) && !string.IsNullOrWhiteSpace(item.AccessionNumber))
+                        study.AccessionNumber = item.AccessionNumber;
+                    if (string.IsNullOrWhiteSpace(study.ReadingPhysician) && !string.IsNullOrWhiteSpace(item.ReadingPhysician))
+                        study.ReadingPhysician = item.ReadingPhysician;
+                    if (string.IsNullOrWhiteSpace(study.PerformingPhysician) && !string.IsNullOrWhiteSpace(item.PerformingPhysician))
+                        study.PerformingPhysician = item.PerformingPhysician;
+                    if (string.IsNullOrWhiteSpace(study.ReferringPhysician) && !string.IsNullOrWhiteSpace(item.ReferringPhysician))
+                        study.ReferringPhysician = item.ReferringPhysician;
                     if (string.IsNullOrWhiteSpace(study.ContrastBolusAgent) && !string.IsNullOrWhiteSpace(item.ContrastBolusAgent))
                         study.ContrastBolusAgent = item.ContrastBolusAgent;
                     if (item.TotalDlp > 0 && item.TotalDlp > study.TotalDlp)
@@ -1160,7 +1196,7 @@ public class DicomLoaderService
         });
     }
 
-    private static string CleanDicomString(string input) =>
+    public static string CleanDicomString(string input) =>
         input.Replace("^", " ").Trim();
 
     public static string FormatDicomDate(string rawDate)

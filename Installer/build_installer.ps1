@@ -1,8 +1,8 @@
-# build_installer.ps1 - Automated Build for Parsec v1.1 Beta Installer
+# build_installer.ps1 - Automated Build for Parsec v1.2 Beta Installer
 $ErrorActionPreference = "Stop"
 
 Write-Host "==========================================================" -ForegroundColor Cyan
-Write-Host "  Parsec Medical DICOM Viewer - v1.1 Beta Setup Packager  " -ForegroundColor Cyan
+Write-Host "  Parsec Medical DICOM Viewer - v1.2 Beta Setup Packager  " -ForegroundColor Cyan
 Write-Host "==========================================================" -ForegroundColor Cyan
 
 $rootDir = "F:\Rad"
@@ -56,17 +56,17 @@ if (-not $isccPath) {
 Write-Host "  -> Found ISCC at: $isccPath" -ForegroundColor Green
 
 # 4. Compile Installer with Inno Setup (LZMA2 Ultra Compression)
-Write-Host "`n[4/5] Compiling native Parsec_Setup_v1.1_Beta.exe with LZMA2 ultra compression..." -ForegroundColor Yellow
+Write-Host "`n[4/5] Compiling native Parsec_Setup_v1.2_Beta.exe with LZMA2 ultra compression..." -ForegroundColor Yellow
 & $isccPath $issScript
 
-$setupExe = Join-Path $outputDir "Parsec_Setup_v1.1_Beta.exe"
+$setupExe = Join-Path $outputDir "Parsec_Setup_v1.2_Beta.exe"
 if (-not (Test-Path $setupExe)) {
-    throw "Setup build failed: Parsec_Setup_v1.1_Beta.exe not found in $outputDir"
+    throw "Setup build failed: Parsec_Setup_v1.2_Beta.exe not found in $outputDir"
 }
 
 # 5. Copy final setup executable to root folder F:\Rad
 Write-Host "`n[5/5] Finalizing distribution packages..." -ForegroundColor Yellow
-$finalSetupExe = Join-Path $rootDir "Parsec_Setup_v1.1_Beta.exe"
+$finalSetupExe = Join-Path $rootDir "Parsec_Setup_v1.2_Beta.exe"
 Copy-Item $setupExe -Destination $finalSetupExe -Force
 
 # Clean intermediate temporary build payload directories

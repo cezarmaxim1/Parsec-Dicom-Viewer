@@ -99,7 +99,7 @@
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                     <TextBlock Text="Parsec Medical DICOM Viewer" FontSize="17" FontWeight="Bold" Foreground="#FFFFFF" />
                     <Border Background="#332200" BorderBrush="#F5AF28" BorderThickness="1" CornerRadius="3" Padding="6,1" Margin="10,0,0,0" VerticalAlignment="Center" HorizontalAlignment="Left">
-                        <TextBlock Text="v1.1 Beta" FontSize="10.5" FontWeight="Bold" Foreground="#F5AF28" />
+                        <TextBlock Text="v1.2 Beta" FontSize="10.5" FontWeight="Bold" Foreground="#F5AF28" />
                     </Border>
                 </StackPanel>
                 <TextBlock Text="Advanced diagnostic medical imaging &amp; 3D reconstruction suite" FontSize="11.5" Foreground="#888888" Margin="0,3,0,0" />
@@ -115,7 +115,8 @@
                         <TextBlock Text="Parsec is a high-performance diagnostic workstation application engineered for clinical radiology, multi-planar reconstruction (3D MPR), hardware-accelerated GPU volume rendering, and DICOM PACS archive networking."
                                    FontSize="12" Foreground="#C8C8C8" TextWrapping="Wrap" LineHeight="17" />
                         
-                        <TextBlock Text="Key Features in v1.1 Beta:" FontSize="11.5" FontWeight="Bold" Foreground="#00E5FF" Margin="0,10,0,5" />
+                        <TextBlock Text="Key Features in v1.2 Beta:" FontSize="11.5" FontWeight="Bold" Foreground="#00E5FF" Margin="0,10,0,5" />
+                        <TextBlock Text="• MIP / MinIP / AVG Slab Projection: Adjustable slab thickness (2–50 mm) for pulmonary nodule &amp; vascular imaging" FontSize="11" Foreground="#AAAAAA" Margin="4,2" />
                         <TextBlock Text="• AI Clinical Reporting: Gemini voice dictation, conversational refinement, custom persistent rules, &amp; Word (.docx) export" FontSize="11" Foreground="#AAAAAA" Margin="4,2" />
                         <TextBlock Text="• Collapsible Series Thumbnail Bar: Maximize diagnostic viewport screen estate with smooth single-click toggling" FontSize="11" Foreground="#AAAAAA" Margin="4,2" />
                         <TextBlock Text="• PACS Integration: DICOM C-FIND, C-MOVE, C-GET Query &amp; Retrieve with live throughput speed (img/s, MB/s)" FontSize="11" Foreground="#AAAAAA" Margin="4,2" />

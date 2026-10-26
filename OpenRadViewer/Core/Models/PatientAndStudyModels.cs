@@ -109,6 +109,9 @@ public class StudyModel
     public string StudyTime { get; set; } = string.Empty;
     public string StudyDescription { get; set; } = "Examination";
     public string AccessionNumber { get; set; } = string.Empty;
+    public string ReadingPhysician { get; set; } = string.Empty;
+    public string PerformingPhysician { get; set; } = string.Empty;
+    public string ReferringPhysician { get; set; } = string.Empty;
     public string InstitutionName { get; set; } = string.Empty;
     public string ContrastBolusAgent { get; set; } = string.Empty;
     public string ContrastBolusRoute { get; set; } = string.Empty;

@@ -2450,6 +2450,115 @@ public partial class ViewportControl : UserControl
         }
     }
 
+    private void OnSlabBadgeClick(object sender, MouseButtonEventArgs e)
+    {
+        e.Handled = true;
+        var vm = ViewModel;
+        var mainVm = GetMainViewModel();
+        if (vm != null && mainVm != null)
+        {
+            mainVm.SetActiveViewport(vm);
+        }
+
+        if (BdSlabBadge?.ContextMenu != null)
+        {
+            BdSlabBadge.ContextMenu.PlacementTarget = BdSlabBadge;
+            BdSlabBadge.ContextMenu.Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom;
+            BdSlabBadge.ContextMenu.IsOpen = true;
+        }
+    }
+
+    private void OnSlabBadgeMouseWheel(object sender, MouseWheelEventArgs e)
+    {
+        e.Handled = true;
+        var vm = ViewModel;
+        if (vm == null) return;
+
+        double delta = e.Delta > 0 ? 1.0 : -1.0;
+        if (vm.SlabThicknessMm >= 15.0)
+        {
+            delta = e.Delta > 0 ? 2.0 : -2.0;
+        }
+        vm.AdjustSlabThicknessMm(delta);
+
+        var mainVm = GetMainViewModel();
+        if (mainVm != null)
+        {
+            string thickStr = vm.SlabThicknessMm > 0.1 ? $"{vm.SlabThicknessMm:0.#} mm" : "Thin (1 slice)";
+            mainVm.StatusMessage = $"Slab Thickness: {thickStr} [{vm.ProjectionModeShortName}]";
+        }
+    }
+
+    private void OnSelectModeAvg(object sender, RoutedEventArgs e)
+    {
+        var vm = ViewModel;
+        if (vm == null) return;
+        vm.SetProjectionMode(SlabProjectionMode.Average);
+        var mainVm = GetMainViewModel();
+        if (mainVm != null)
+        {
+            string thickStr = vm.SlabThicknessMm > 0.1 ? $" ({vm.SlabThicknessMm:0.#} mm)" : " (Thin slice)";
+            mainVm.StatusMessage = $"Projection Mode: MPR / AVG{thickStr}";
+        }
+    }
+
+    private void OnSelectModeMip(object sender, RoutedEventArgs e)
+    {
+        var vm = ViewModel;
+        if (vm == null) return;
+        vm.SetProjectionMode(SlabProjectionMode.Mip);
+        var mainVm = GetMainViewModel();
+        if (mainVm != null)
+        {
+            mainVm.StatusMessage = $"Projection Mode: MIP ({vm.SlabThicknessMm:0.#} mm)";
+        }
+    }
+
+    private void OnSelectModeMinIp(object sender, RoutedEventArgs e)
+    {
+        var vm = ViewModel;
+        if (vm == null) return;
+        vm.SetProjectionMode(SlabProjectionMode.MinIp);
+        var mainVm = GetMainViewModel();
+        if (mainVm != null)
+        {
+            mainVm.StatusMessage = $"Projection Mode: MinIP ({vm.SlabThicknessMm:0.#} mm)";
+        }
+    }
+
+    private void OnSelectSlabThickness(object sender, RoutedEventArgs e)
+    {
+        var vm = ViewModel;
+        if (vm == null || sender is not MenuItem mi) return;
+
+        if (double.TryParse(mi.Tag?.ToString(), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out double mm))
+        {
+            vm.SetSlabThicknessMm(mm);
+            var mainVm = GetMainViewModel();
+            if (mainVm != null)
+            {
+                string thickStr = vm.SlabThicknessMm > 0.1 ? $"{vm.SlabThicknessMm:0.#} mm" : "Thin (1 slice)";
+                mainVm.StatusMessage = $"Slab Thickness: {thickStr} [{vm.ProjectionModeShortName}]";
+            }
+        }
+    }
+
+    private void OnApplySlabToAllMprPlanes(object sender, RoutedEventArgs e)
+    {
+        var vm = ViewModel;
+        var mainVm = GetMainViewModel();
+        if (vm == null || mainVm == null) return;
+
+        foreach (var vp in mainVm.DisplayedViewports)
+        {
+            if (vp.CurrentSeries != null && vp.CurrentSeries.Slices.Count >= 3)
+            {
+                vp.SetProjectionMode(vm.ProjectionMode, vm.SlabThicknessMm);
+            }
+        }
+        mainVm.StatusMessage = $"Applied {vm.ProjectionModeShortName} ({vm.SlabThicknessMm:0.#} mm) to all open viewports.";
+    }
+
     private void TriggerAiConsultation(Rect cropRect)
     {
         var activeVm = ViewModel;

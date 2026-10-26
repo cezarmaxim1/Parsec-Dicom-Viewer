@@ -9,11 +9,11 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <ApplicationIcon>app_icon.ico</ApplicationIcon>
     <AssemblyName>Parsec</AssemblyName>
-    <Version>1.1.0-beta</Version>
-    <AssemblyVersion>1.1.0.0</AssemblyVersion>
-    <FileVersion>1.1.0.0</FileVersion>
+    <Version>1.2.0-beta</Version>
+    <AssemblyVersion>1.2.0.0</AssemblyVersion>
+    <FileVersion>1.2.0.0</FileVersion>
     <Product>Parsec Medical DICOM Viewer</Product>
-    <Description>Parsec Medical DICOM Viewer - v1.1 Beta</Description>
+    <Description>Parsec Medical DICOM Viewer - v1.2 Beta</Description>
     <Copyright>Copyright © 2026 Parsec Medical Imaging</Copyright>
   </PropertyGroup>
 

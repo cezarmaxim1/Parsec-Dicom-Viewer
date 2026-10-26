@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
         Title="Local Database - Parsec DICOM Archive" 
-        Height="650" Width="1000"
+        Height="680" Width="1280"
         MinHeight="450" MinWidth="750"
         WindowStartupLocation="CenterOwner"
         Background="#181818" Foreground="#E0E0E0">
@@ -289,6 +289,8 @@
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
+                <DataGridTextColumn Header="Patient ID" Binding="{Binding PatientId}" Width="120" />
+                <DataGridTextColumn Header="Date of birth" Binding="{Binding DateOfBirth}" Width="95" />
 
                 <DataGridTemplateColumn Header="Modality" Width="70">
                     <DataGridTemplateColumn.CellTemplate>
@@ -303,10 +305,11 @@
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
 
-                <DataGridTextColumn Header="Date of birth" Binding="{Binding DateOfBirth}" Width="95" />
-                <DataGridTextColumn Header="Patient ID" Binding="{Binding PatientId}" Width="120" />
-                <DataGridTextColumn Header="Study description" Binding="{Binding StudyDescription}" Width="*" />
-                <DataGridTextColumn Header="Performing physician" Binding="{Binding PerformingPhysician}" Width="150" />
+                <DataGridTextColumn Header="Study description" Binding="{Binding StudyDescription}" Width="*" MinWidth="180" />
+                <DataGridTextColumn Header="Reading physician" Binding="{Binding ReadingPhysician}" Width="135" />
+                <DataGridTextColumn Header="Performing physician" Binding="{Binding PerformingPhysician}" Width="135" />
+                <DataGridTextColumn Header="Referring physician" Binding="{Binding ReferringPhysician}" Width="135" />
+                <DataGridTextColumn Header="Accession #" Binding="{Binding AccessionNumber}" Width="95" />
                 <DataGridTextColumn Header="Images" Binding="{Binding TotalImages}" Width="65" />
             </DataGrid.Columns>
         </DataGrid>

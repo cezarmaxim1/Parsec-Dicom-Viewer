@@ -1603,6 +1603,19 @@ public partial class MainViewModel : ObservableObject
         int batchIndex = 0,
         int batchTotal = 1)
     {
+        if (batchIndex == 0)
+        {
+            if (System.Windows.Application.Current?.Dispatcher != null &&
+                !System.Windows.Application.Current.Dispatcher.CheckAccess())
+            {
+                System.Windows.Application.Current.Dispatcher.Invoke(CloseAllPatients);
+            }
+            else
+            {
+                CloseAllPatients();
+            }
+        }
+
         IsLoading = true;
         StatusMessage = batchTotal > 1
             ? $"[{batchIndex + 1}/{batchTotal}] PACS ({server.Description}): Conectare pentru {study.DisplayPatientName}..."
@@ -1952,6 +1965,10 @@ public partial class MainViewModel : ObservableObject
                     StudyTime = item.StudyTime,
                     StudyDescription = item.StudyDescription,
                     InstitutionName = item.InstitutionName,
+                    AccessionNumber = item.AccessionNumber,
+                    ReadingPhysician = item.ReadingPhysician,
+                    PerformingPhysician = item.PerformingPhysician,
+                    ReferringPhysician = item.ReferringPhysician,
                     ContrastBolusAgent = item.ContrastBolusAgent,
                     ContrastBolusRoute = item.ContrastBolusRoute,
                     TotalDlp = item.TotalDlp,
@@ -1965,6 +1982,14 @@ public partial class MainViewModel : ObservableObject
                     study.RawStudyDate = item.StudyDate;
                 if (string.IsNullOrWhiteSpace(study.StudyTime) && !string.IsNullOrWhiteSpace(item.StudyTime))
                     study.StudyTime = item.StudyTime;
+                if (string.IsNullOrWhiteSpace(study.AccessionNumber) && !string.IsNullOrWhiteSpace(item.AccessionNumber))
+                    study.AccessionNumber = item.AccessionNumber;
+                if (string.IsNullOrWhiteSpace(study.ReadingPhysician) && !string.IsNullOrWhiteSpace(item.ReadingPhysician))
+                    study.ReadingPhysician = item.ReadingPhysician;
+                if (string.IsNullOrWhiteSpace(study.PerformingPhysician) && !string.IsNullOrWhiteSpace(item.PerformingPhysician))
+                    study.PerformingPhysician = item.PerformingPhysician;
+                if (string.IsNullOrWhiteSpace(study.ReferringPhysician) && !string.IsNullOrWhiteSpace(item.ReferringPhysician))
+                    study.ReferringPhysician = item.ReferringPhysician;
                 if (string.IsNullOrWhiteSpace(study.ContrastBolusAgent) && !string.IsNullOrWhiteSpace(item.ContrastBolusAgent))
                     study.ContrastBolusAgent = item.ContrastBolusAgent;
                 if (item.TotalDlp > 0 && item.TotalDlp > study.TotalDlp)
@@ -2581,7 +2606,17 @@ public partial class MainViewModel : ObservableObject
         double spX = targetSlice.PixelSpacingX;
         double spY = targetSlice.PixelSpacingY;
 
-        var obliqueSlice = MprService.GenerateObliqueSlice(volCtx, center3d, rVec, cVec, outW, outH, spX, spY);
+        var obliqueSlice = MprService.GenerateObliqueSlice(
+            volCtx,
+            center3d,
+            rVec,
+            cVec,
+            outW,
+            outH,
+            spX,
+            spY,
+            targetVp.ProjectionMode,
+            targetVp.SlabThicknessMm);
         if (obliqueSlice != null)
         {
             targetVp.MprRowDir = rVec;
@@ -2642,7 +2677,9 @@ public partial class MainViewModel : ObservableObject
                     targetVp.CurrentSlice.Columns, 
                     targetVp.CurrentSlice.Rows, 
                     targetVp.CurrentSlice.PixelSpacingX, 
-                    targetVp.CurrentSlice.PixelSpacingY);
+                    targetVp.CurrentSlice.PixelSpacingY,
+                    targetVp.ProjectionMode,
+                    targetVp.SlabThicknessMm);
 
                 if (obliqueSlice != null)
                 {
@@ -2767,11 +2804,56 @@ public partial class MainViewModel : ObservableObject
 
     public void CloseAllPatients()
     {
+        if (IsMprMode)
+        {
+            Exit3DMpr();
+        }
+        SetGridLayout(1, 1);
         CloseAllPanels();
         Patients.Clear();
         UpdateFilteredSeries();
         UpdateScoutLines();
         StatusMessage = "All patients closed.";
+    }
+
+    public void SetActiveSlabProjection(SlabProjectionMode mode, double? thicknessMm = null, bool applyToAllMpr = false)
+    {
+        if (ActiveViewport == null) return;
+
+        if (applyToAllMpr && IsMprMode)
+        {
+            for (int i = 0; i < 3 && i < Viewports.Count; i++)
+            {
+                Viewports[i].SetProjectionMode(mode, thicknessMm);
+            }
+        }
+        else
+        {
+            ActiveViewport.SetProjectionMode(mode, thicknessMm);
+        }
+
+        string thickInfo = ActiveViewport.SlabThicknessMm > 0.1 ? $" ({ActiveViewport.SlabThicknessMm:0.#} mm)" : " (Thin slice)";
+        StatusMessage = $"Slab Projection set to: {ActiveViewport.ProjectionModeShortName}{thickInfo}";
+    }
+
+    public void SetActiveSlabThickness(double thicknessMm, bool applyToAllMpr = false)
+    {
+        if (ActiveViewport == null) return;
+
+        if (applyToAllMpr && IsMprMode)
+        {
+            for (int i = 0; i < 3 && i < Viewports.Count; i++)
+            {
+                Viewports[i].SetSlabThicknessMm(thicknessMm);
+            }
+        }
+        else
+        {
+            ActiveViewport.SetSlabThicknessMm(thicknessMm);
+        }
+
+        string thickInfo = ActiveViewport.SlabThicknessMm > 0.1 ? $"{ActiveViewport.SlabThicknessMm:0.#} mm" : "Thin (1 slice)";
+        StatusMessage = $"Slab Thickness set to: {thickInfo} [{ActiveViewport.ProjectionModeShortName}]";
     }
 
     public void SplitActiveSeries(SplitCriterion criterion = SplitCriterion.Auto)

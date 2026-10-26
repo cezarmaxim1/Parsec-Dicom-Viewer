@@ -4,6 +4,7 @@
 
 using System.IO;
 using System.Text.Json;
+using FellowOakDicom;
 using OpenRadViewer.Core.Models;
 
 namespace OpenRadViewer.Core.Services;
@@ -17,7 +18,11 @@ public class DatabaseRecordModel
     public string Modality { get; set; } = "CT";
     public string StudyDate { get; set; } = string.Empty;
     public string StudyDescription { get; set; } = string.Empty;
+    public string ReadingPhysician { get; set; } = string.Empty;
     public string PerformingPhysician { get; set; } = string.Empty;
+    public string ReferringPhysician { get; set; } = string.Empty;
+    public string AccessionNumber { get; set; } = string.Empty;
+    public bool MetadataBackfilled { get; set; }
     public string FolderPath { get; set; } = string.Empty;
     public bool IsReviewed { get; set; }
     public DateTime ImportDate { get; set; } = DateTime.Now;
@@ -75,7 +80,50 @@ public class DatabaseService
             try
             {
                 string json = File.ReadAllText(IndexFile);
-                return JsonSerializer.Deserialize<List<DatabaseRecordModel>>(json) ?? new List<DatabaseRecordModel>();
+                var records = JsonSerializer.Deserialize<List<DatabaseRecordModel>>(json) ?? new List<DatabaseRecordModel>();
+
+                bool anyUpdated = false;
+                foreach (var rec in records)
+                {
+                    if (!rec.MetadataBackfilled && !string.IsNullOrWhiteSpace(rec.FolderPath) && Directory.Exists(rec.FolderPath))
+                    {
+                        try
+                        {
+                            string? firstFile = Directory.EnumerateFiles(rec.FolderPath, "*", SearchOption.AllDirectories).FirstOrDefault();
+                            if (!string.IsNullOrEmpty(firstFile))
+                            {
+                                var dcm = DicomFile.Open(firstFile, FileReadOption.SkipLargeTags);
+                                var ds = dcm.Dataset;
+                                string reading = DicomLoaderService.CleanDicomString(ds.GetSingleValueOrDefault(DicomTag.NameOfPhysiciansReadingStudy, ""));
+                                string performing = DicomLoaderService.CleanDicomString(ds.GetSingleValueOrDefault(DicomTag.PerformingPhysicianName, ""));
+                                if (string.IsNullOrWhiteSpace(performing))
+                                    performing = DicomLoaderService.CleanDicomString(ds.GetSingleValueOrDefault(DicomTag.OperatorsName, ""));
+                                string referring = DicomLoaderService.CleanDicomString(ds.GetSingleValueOrDefault(DicomTag.ReferringPhysicianName, ""));
+                                string accession = DicomLoaderService.CleanDicomString(ds.GetSingleValueOrDefault(DicomTag.AccessionNumber, ""));
+
+                                if (!string.IsNullOrWhiteSpace(reading)) rec.ReadingPhysician = reading;
+                                if (!string.IsNullOrWhiteSpace(performing)) rec.PerformingPhysician = performing;
+                                if (!string.IsNullOrWhiteSpace(referring)) rec.ReferringPhysician = referring;
+                                if (!string.IsNullOrWhiteSpace(accession)) rec.AccessionNumber = accession;
+                            }
+                        }
+                        catch { }
+                        rec.MetadataBackfilled = true;
+                        anyUpdated = true;
+                    }
+                }
+
+                if (anyUpdated)
+                {
+                    try
+                    {
+                        string updatedJson = JsonSerializer.Serialize(records, new JsonSerializerOptions { WriteIndented = true });
+                        File.WriteAllText(IndexFile, updatedJson);
+                    }
+                    catch { }
+                }
+
+                return records;
             }
             catch
             {
@@ -164,7 +212,11 @@ public class DatabaseService
             Modality = study.Series.FirstOrDefault()?.Modality ?? "CT",
             StudyDate = study.StudyDate,
             StudyDescription = study.StudyDescription,
-            PerformingPhysician = study.InstitutionName,
+            ReadingPhysician = study.ReadingPhysician ?? "",
+            PerformingPhysician = !string.IsNullOrWhiteSpace(study.PerformingPhysician) ? study.PerformingPhysician : (study.InstitutionName ?? ""),
+            ReferringPhysician = study.ReferringPhysician ?? "",
+            AccessionNumber = study.AccessionNumber ?? "",
+            MetadataBackfilled = true,
             FolderPath = targetDir,
             IsReviewed = false,
             ImportDate = DateTime.Now,

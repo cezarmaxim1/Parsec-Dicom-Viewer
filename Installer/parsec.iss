@@ -1,6 +1,6 @@
 ; Inno Setup Script for Parsec Medical DICOM Viewer
 #define MyAppName "Parsec Medical DICOM Viewer"
-#define MyAppVersion "1.1 Beta"
+#define MyAppVersion "1.2 Beta"
 #define MyAppPublisher "Parsec Medical Imaging"
 #define MyAppExeName "Parsec.exe"
 #define MyAppAssocName "DICOM Medical Image"
@@ -16,7 +16,7 @@ DefaultDirName={localappdata}\Programs\Parsec
 DisableProgramGroupPage=yes
 PrivilegesRequired=lowest
 OutputDir=F:\Rad\Installer\Output
-OutputBaseFilename=Parsec_Setup_v1.1_Beta
+OutputBaseFilename=Parsec_Setup_v1.2_Beta
 SetupIconFile=F:\Rad\Installer\Setup\app_icon.ico
 Compression=lzma2/ultra64
 SolidCompression=yes

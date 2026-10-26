@@ -60,12 +60,73 @@
             <!-- DICOM OSD Text Overlays (4 Corners) -->
             <!-- Top-Left Overlay -->
             <StackPanel HorizontalAlignment="Left" VerticalAlignment="Top" Margin="10,8,0,0">
-                <!-- 3D MPR Badge Overlay -->
-                <StackPanel Orientation="Horizontal" Margin="0,0,0,3"
-                            Visibility="{Binding IsMprViewport, Converter={StaticResource BooleanToVisibilityConverter}}">
-                    <Rectangle Width="9" Height="9" Fill="{Binding MprBadgeBrush}" Margin="0,0,5,0" RadiusX="1.5" RadiusY="1.5" VerticalAlignment="Center" />
-                    <TextBlock Text="MPR" Foreground="#E0E0E0" FontSize="11" FontWeight="Bold" VerticalAlignment="Center" />
-                </StackPanel>
+                <!-- Interactive MPR / MIP / MinIP & Slab Thickness Badge (RadiAnt Style) -->
+                <Border x:Name="BdSlabBadge"
+                        HorizontalAlignment="Left"
+                        Margin="0,0,0,4"
+                        Padding="6,2"
+                        CornerRadius="3"
+                        BorderThickness="1"
+                        Cursor="Hand"
+                        Visibility="{Binding ShowSlabBadge, Converter={StaticResource BooleanToVisibilityConverter}}"
+                        PreviewMouseLeftButtonDown="OnSlabBadgeClick"
+                        PreviewMouseRightButtonDown="OnSlabBadgeClick"
+                        PreviewMouseWheel="OnSlabBadgeMouseWheel"
+                        ToolTip="Click to select Projection Mode (MPR / AVG, MIP, MinIP) and Slab Thickness (mm)&#x0a;Mouse Wheel over badge: Adjust Slab Thickness in mm">
+                    <Border.Style>
+                        <Style TargetType="Border">
+                            <Setter Property="Background" Value="#CC1A1A1A" />
+                            <Setter Property="BorderBrush" Value="#444444" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsSlabActive}" Value="True">
+                                    <Setter Property="Background" Value="#DD0D2B36" />
+                                    <Setter Property="BorderBrush" Value="#00E5FF" />
+                                </DataTrigger>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter Property="BorderBrush" Value="#F5AF28" />
+                                    <Setter Property="Background" Value="#EE252525" />
+                                </Trigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Border.Style>
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <Rectangle Width="9" Height="9" Fill="{Binding MprBadgeBrush}" Margin="0,0,5,0" RadiusX="1.5" RadiusY="1.5" VerticalAlignment="Center"
+                                   Visibility="{Binding IsMprViewport, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                        <TextBlock Text="{Binding SlabBadgeText}" FontSize="11" FontWeight="Bold" VerticalAlignment="Center">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Foreground" Value="#E0E0E0" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsSlabActive}" Value="True">
+                                            <Setter Property="Foreground" Value="#00E5FF" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </StackPanel>
+                    <Border.ContextMenu>
+                        <ContextMenu x:Name="SlabBadgeContextMenu">
+                            <MenuItem Header="MPR / AVG (Average Intensity Projection)" Click="OnSelectModeAvg" FontWeight="SemiBold" />
+                            <MenuItem Header="MIP (Maximum Intensity Projection - Lung / Vessels)" Click="OnSelectModeMip" FontWeight="Bold" Foreground="#00E5FF" />
+                            <MenuItem Header="MinIP (Minimum Intensity Projection - Airways)" Click="OnSelectModeMinIp" FontWeight="SemiBold" Foreground="#80D8FF" />
+                            <Separator Background="#333333" />
+                            <MenuItem Header="Slab Thickness: Thin (1 slice / 0 mm)" Tag="0" Click="OnSelectSlabThickness" />
+                            <MenuItem Header="Slab Thickness: 2 mm" Tag="2" Click="OnSelectSlabThickness" />
+                            <MenuItem Header="Slab Thickness: 3 mm" Tag="3" Click="OnSelectSlabThickness" />
+                            <MenuItem Header="Slab Thickness: 5 mm" Tag="5" Click="OnSelectSlabThickness" />
+                            <MenuItem Header="Slab Thickness: 7 mm" Tag="7" Click="OnSelectSlabThickness" />
+                            <MenuItem Header="Slab Thickness: 10 mm (Standard Lung MIP)" Tag="10" Click="OnSelectSlabThickness" FontWeight="Bold" />
+                            <MenuItem Header="Slab Thickness: 15 mm" Tag="15" Click="OnSelectSlabThickness" />
+                            <MenuItem Header="Slab Thickness: 20 mm" Tag="20" Click="OnSelectSlabThickness" />
+                            <MenuItem Header="Slab Thickness: 25 mm" Tag="25" Click="OnSelectSlabThickness" />
+                            <MenuItem Header="Slab Thickness: 30 mm" Tag="30" Click="OnSelectSlabThickness" />
+                            <MenuItem Header="Slab Thickness: 50 mm" Tag="50" Click="OnSelectSlabThickness" />
+                            <Separator Background="#333333" />
+                            <MenuItem Header="Apply Current Mode &amp; Thickness to All MPR Planes" Click="OnApplySlabToAllMprPlanes" />
+                        </ContextMenu>
+                    </Border.ContextMenu>
+                </Border>
                 <TextBlock Text="{Binding PatientName}" Foreground="#E0E0E0" FontWeight="Bold" FontSize="13"
                            Cursor="Hand" ToolTip="Right-click to copy patient name or CNP"
                            PreviewMouseRightButtonDown="OnPatientTextRightDown">
