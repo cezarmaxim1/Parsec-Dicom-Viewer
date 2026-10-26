@@ -149,9 +149,108 @@ public class SpeechRecognitionService : IDisposable
         };
         _timer.Tick += (s, e) =>
         {
+            EnsureMicrophoneUnmuted();
             RecordingSeconds = (int)(DateTime.UtcNow - _recordStartTime).TotalSeconds;
             RecordingDurationChanged?.Invoke(RecordingSeconds);
         };
+    }
+
+    [ComImport, Guid("A95664D2-9614-4F35-A746-DE8DB63617E6"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    private interface IMMDeviceEnumerator
+    {
+        int EnumAudioEndpoints(int dataFlow, int dwStateMask, out IntPtr ppDevices);
+        int GetDefaultAudioEndpoint(int dataFlow, int role, out IMMDevice ppEndpoint);
+    }
+
+    [ComImport, Guid("D666063F-1587-4E43-81F1-B948E807363F"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    private interface IMMDevice
+    {
+        int Activate(ref Guid iid, int dwClsCtx, IntPtr pActivationParams, [MarshalAs(UnmanagedType.IUnknown)] out object ppInterface);
+    }
+
+    [ComImport, Guid("5CDF2C82-841E-4546-9722-0CF74078229A"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    private interface IAudioEndpointVolume
+    {
+        int RegisterControlChangeNotify(IntPtr pNotify);
+        int UnregisterControlChangeNotify(IntPtr pNotify);
+        int GetChannelCount(out int pnChannelCount);
+        int SetMasterVolumeLevel(float fLevelDB, ref Guid pguidEventContext);
+        int SetMasterVolumeLevelScalar(float fLevel, ref Guid pguidEventContext);
+        int GetMasterVolumeLevel(out float pfLevelDB);
+        int GetMasterVolumeLevelScalar(out float pfLevel);
+        int SetChannelVolumeLevel(uint nChannel, float fLevelDB, ref Guid pguidEventContext);
+        int SetChannelVolumeLevelScalar(uint nChannel, float fLevel, ref Guid pguidEventContext);
+        int GetChannelVolumeLevel(uint nChannel, out float pfLevelDB);
+        int GetChannelVolumeLevelScalar(uint nChannel, out float pfLevel);
+        int SetMute([MarshalAs(UnmanagedType.Bool)] bool bMute, ref Guid pguidEventContext);
+        int GetMute([MarshalAs(UnmanagedType.Bool)] out bool pbMute);
+    }
+
+    /// <summary>
+    /// Ensures the Windows default microphone is not muted (e.g. when laptop F4 hardware key toggles Mic Mute)
+    /// and has sufficient input gain.
+    /// </summary>
+    public static void EnsureMicrophoneUnmuted()
+    {
+        try
+        {
+            Type? t = Type.GetTypeFromCLSID(new Guid("BCDE0395-E52F-467C-8E3D-C4579291692E"));
+            if (t == null) return;
+            if (Activator.CreateInstance(t) is not IMMDeviceEnumerator enumerator) return;
+
+            // eCapture = 1, eConsole = 0
+            if (enumerator.GetDefaultAudioEndpoint(1, 0, out IMMDevice device) != 0 || device == null) return;
+
+            Guid iid = typeof(IAudioEndpointVolume).GUID;
+            if (device.Activate(ref iid, 23, IntPtr.Zero, out object volObj) != 0 || volObj is not IAudioEndpointVolume vol) return;
+
+            Guid ctx = Guid.Empty;
+            if (vol.GetMute(out bool isMuted) == 0 && isMuted)
+            {
+                vol.SetMute(false, ref ctx);
+            }
+
+            if (vol.GetMasterVolumeLevelScalar(out float level) == 0 && level < 0.50f)
+            {
+                vol.SetMasterVolumeLevelScalar(0.85f, ref ctx);
+            }
+        }
+        catch { }
+    }
+
+    /// <summary>
+    /// Checks 16-bit PCM WAV samples to verify that real human speech/audio was captured (not digital silence / muted mic).
+    /// </summary>
+    public static bool HasAudibleSpeech(string wavFilePath)
+    {
+        try
+        {
+            if (!File.Exists(wavFilePath)) return false;
+            byte[] bytes = File.ReadAllBytes(wavFilePath);
+            if (bytes.Length < 1000) return false;
+
+            int maxAmp = 0;
+            int activeSamples = 0;
+            for (int i = 44; i < bytes.Length - 1; i += 2)
+            {
+                short sample = BitConverter.ToInt16(bytes, i);
+                int abs = sample == short.MinValue ? 32768 : Math.Abs((int)sample);
+                if (abs > maxAmp) maxAmp = abs;
+                if (abs > 120)
+                {
+                    activeSamples++;
+                    if (activeSamples >= 400 && maxAmp >= 200)
+                    {
+                        return true;
+                    }
+                }
+            }
+            return maxAmp >= 200 && activeSamples >= 400;
+        }
+        catch
+        {
+            return true;
+        }
     }
 
     public void SaveGeminiApiKey(string key)
@@ -224,6 +323,8 @@ public class SpeechRecognitionService : IDisposable
 
         try
         {
+            EnsureMicrophoneUnmuted();
+
             if (File.Exists(_tempWavPath))
             {
                 try { File.Delete(_tempWavPath); } catch { }
@@ -240,6 +341,13 @@ public class SpeechRecognitionService : IDisposable
                 SetStatus($"Eroare inițializare microfon (cod MCI: {res})");
                 return false;
             }
+
+            // Also schedule an immediate unmute 250ms later in case laptop's F4 hardware key toggled Windows Mic Mute right after KeyDown
+            _ = Task.Run(async () =>
+            {
+                await Task.Delay(250);
+                EnsureMicrophoneUnmuted();
+            });
 
             IsRecording = true;
             _recordStartTime = DateTime.UtcNow;
@@ -268,12 +376,22 @@ public class SpeechRecognitionService : IDisposable
             _timer.Stop();
             IsRecording = false;
 
+            mciSendString("stop parsec_rec", null, 0, IntPtr.Zero);
             mciSendString($"save parsec_rec \"{_tempWavPath}\"", null, 0, IntPtr.Zero);
             mciSendString("close parsec_rec", null, 0, IntPtr.Zero);
+
+            // Re-ensure microphone is unmuted in case pressing F4 to stop toggled Windows Mic Mute
+            EnsureMicrophoneUnmuted();
 
             if (!File.Exists(_tempWavPath) || new FileInfo(_tempWavPath).Length < 1000)
             {
                 SetStatus("Nu s-a detectat semnal audio util.");
+                return string.Empty;
+            }
+
+            if (!HasAudibleSpeech(_tempWavPath))
+            {
+                SetStatus("Nu s-a detectat voce în înregistrare (microfonul era pe Mute). Am dezactivat Mute-ul — încercați din nou.");
                 return string.Empty;
             }
 
@@ -287,6 +405,11 @@ public class SpeechRecognitionService : IDisposable
                     string geminiResult = await TranscribeWithGeminiAsync(_tempWavPath, GeminiApiKey, SelectedGeminiModel);
                     if (!string.IsNullOrWhiteSpace(geminiResult))
                     {
+                        if (geminiResult.Contains("[LINISTE]", StringComparison.OrdinalIgnoreCase))
+                        {
+                            SetStatus("Nu s-a detectat vorbire inteligibilă în înregistrare.");
+                            return string.Empty;
+                        }
                         SetStatus("Dictare transcrisă impecabil de Gemini AI!");
                         return geminiResult;
                     }
@@ -404,47 +527,43 @@ public class SpeechRecognitionService : IDisposable
     }
 
     /// <summary>
-    /// Builds full Romanian radiology prompt with terminology rules and reference reports.
+    /// Builds full Romanian radiology prompt with terminology rules (without full report examples that could cause hallucinations).
     /// </summary>
     public static string BuildMedicalKnowledgePrompt(string refDir)
     {
         var sb = new StringBuilder();
-        sb.AppendLine("Ești un sistem avansat de transcriere medicală pentru radiologie și imagistică medicală în limba română.");
-        sb.AppendLine("Sarcina ta este să transcrii dictarea audio a medicului radiolog cu acuratețe medicală absolută (100%).");
+        sb.AppendLine("Ești un sistem avansat de transcriere medicală speech-to-text pentru radiologie și imagistică medicală (CT, IRM, RX, Ecografie) în limba română.");
+        sb.AppendLine("Sarcina ta este să transcrii STRICT cuvintele rostite de medicul radiolog în fișierul audio atașat, cu acuratețe medicală absolută (100%).");
         sb.AppendLine();
-        sb.AppendLine("REGULI CRUCIALE DE TERMINOLOGIE MEDICALĂ ÎN LIMBA ROMÂNĂ:");
+        sb.AppendLine("REGULĂ CRITICĂ ANTI-HALUCINAȚIE:");
+        sb.AppendLine("- Transcrie EXCLUSIV ce se aude rostit în fișierul audio (fie că este CT torace, abdomen, pelvis, cap, coloană, membre etc.).");
+        sb.AppendLine("- NU inventa, NU completa și NU genera niciodată un raport din burtă sau dintr-o altă regiune anatomică dacă nu este rostit în audio!");
+        sb.AppendLine("- Dacă înregistrarea audio conține doar liniște sau zgomot de fond fără cuvinte inteligibile, răspunde EXCLUSIV cu: [LINISTE]");
+        sb.AppendLine();
+        sb.AppendLine("REGULI DE TERMINOLOGIE MEDICALĂ ÎN LIMBA ROMÂNĂ (APLICĂ-LE DOAR CÂND AUZI ACEȘTI TERMENI ÎN AUDIO):");
+        sb.AppendLine("- Torace / Plămâni / Mediastin: parenchim pulmonar, micronoduli pulmonari, noduli subpleurali, condensare alveolară, atelectazie, sticlă mată (ground-glass), emfizem centrolobular/paraseptal, bronșiectazii, revărsat pleural, pahipleurită, adenopatii mediastino-hilare, trahee, bronhii principale, cord, aortă toracică, trunchi pulmonar.");
+        sb.AppendLine("- Abdomen / Pelvis: ficat, colecist, căi biliare, sistem port, vene suprahepatice, pancreas, splină, glande suprarenale, rinichi, uretere, vezică urinară, prostată, uter, anexe, lichid liber intraperitoneal.");
         sb.AppendLine("- Niveluri vertebrale: L1-L2, L2-L3, L3-L4, L4-L5, L5-S1, T12-L1, C5-C6 etc. Când medicul spune 'L unu L doi' sau 'T doisprezece L unu', scrie exact 'L1-L2', 'T12-L1'.");
-        sb.AppendLine("- Referiri de nivel: 'platoul superior al patru' -> 'platoul superior al patru'; 'la L unu' -> 'la L1'.");
-        sb.AppendLine("- Fisuri discale: 'fisură în doi' (scrie 'fisură în doi'), 'fisură în trei' (scrie 'fisură în trei').");
-        sb.AppendLine("- Termeni de specialitate obligatorii: con medular, platouri vertebrale, hernii intraspongioase etajate, osteofite marginale antero-laterale/posterioare, punți osoase, artroză interapofizară, protruzie discală circumferențială, hernie de disc intraforaminală/subarticulară, contact disco-radicular, diametru AP, fără modificări de semnal la nivelul corpilor vertebrali.");
-        sb.AppendLine("- Secvențe imagistice: T1, T2, FLAIR, DWI, ADC, STIR, 3D T1, MPR.");
+        sb.AppendLine("- Secvențe și termeni imagistici: T1, T2, FLAIR, DWI, ADC, STIR, 3D T1, MPR, MIP, nativ, postcontrast, iodofil, Gado.");
         sb.AppendLine("- Folosește întotdeauna diacritice corecte în limba română (ă, â, î, ș, ț).");
         sb.AppendLine();
 
         string vocabText = LoadMedicalVocabulary(refDir);
         if (!string.IsNullOrWhiteSpace(vocabText))
         {
-            sb.AppendLine("GLOSAR DE CUVINTE ȘI VOCABULAR MEDICAL DE SPECIALITATE (FOLOSEȘTE-LE PENTRU RECUNOAȘTERE EXACTĂ):");
+            sb.AppendLine("GLOSAR DE CUVINTE ȘI VOCABULAR MEDICAL DE SPECIALITATE (FOLOSEȘTE-LE DOAR PENTRU ORTOGRAFIEREA CORECTĂ A CUVINTELOR AUZITE):");
             sb.AppendLine(vocabText);
             sb.AppendLine();
         }
 
-        string referenceText = LoadReferenceReportsText(refDir);
-        if (!string.IsNullOrWhiteSpace(referenceText))
-        {
-            sb.AppendLine("Iată exemple de rapoarte medicale reale ale medicului radiolog. Folosește-le ca model de stil:");
-            sb.AppendLine(referenceText);
-            sb.AppendLine();
-        }
-
-        sb.AppendLine("Răspunde STRICT și EXCLUSIV cu textul dictat de medic, fără nicio introducere, fără comentarii, fără ghilimele.");
+        sb.AppendLine("Răspunde STRICT și EXCLUSIV cu textul dictat de medic în înregistrarea audio, fără nicio introducere, fără comentarii, fără ghilimele.");
         return sb.ToString();
     }
 
     /// <summary>
-    /// Transcribes WAV audio using Google Gemini multimodal endpoint (Gemini 2.0 Flash / 1.5 Flash) with full medical context.
+    /// Transcribes WAV audio using Google Gemini multimodal endpoint with full medical context.
     /// </summary>
-    public static async Task<string> TranscribeWithGeminiAsync(string wavFilePath, string apiKey, string preferredModel = "gemini-3.5-flash")
+    public static async Task<string> TranscribeWithGeminiAsync(string wavFilePath, string apiKey, string preferredModel = "gemini-3.8-flash")
     {
         byte[] audioBytes = await File.ReadAllBytesAsync(wavFilePath);
         string base64Audio = Convert.ToBase64String(audioBytes);
@@ -477,7 +596,7 @@ public class SpeechRecognitionService : IDisposable
 
         string json = JsonSerializer.Serialize(payload);
 
-        // Build list of models to try. First priority is ALWAYS the model specified by user/setting
+        // Build list of models to try. First priority is ALWAYS the model specified by user/setting (gemini-3.8-flash -> gemini-3.5-flash)
         var modelsToTry = new List<string>();
         string target = preferredModel?.Trim() ?? "";
 
@@ -486,16 +605,11 @@ public class SpeechRecognitionService : IDisposable
             modelsToTry.Add(target);
         }
 
-        // Add active family models in order of proven speed, quota availability & resilience
         var pool = new[]
         {
-            "gemini-3.5-flash-lite",
-            "gemini-3.1-flash-lite",
-            "gemini-flash-lite-latest",
             "gemini-3.8-flash",
-            "gemini-3.6-flash",
             "gemini-3.5-flash",
-            "gemini-3.7-flash",
+            "gemini-3.5-flash-lite",
             "gemini-flash-latest",
             "gemini-3.5-transcribe"
         };
@@ -508,7 +622,8 @@ public class SpeechRecognitionService : IDisposable
             }
         }
 
-        using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(35) };
+        // 120s timeout so long dictations (5+ minutes, ~10MB WAV) never time out during upload/transcription
+        using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(120) };
 
         // Attempt 1: Try with full prompt (including medical vocabulary)
         foreach (var model in modelsToTry)
@@ -777,7 +892,7 @@ public class SpeechRecognitionService : IDisposable
 
     public static string GetWhisperPrompt()
     {
-        return "Examinare imagistică CT, IRM, RX. Coloană vertebrală: L1-L2, L2-L3, L3-L4, L4-L5, L5-S1, C5-C6, T12-L1, con medular, platouri vertebrale, hernii intraspongioase etajate, osteofite marginale, artroză interapofizară, protruzie discală circumferențială, hernie de disc intraforaminală, fisură în doi, fisură în trei, diametru AP, T1, T2, FLAIR, DWI, ADC, STIR. Ficat fără macronoduli și fără ascită, colecist fără calculi cu pereți subțiri, sistem port permeabil, vene suprahepatice fără distensii sau leziuni focale, splină cu dimensiuni normale structură omogenă, vezică urinară în semirepleție, pancreas, rinichi. Atrofie cortico-subcorticală supra și infratentorială, ventriculomegalie pasageră, spații pericerebrale, fără leziuni demielinizante sau hemoragice acute.";
+        return "Dictare radiologică în limba română: CT, IRM, RX, torace, parenchim pulmonar, mediastin, pleură, abdomen, pelvis, craniu, coloană vertebrală.";
     }
 
     /// <summary>
@@ -1078,12 +1193,15 @@ public class SpeechRecognitionService : IDisposable
             _timer.Stop();
             IsRecording = false;
 
+            mciSendString("stop parsec_rec", null, 0, IntPtr.Zero);
             mciSendString($"save parsec_rec \"{_tempWavPath}\"", null, 0, IntPtr.Zero);
             mciSendString("close parsec_rec", null, 0, IntPtr.Zero);
 
-            if (!File.Exists(_tempWavPath) || new FileInfo(_tempWavPath).Length < 1000)
+            EnsureMicrophoneUnmuted();
+
+            if (!File.Exists(_tempWavPath) || new FileInfo(_tempWavPath).Length < 1000 || !HasAudibleSpeech(_tempWavPath))
             {
-                SetStatus("Nu s-a detectat comandă vocală.");
+                SetStatus("Nu s-a detectat comandă vocală (microfonul era pe Mute sau fără semnal).");
                 return string.Empty;
             }
 
