@@ -83,25 +83,90 @@ public static class PatientInfoHelper
     }
 
     /// <summary>
+    /// Parses numeric age from standard DICOM Patient Age string (e.g. "044Y", "44Y", "44").
+    /// </summary>
+    public static int? ParseAgeFromDicomAgeString(string? ageStr)
+    {
+        if (string.IsNullOrWhiteSpace(ageStr)) return null;
+        string s = ageStr.Trim();
+        if (s.EndsWith("Y", StringComparison.OrdinalIgnoreCase))
+        {
+            string num = s.Substring(0, s.Length - 1).TrimStart('0');
+            if (int.TryParse(string.IsNullOrEmpty(num) ? "0" : num, out int y) && y >= 0 && y <= 130)
+                return y;
+        }
+        if (int.TryParse(s, out int raw) && raw >= 0 && raw <= 130)
+            return raw;
+        return null;
+    }
+
+    /// <summary>
     /// Returns formatted patient ID and calculated age (e.g. "1820322046285 (44 ani)").
     /// </summary>
-    public static string FormatIdAndAge(string? patientId, string? birthDateStr = null)
+    public static string FormatIdAndAge(string? patientId, string? birthDateStr = null, string? patientAgeStr = null)
     {
-        if (string.IsNullOrWhiteSpace(patientId)) return string.Empty;
+        string idPart = patientId?.Trim() ?? string.Empty;
 
-        var cnpResult = ParseFromCnp(patientId);
+        // 1. Try Romanian CNP
+        int? age = null;
+        var cnpResult = ParseFromCnp(idPart);
         if (cnpResult.age != null)
         {
-            return $"{patientId} ({cnpResult.age} ani)";
+            age = cnpResult.age;
         }
 
-        var dicomAge = ParseAgeFromDicomDate(birthDateStr);
-        if (dicomAge != null)
+        // 2. Try DICOM Birth Date (0010,0030)
+        if (age == null)
         {
-            return $"{patientId} ({dicomAge} ani)";
+            age = ParseAgeFromDicomDate(birthDateStr);
         }
 
-        return patientId;
+        // 3. Try DICOM Patient Age (0010,1010)
+        string? customAgeDisplay = null;
+        if (age == null && !string.IsNullOrWhiteSpace(patientAgeStr))
+        {
+            var parsed = ParseAgeFromDicomAgeString(patientAgeStr);
+            if (parsed.HasValue)
+            {
+                age = parsed.Value;
+            }
+            else
+            {
+                string s = patientAgeStr.Trim();
+                if (s.EndsWith("M", StringComparison.OrdinalIgnoreCase))
+                {
+                    string num = s.Substring(0, s.Length - 1).TrimStart('0');
+                    customAgeDisplay = $"{num} luni";
+                }
+                else if (s.EndsWith("D", StringComparison.OrdinalIgnoreCase))
+                {
+                    string num = s.Substring(0, s.Length - 1).TrimStart('0');
+                    customAgeDisplay = $"{num} zile";
+                }
+                else if (s.EndsWith("W", StringComparison.OrdinalIgnoreCase))
+                {
+                    string num = s.Substring(0, s.Length - 1).TrimStart('0');
+                    customAgeDisplay = $"{num} săpt.";
+                }
+            }
+        }
+
+        string? ageDisplay = age.HasValue ? $"{age.Value} ani" : customAgeDisplay;
+
+        if (!string.IsNullOrEmpty(idPart) && !string.IsNullOrEmpty(ageDisplay))
+        {
+            return $"{idPart} ({ageDisplay})";
+        }
+        if (!string.IsNullOrEmpty(idPart))
+        {
+            return idPart;
+        }
+        if (!string.IsNullOrEmpty(ageDisplay))
+        {
+            return $"({ageDisplay})";
+        }
+
+        return string.Empty;
     }
 
     /// <summary>

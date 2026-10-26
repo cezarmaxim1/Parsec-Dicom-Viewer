@@ -362,6 +362,7 @@ public class PacsService
                 request.Dataset.AddOrUpdate(DicomTag.PatientName, string.IsNullOrWhiteSpace(filter.PatientName) ? string.Empty : $"*{filter.PatientName.Trim()}*");
                 request.Dataset.AddOrUpdate(DicomTag.PatientID, string.IsNullOrWhiteSpace(filter.PatientId) ? string.Empty : $"*{filter.PatientId.Trim()}*");
                 request.Dataset.AddOrUpdate(DicomTag.PatientBirthDate, string.Empty);
+                request.Dataset.AddOrUpdate(DicomTag.PatientAge, string.Empty);
                 request.Dataset.AddOrUpdate(DicomTag.AccessionNumber, string.IsNullOrWhiteSpace(filter.AccessionNumber) ? string.Empty : filter.AccessionNumber.Trim());
                 request.Dataset.AddOrUpdate(DicomTag.StudyDescription, string.IsNullOrWhiteSpace(filter.StudyDescription) ? string.Empty : $"*{filter.StudyDescription.Trim()}*");
                 request.Dataset.AddOrUpdate(TagStudyComments, string.Empty);
@@ -437,6 +438,7 @@ public class PacsService
                             PatientName = ds.GetSingleValueOrDefault(DicomTag.PatientName, "Anonymous"),
                             PatientId = ds.GetSingleValueOrDefault(DicomTag.PatientID, string.Empty),
                             BirthDate = ds.GetSingleValueOrDefault(DicomTag.PatientBirthDate, string.Empty),
+                            PatientAge = ds.GetSingleValueOrDefault(DicomTag.PatientAge, string.Empty),
                             AccessionNumber = ds.GetSingleValueOrDefault(DicomTag.AccessionNumber, string.Empty),
                             StudyDate = ds.GetSingleValueOrDefault(DicomTag.StudyDate, string.Empty),
                             StudyTime = ds.GetSingleValueOrDefault(DicomTag.StudyTime, string.Empty),

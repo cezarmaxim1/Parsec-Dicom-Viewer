@@ -257,6 +257,8 @@ public static class SplitSeriesService
                 BodyPart = series.BodyPart,
                 PatientName = series.PatientName,
                 PatientId = series.PatientId,
+                PatientBirthDate = series.PatientBirthDate,
+                PatientAge = series.PatientAge,
                 StudyDate = series.StudyDate,
                 SeriesTime = series.SeriesTime,
                 Slices = slices

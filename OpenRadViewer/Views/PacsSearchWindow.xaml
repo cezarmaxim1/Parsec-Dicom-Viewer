@@ -358,6 +358,7 @@
                     <DataGridTextColumn Header="Study Date &amp; Time" Binding="{Binding FormattedDateTime}" SortMemberPath="SortDateTimeKey" SortDirection="Descending" Width="150" FontWeight="SemiBold" />
                     <DataGridTextColumn Header="Patient Name" Binding="{Binding DisplayPatientName}" Width="180" FontWeight="SemiBold" />
                     <DataGridTextColumn Header="Patient ID" Binding="{Binding PatientId}" Width="120" />
+                    <DataGridTextColumn Header="Age" Binding="{Binding Age}" Width="75" />
 
                     <!-- Soft Pale Modality Pill Badge -->
                     <DataGridTemplateColumn Header="Modality" Width="70">

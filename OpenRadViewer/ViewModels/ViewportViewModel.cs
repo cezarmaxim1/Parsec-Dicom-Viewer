@@ -323,7 +323,41 @@ public partial class ViewportViewModel : ObservableObject
     // Overlay properties for XAML bindings
     public string PatientName => CurrentSeries?.PatientName ?? "";
     public string PatientId => CurrentSeries?.PatientId ?? "";
-    public string PatientIdAndAgeOverlay => OpenRadViewer.Core.Services.PatientInfoHelper.FormatIdAndAge(PatientId);
+    public string PatientBirthDate => CurrentSeries?.PatientBirthDate ?? "";
+    public string PatientAge => CurrentSeries?.PatientAge ?? "";
+
+    public string PatientIdAndAgeOverlay
+    {
+        get
+        {
+            string id = PatientId;
+            string bDate = PatientBirthDate;
+            string pAge = PatientAge;
+
+            if (string.IsNullOrWhiteSpace(bDate) || string.IsNullOrWhiteSpace(pAge))
+            {
+                try
+                {
+                    if (System.Windows.Application.Current?.MainWindow?.DataContext is MainViewModel mainVm)
+                    {
+                        var patient = mainVm.Patients.FirstOrDefault(p =>
+                            p.Studies.Any(st => st.Series.Any(se => se == CurrentSeries || se.SeriesInstanceUid == CurrentSeries?.SeriesInstanceUid)) ||
+                            (!string.IsNullOrEmpty(id) && p.Id == id));
+
+                        if (patient != null)
+                        {
+                            if (string.IsNullOrWhiteSpace(id)) id = patient.Id;
+                            if (string.IsNullOrWhiteSpace(bDate)) bDate = patient.BirthDate;
+                            if (string.IsNullOrWhiteSpace(pAge)) pAge = patient.PatientAge;
+                        }
+                    }
+                }
+                catch { }
+            }
+
+            return OpenRadViewer.Core.Services.PatientInfoHelper.FormatIdAndAge(id, bDate, pAge);
+        }
+    }
     public string SliceCommentOverlay => !string.IsNullOrWhiteSpace(CurrentSlice?.ImageComments) ? CurrentSlice.ImageComments.Trim().Replace("/", "-") : "";
     public string StudyDate => CurrentSeries?.StudyDate ?? "";
     public string SeriesDescription => CurrentSeries?.SeriesDescription ?? "";

@@ -300,6 +300,7 @@
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
                 <DataGridTextColumn Header="Patient ID" Binding="{Binding PatientId}" Width="120" />
+                <DataGridTextColumn Header="Age" Binding="{Binding Age}" Width="70" />
                 <DataGridTextColumn Header="Date of birth" Binding="{Binding DateOfBirth}" Width="95" />
 
                 <DataGridTemplateColumn Header="Modality" Width="70">

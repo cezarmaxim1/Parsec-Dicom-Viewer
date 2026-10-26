@@ -15,6 +15,24 @@ public class DatabaseRecordModel
     public string PatientName { get; set; } = "Anonymous";
     public string PatientId { get; set; } = string.Empty;
     public string DateOfBirth { get; set; } = string.Empty;
+    public string PatientAge { get; set; } = string.Empty;
+
+    public string Age
+    {
+        get
+        {
+            var fromCnp = PatientInfoHelper.ParseFromCnp(PatientId);
+            if (fromCnp.age != null) return $"{fromCnp.age} ani";
+
+            var fromBirth = PatientInfoHelper.ParseAgeFromDicomDate(DateOfBirth);
+            if (fromBirth != null) return $"{fromBirth} ani";
+
+            var fromAgeTag = PatientInfoHelper.ParseAgeFromDicomAgeString(PatientAge);
+            if (fromAgeTag != null) return $"{fromAgeTag} ani";
+
+            return "-";
+        }
+    }
     public string Modality { get; set; } = "CT";
     public string StudyDate { get; set; } = string.Empty;
     public string StudyDescription { get; set; } = string.Empty;

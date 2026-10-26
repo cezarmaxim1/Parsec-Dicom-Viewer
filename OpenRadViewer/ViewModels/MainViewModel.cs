@@ -2046,6 +2046,8 @@ public partial class MainViewModel : ObservableObject
                     BodyPart = item.BodyPart,
                     PatientName = patient.Name,
                     PatientId = patient.Id,
+                    PatientBirthDate = !string.IsNullOrWhiteSpace(item.BirthDate) ? item.BirthDate : patient.BirthDate,
+                    PatientAge = !string.IsNullOrWhiteSpace(item.PatientAge) ? item.PatientAge : patient.PatientAge,
                     StudyDate = study.StudyDate,
                     SeriesTime = item.SeriesTime,
                     CtdiVol = item.CtdiVol,
@@ -2070,6 +2072,10 @@ public partial class MainViewModel : ObservableObject
             }
             else
             {
+                if (string.IsNullOrWhiteSpace(series.PatientBirthDate) && !string.IsNullOrWhiteSpace(item.BirthDate))
+                    series.PatientBirthDate = item.BirthDate;
+                if (string.IsNullOrWhiteSpace(series.PatientAge) && !string.IsNullOrWhiteSpace(item.PatientAge))
+                    series.PatientAge = item.PatientAge;
                 if (string.IsNullOrWhiteSpace(series.SeriesTime) && !string.IsNullOrWhiteSpace(item.SeriesTime))
                     series.SeriesTime = item.SeriesTime;
                 if (item.CtdiVol > 0 && series.CtdiVol == 0) series.CtdiVol = item.CtdiVol;

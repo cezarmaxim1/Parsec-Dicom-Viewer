@@ -339,6 +339,8 @@ public class SeriesModel : ObservableObject
     public string BodyPart { get; set; } = string.Empty;
     public string PatientName { get; set; } = string.Empty;
     public string PatientId { get; set; } = string.Empty;
+    public string PatientBirthDate { get; set; } = string.Empty;
+    public string PatientAge { get; set; } = string.Empty;
     public string StudyDate { get; set; } = string.Empty;
 
     private string _seriesTime = string.Empty;

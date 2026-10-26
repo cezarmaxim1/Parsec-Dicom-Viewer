@@ -175,6 +175,8 @@ public static class MprService
             BodyPart = sourceSeries.BodyPart,
             PatientName = sourceSeries.PatientName,
             PatientId = sourceSeries.PatientId,
+            PatientBirthDate = sourceSeries.PatientBirthDate,
+            PatientAge = sourceSeries.PatientAge,
             StudyDate = sourceSeries.StudyDate
         };
 

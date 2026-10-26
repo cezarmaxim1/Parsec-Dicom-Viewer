@@ -66,9 +66,27 @@ public class PacsStudyResult : System.ComponentModel.INotifyPropertyChanged
     public string PatientName { get; set; } = string.Empty;
     public string PatientId { get; set; } = string.Empty;
     public string BirthDate { get; set; } = string.Empty;
+    public string PatientAge { get; set; } = string.Empty;
     public string AccessionNumber { get; set; } = string.Empty;
     public string StudyDate { get; set; } = string.Empty;
     public string StudyTime { get; set; } = string.Empty;
+
+    public string Age
+    {
+        get
+        {
+            var fromCnp = PatientInfoHelper.ParseFromCnp(PatientId);
+            if (fromCnp.age != null) return $"{fromCnp.age} ani";
+
+            var fromBirth = PatientInfoHelper.ParseAgeFromDicomDate(BirthDate);
+            if (fromBirth != null) return $"{fromBirth} ani";
+
+            var fromAgeTag = PatientInfoHelper.ParseAgeFromDicomAgeString(PatientAge);
+            if (fromAgeTag != null) return $"{fromAgeTag} ani";
+
+            return "-";
+        }
+    }
 
     private string _modality = string.Empty;
     public string Modality
