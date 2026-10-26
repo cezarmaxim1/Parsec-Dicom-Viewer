@@ -275,6 +275,21 @@ public partial class MainViewModel : ObservableObject
 
     public void Update3DCursor(double px, double py, double pz, ViewportViewModel source)
     {
+        if (IsMprMode)
+        {
+            Clear3DCursor();
+            for (int i = 0; i < 3 && i < Viewports.Count; i++)
+            {
+                var vp = Viewports[i];
+                if (vp != source && vp.MprPlane.HasValue)
+                {
+                    TranslateMprPlane(vp.MprPlane.Value, px, py, pz);
+                }
+            }
+            UpdateMprLines();
+            return;
+        }
+
         int totalVisible = GridRows * GridColumns;
         for (int i = 0; i < totalVisible; i++)
         {
@@ -2090,6 +2105,17 @@ public partial class MainViewModel : ObservableObject
         {
             DicomLoaderService.SortSlices(series.Slices);
 
+            // Always ensure series thumbnail represents the anatomical middle slice (never an index-0 scout reference image)
+            if (series.Slices.Count >= 2)
+            {
+                var midSlice = series.Slices[series.Slices.Count / 2];
+                var midThumb = DicomLoaderService.RenderThumbnail(midSlice);
+                if (midThumb != null)
+                {
+                    series.ThumbnailImage = midThumb;
+                }
+            }
+
             string commentSummary = DicomLoaderService.FormatSpineCommentsSummary(series.Slices.Select(s => s.ImageComments));
             if (!string.IsNullOrWhiteSpace(commentSummary) && !series.SeriesDescription.Contains(commentSummary, StringComparison.OrdinalIgnoreCase))
             {
@@ -2316,8 +2342,8 @@ public partial class MainViewModel : ObservableObject
 
         try
         {
-            var firstSlice = series.Slices[0];
-            var origPlane = MprService.DetectOrientation(firstSlice);
+            Clear3DCursor();
+            var origPlane = MprService.DetectSeriesOrientation(series);
 
             // Ensure we have at least 3 viewports initialized
             while (Viewports.Count < 3)
@@ -2869,6 +2895,22 @@ public partial class MainViewModel : ObservableObject
 
     public void SplitGivenSeries(SeriesModel series, SplitCriterion criterion = SplitCriterion.Auto)
     {
+        var clickedSeries = series;
+
+        // If user clicked Split on an already-split sub-series, resolve the original parent series
+        if (series.SeriesInstanceUid.Contains("_split_"))
+        {
+            string baseUid = series.SeriesInstanceUid.Split("_split_")[0];
+            var parentSeries = Patients
+                .SelectMany(p => p.Studies)
+                .SelectMany(st => st.Series)
+                .FirstOrDefault(s => s.SeriesInstanceUid == baseUid);
+            if (parentSeries != null)
+            {
+                series = parentSeries;
+            }
+        }
+
         if (!SplitSeriesService.CanSplit(series))
         {
             StatusMessage = $"Series '{series.DisplayTitle}' cannot be split (no multiple b-values, phases, or distinct TEs found).";
@@ -2882,12 +2924,19 @@ public partial class MainViewModel : ObservableObject
             return;
         }
 
-        // Add split series to parent study if not already present
+        // Add split series to parent study (replacing any previous split of the same parent series)
         var patient = Patients.FirstOrDefault(p => p.Studies.Any(st => st.Series.Contains(series)));
         var study = patient?.Studies.FirstOrDefault(st => st.Series.Contains(series));
 
         if (study != null)
         {
+            string splitPrefix = $"{series.SeriesInstanceUid}_split_";
+            var oldSplits = study.Series.Where(s => s.SeriesInstanceUid.StartsWith(splitPrefix, StringComparison.Ordinal)).ToList();
+            foreach (var oldSub in oldSplits)
+            {
+                study.Series.Remove(oldSub);
+            }
+
             int originalIdx = study.Series.IndexOf(series);
             foreach (var sub in splitResults)
             {
@@ -2909,8 +2958,8 @@ public partial class MainViewModel : ObservableObject
         int currentSlots = GridRows * GridColumns;
         var displayedViewports = Viewports.Take(currentSlots).ToList();
 
-        // 1. Identify the viewport currently displaying this series
-        var sourceVp = displayedViewports.FirstOrDefault(v => v.CurrentSeries == series);
+        // 1. Identify the viewport currently displaying this series (or its split child)
+        var sourceVp = displayedViewports.FirstOrDefault(v => v.CurrentSeries == clickedSeries || v.CurrentSeries == series);
         if (sourceVp == null && ActiveViewport != null && displayedViewports.Contains(ActiveViewport))
         {
             sourceVp = ActiveViewport;

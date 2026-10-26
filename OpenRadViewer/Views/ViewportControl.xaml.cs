@@ -251,7 +251,7 @@ public partial class ViewportControl : UserControl
                     if (mainVm != null && mainVm.CurrentSyncMode == SyncMode.Automatic && mainVm.ActiveViewport?.CurrentSlice != null && series.Slices.Count > 0)
                     {
                         var activeSlice = mainVm.ActiveViewport.CurrentSlice;
-                        if (MprService.DetectOrientation(activeSlice) == MprService.DetectOrientation(series.Slices[0]))
+                        if (MprService.DetectOrientation(activeSlice) == MprService.DetectSeriesOrientation(series))
                         {
                             initialSlice = SynchronizationService.FindClosestSliceIndex(activeSlice, series);
                         }
@@ -2460,11 +2460,9 @@ public partial class ViewportControl : UserControl
             mainVm.SetActiveViewport(vm);
         }
 
-        if (BdSlabBadge?.ContextMenu != null)
+        if (SlabPopup != null)
         {
-            BdSlabBadge.ContextMenu.PlacementTarget = BdSlabBadge;
-            BdSlabBadge.ContextMenu.Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom;
-            BdSlabBadge.ContextMenu.IsOpen = true;
+            SlabPopup.IsOpen = !SlabPopup.IsOpen;
         }
     }
 
@@ -2526,20 +2524,19 @@ public partial class ViewportControl : UserControl
         }
     }
 
-    private void OnSelectSlabThickness(object sender, RoutedEventArgs e)
+    private void OnResetNormalSliceClick(object sender, RoutedEventArgs e)
     {
         var vm = ViewModel;
-        if (vm == null || sender is not MenuItem mi) return;
-
-        if (double.TryParse(mi.Tag?.ToString(), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out double mm))
+        if (vm == null) return;
+        vm.ResetToNormalSlice();
+        if (SlabPopup != null)
         {
-            vm.SetSlabThicknessMm(mm);
-            var mainVm = GetMainViewModel();
-            if (mainVm != null)
-            {
-                string thickStr = vm.SlabThicknessMm > 0.1 ? $"{vm.SlabThicknessMm:0.#} mm" : "Thin (1 slice)";
-                mainVm.StatusMessage = $"Slab Thickness: {thickStr} [{vm.ProjectionModeShortName}]";
-            }
+            SlabPopup.IsOpen = false;
+        }
+        var mainVm = GetMainViewModel();
+        if (mainVm != null)
+        {
+            mainVm.StatusMessage = "Revenit la Slice Normal (MPR Thin 1 slice).";
         }
     }
 
@@ -2555,6 +2552,10 @@ public partial class ViewportControl : UserControl
             {
                 vp.SetProjectionMode(vm.ProjectionMode, vm.SlabThicknessMm);
             }
+        }
+        if (SlabPopup != null)
+        {
+            SlabPopup.IsOpen = false;
         }
         mainVm.StatusMessage = $"Applied {vm.ProjectionModeShortName} ({vm.SlabThicknessMm:0.#} mm) to all open viewports.";
     }

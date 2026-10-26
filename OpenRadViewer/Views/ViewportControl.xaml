@@ -60,83 +60,21 @@
             <!-- DICOM OSD Text Overlays (4 Corners) -->
             <!-- Top-Left Overlay -->
             <StackPanel HorizontalAlignment="Left" VerticalAlignment="Top" Margin="10,8,0,0">
-                <!-- Interactive MPR / MIP / MinIP & Slab Thickness Badge (RadiAnt Style) -->
-                <Border x:Name="BdSlabBadge"
-                        HorizontalAlignment="Left"
-                        Margin="0,0,0,4"
-                        Padding="6,2"
-                        CornerRadius="3"
-                        BorderThickness="1"
-                        Cursor="Hand"
-                        Visibility="{Binding ShowSlabBadge, Converter={StaticResource BooleanToVisibilityConverter}}"
-                        PreviewMouseLeftButtonDown="OnSlabBadgeClick"
-                        PreviewMouseRightButtonDown="OnSlabBadgeClick"
-                        PreviewMouseWheel="OnSlabBadgeMouseWheel"
-                        ToolTip="Click to select Projection Mode (MPR / AVG, MIP, MinIP) and Slab Thickness (mm)&#x0a;Mouse Wheel over badge: Adjust Slab Thickness in mm">
-                    <Border.Style>
-                        <Style TargetType="Border">
-                            <Setter Property="Background" Value="#CC1A1A1A" />
-                            <Setter Property="BorderBrush" Value="#444444" />
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding IsSlabActive}" Value="True">
-                                    <Setter Property="Background" Value="#DD0D2B36" />
-                                    <Setter Property="BorderBrush" Value="#00E5FF" />
-                                </DataTrigger>
-                                <Trigger Property="IsMouseOver" Value="True">
-                                    <Setter Property="BorderBrush" Value="#F5AF28" />
-                                    <Setter Property="Background" Value="#EE252525" />
-                                </Trigger>
-                            </Style.Triggers>
-                        </Style>
-                    </Border.Style>
-                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                        <Rectangle Width="9" Height="9" Fill="{Binding MprBadgeBrush}" Margin="0,0,5,0" RadiusX="1.5" RadiusY="1.5" VerticalAlignment="Center"
-                                   Visibility="{Binding IsMprViewport, Converter={StaticResource BooleanToVisibilityConverter}}" />
-                        <TextBlock Text="{Binding SlabBadgeText}" FontSize="11" FontWeight="Bold" VerticalAlignment="Center">
-                            <TextBlock.Style>
-                                <Style TargetType="TextBlock">
-                                    <Setter Property="Foreground" Value="#E0E0E0" />
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding IsSlabActive}" Value="True">
-                                            <Setter Property="Foreground" Value="#00E5FF" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </TextBlock.Style>
-                        </TextBlock>
-                    </StackPanel>
-                    <Border.ContextMenu>
-                        <ContextMenu x:Name="SlabBadgeContextMenu">
-                            <MenuItem Header="MPR / AVG (Average Intensity Projection)" Click="OnSelectModeAvg" FontWeight="SemiBold" />
-                            <MenuItem Header="MIP (Maximum Intensity Projection - Lung / Vessels)" Click="OnSelectModeMip" FontWeight="Bold" Foreground="#00E5FF" />
-                            <MenuItem Header="MinIP (Minimum Intensity Projection - Airways)" Click="OnSelectModeMinIp" FontWeight="SemiBold" Foreground="#80D8FF" />
-                            <Separator Background="#333333" />
-                            <MenuItem Header="Slab Thickness: Thin (1 slice / 0 mm)" Tag="0" Click="OnSelectSlabThickness" />
-                            <MenuItem Header="Slab Thickness: 2 mm" Tag="2" Click="OnSelectSlabThickness" />
-                            <MenuItem Header="Slab Thickness: 3 mm" Tag="3" Click="OnSelectSlabThickness" />
-                            <MenuItem Header="Slab Thickness: 5 mm" Tag="5" Click="OnSelectSlabThickness" />
-                            <MenuItem Header="Slab Thickness: 7 mm" Tag="7" Click="OnSelectSlabThickness" />
-                            <MenuItem Header="Slab Thickness: 10 mm (Standard Lung MIP)" Tag="10" Click="OnSelectSlabThickness" FontWeight="Bold" />
-                            <MenuItem Header="Slab Thickness: 15 mm" Tag="15" Click="OnSelectSlabThickness" />
-                            <MenuItem Header="Slab Thickness: 20 mm" Tag="20" Click="OnSelectSlabThickness" />
-                            <MenuItem Header="Slab Thickness: 25 mm" Tag="25" Click="OnSelectSlabThickness" />
-                            <MenuItem Header="Slab Thickness: 30 mm" Tag="30" Click="OnSelectSlabThickness" />
-                            <MenuItem Header="Slab Thickness: 50 mm" Tag="50" Click="OnSelectSlabThickness" />
-                            <Separator Background="#333333" />
-                            <MenuItem Header="Apply Current Mode &amp; Thickness to All MPR Planes" Click="OnApplySlabToAllMprPlanes" />
-                        </ContextMenu>
-                    </Border.ContextMenu>
-                </Border>
-                <TextBlock Text="{Binding PatientName}" Foreground="#E0E0E0" FontWeight="Bold" FontSize="13"
-                           Cursor="Hand" ToolTip="Right-click to copy patient name or CNP"
-                           PreviewMouseRightButtonDown="OnPatientTextRightDown">
-                    <TextBlock.ContextMenu>
-                        <ContextMenu>
-                            <MenuItem Header="Copy Patient Name" Click="OnCopyPatientName" />
-                            <MenuItem Header="Copy CNP (Patient ID)" Click="OnCopyPatientId" />
-                        </ContextMenu>
-                    </TextBlock.ContextMenu>
-                </TextBlock>
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <Rectangle Width="8" Height="8" Fill="{Binding MprBadgeBrush}" Margin="0,0,5,0" RadiusX="1.5" RadiusY="1.5" VerticalAlignment="Center"
+                               Visibility="{Binding IsMprViewport, Converter={StaticResource BooleanToVisibilityConverter}}"
+                               IsHitTestVisible="False" />
+                    <TextBlock Text="{Binding PatientName}" Foreground="#E0E0E0" FontWeight="Bold" FontSize="13"
+                               Cursor="Hand" ToolTip="Right-click to copy patient name or CNP"
+                               PreviewMouseRightButtonDown="OnPatientTextRightDown">
+                        <TextBlock.ContextMenu>
+                            <ContextMenu>
+                                <MenuItem Header="Copy Patient Name" Click="OnCopyPatientName" />
+                                <MenuItem Header="Copy CNP (Patient ID)" Click="OnCopyPatientId" />
+                            </ContextMenu>
+                        </TextBlock.ContextMenu>
+                    </TextBlock>
+                </StackPanel>
                 <TextBlock Text="{Binding PatientIdAndAgeOverlay}" Foreground="#A0A0A0" FontSize="11"
                            Cursor="Hand" ToolTip="Right-click to copy CNP or patient name"
                            PreviewMouseRightButtonDown="OnPatientTextRightDown">
@@ -154,7 +92,7 @@
             </StackPanel>
 
             <!-- Top-Right Overlay & Close Series Button -->
-            <StackPanel HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,6,6,0">
+            <StackPanel HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,6,8,0">
                 <!-- Discrete Orange Close (X) Button (Transparent, minimal, visible when series is loaded) -->
                 <Button x:Name="BtnCloseViewport"
                         Click="OnCloseViewportClicked"
@@ -183,12 +121,164 @@
                     </Button.Template>
                 </Button>
 
-                <StackPanel IsHitTestVisible="False">
-                    <TextBlock Text="{Binding CurrentSeries.DisplayTitle}" Foreground="#FFD700" FontWeight="SemiBold" FontSize="12" HorizontalAlignment="Right" />
-                    <TextBlock Text="{Binding SeriesTimeOverlay}" Foreground="#90CAF9" FontSize="11" HorizontalAlignment="Right" />
-                    <TextBlock Text="{Binding Modality}" Foreground="#A0A0A0" FontSize="11" HorizontalAlignment="Right" />
-                    <TextBlock Text="{Binding CurrentSlice.SequenceName}" Foreground="#808080" FontSize="10" HorizontalAlignment="Right" />
-                </StackPanel>
+                <TextBlock Text="{Binding CurrentSeries.DisplayTitle}" Foreground="#FFD700" FontWeight="SemiBold" FontSize="12" HorizontalAlignment="Right" IsHitTestVisible="False" />
+                <TextBlock Text="{Binding SeriesTimeOverlay}" Foreground="#90CAF9" FontSize="11" HorizontalAlignment="Right" IsHitTestVisible="False" />
+                <TextBlock Text="{Binding Modality}" Foreground="#A0A0A0" FontSize="11" HorizontalAlignment="Right" IsHitTestVisible="False" />
+
+                <!-- Borderless MPR / MIP / MinIP Selector right under Modality (CT/MR) -->
+                <Border x:Name="BdSlabBadge"
+                        Background="Transparent"
+                        BorderThickness="0"
+                        Padding="0,1"
+                        HorizontalAlignment="Right"
+                        Cursor="Hand"
+                        Visibility="{Binding ShowSlabBadge, Converter={StaticResource BooleanToVisibilityConverter}}"
+                        PreviewMouseLeftButtonDown="OnSlabBadgeClick"
+                        PreviewMouseRightButtonDown="OnSlabBadgeClick"
+                        PreviewMouseWheel="OnSlabBadgeMouseWheel"
+                        ToolTip="Click pentru selecție MPR / MIP / MinIP și cursor grosime (mm)&#x0a;Rotiță mouse: ajustează grosimea în mm">
+                    <TextBlock x:Name="TxtSlabBadge" Text="{Binding SlabBadgeText}" FontSize="11" FontWeight="SemiBold" HorizontalAlignment="Right">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Foreground" Value="#B0B0B0" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsSlabActive}" Value="True">
+                                        <Setter Property="Foreground" Value="#00E5FF" />
+                                        <Setter Property="FontWeight" Value="Bold" />
+                                    </DataTrigger>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter Property="Foreground" Value="#FFD54F" />
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                </Border>
+
+                <!-- Interactive Popup with Mode Buttons, Smooth Thickness Slider, and Normal Slice Reset -->
+                <Popup x:Name="SlabPopup"
+                       PlacementTarget="{Binding ElementName=BdSlabBadge}"
+                       Placement="Bottom"
+                       HorizontalOffset="-150"
+                       VerticalOffset="4"
+                       StaysOpen="False"
+                       AllowsTransparency="True"
+                       PopupAnimation="Fade">
+                    <Border Background="#F218181C"
+                            BorderBrush="#3E3E46"
+                            BorderThickness="1"
+                            CornerRadius="6"
+                            Padding="10,8"
+                            Width="215">
+                        <StackPanel>
+                            <!-- Mode Buttons: MPR | MIP | MinIP -->
+                            <UniformGrid Rows="1" Columns="3" Margin="0,0,0,8">
+                                <Button Content="MPR" Click="OnSelectModeAvg" Margin="0,0,3,0" Padding="0,4" Cursor="Hand" FontSize="11" FontWeight="SemiBold">
+                                    <Button.Style>
+                                        <Style TargetType="Button">
+                                            <Setter Property="Background" Value="#26262B" />
+                                            <Setter Property="Foreground" Value="#CCCCCC" />
+                                            <Setter Property="BorderBrush" Value="#3E3E46" />
+                                            <Setter Property="BorderThickness" Value="1" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsModeAvg}" Value="True">
+                                                    <Setter Property="Background" Value="#0D3B4C" />
+                                                    <Setter Property="Foreground" Value="#00E5FF" />
+                                                    <Setter Property="BorderBrush" Value="#00E5FF" />
+                                                    <Setter Property="FontWeight" Value="Bold" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                </Button>
+                                <Button Content="MIP" Click="OnSelectModeMip" Margin="1.5,0,1.5,0" Padding="0,4" Cursor="Hand" FontSize="11" FontWeight="SemiBold">
+                                    <Button.Style>
+                                        <Style TargetType="Button">
+                                            <Setter Property="Background" Value="#26262B" />
+                                            <Setter Property="Foreground" Value="#CCCCCC" />
+                                            <Setter Property="BorderBrush" Value="#3E3E46" />
+                                            <Setter Property="BorderThickness" Value="1" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsModeMip}" Value="True">
+                                                    <Setter Property="Background" Value="#0D3B4C" />
+                                                    <Setter Property="Foreground" Value="#00E5FF" />
+                                                    <Setter Property="BorderBrush" Value="#00E5FF" />
+                                                    <Setter Property="FontWeight" Value="Bold" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                </Button>
+                                <Button Content="MinIP" Click="OnSelectModeMinIp" Margin="3,0,0,0" Padding="0,4" Cursor="Hand" FontSize="11" FontWeight="SemiBold">
+                                    <Button.Style>
+                                        <Style TargetType="Button">
+                                            <Setter Property="Background" Value="#26262B" />
+                                            <Setter Property="Foreground" Value="#CCCCCC" />
+                                            <Setter Property="BorderBrush" Value="#3E3E46" />
+                                            <Setter Property="BorderThickness" Value="1" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsModeMinIp}" Value="True">
+                                                    <Setter Property="Background" Value="#0D3B4C" />
+                                                    <Setter Property="Foreground" Value="#00E5FF" />
+                                                    <Setter Property="BorderBrush" Value="#00E5FF" />
+                                                    <Setter Property="FontWeight" Value="Bold" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                </Button>
+                            </UniformGrid>
+
+                            <!-- Thickness Slider Header -->
+                            <DockPanel Margin="0,0,0,4">
+                                <TextBlock Text="Grosime (Thickness):" Foreground="#B0B0B0" FontSize="11" VerticalAlignment="Center" />
+                                <TextBlock Text="{Binding SlabThicknessMm, StringFormat='{}{0:0.0} mm'}"
+                                           Foreground="#00E5FF" FontWeight="Bold" FontSize="11"
+                                           HorizontalAlignment="Right" VerticalAlignment="Center" />
+                            </DockPanel>
+
+                            <!-- Interactive Thickness Slider (0 - 50 mm) -->
+                            <Slider x:Name="SldSlabThickness"
+                                    Minimum="0"
+                                    Maximum="50"
+                                    SmallChange="0.5"
+                                    LargeChange="5"
+                                    TickFrequency="0.5"
+                                    IsSnapToTickEnabled="True"
+                                    IsMoveToPointEnabled="True"
+                                    Value="{Binding SlabThicknessMm, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                    Cursor="Hand"
+                                    Margin="0,2,0,8" />
+
+                            <!-- Reset to Normal Slice Button -->
+                            <Button Content="↺ Revenire la Slice Normal"
+                                    Click="OnResetNormalSliceClick"
+                                    Cursor="Hand"
+                                    Padding="6,4"
+                                    FontSize="11"
+                                    FontWeight="SemiBold"
+                                    Background="#25252B"
+                                    Foreground="#FFD54F"
+                                    BorderBrush="#44444E"
+                                    BorderThickness="1" />
+
+                            <!-- Apply to all MPR planes (only when in 3D MPR) -->
+                            <Button Content="Aplică pe toate planurile MPR"
+                                    Click="OnApplySlabToAllMprPlanes"
+                                    Visibility="{Binding IsMprViewport, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                    Cursor="Hand"
+                                    Margin="0,4,0,0"
+                                    Padding="6,3"
+                                    FontSize="10.5"
+                                    Background="#1E1E24"
+                                    Foreground="#90CAF9"
+                                    BorderBrush="#33333D"
+                                    BorderThickness="1" />
+                        </StackPanel>
+                    </Border>
+                </Popup>
+
+                <TextBlock Text="{Binding CurrentSlice.SequenceName}" Foreground="#808080" FontSize="10" HorizontalAlignment="Right" IsHitTestVisible="False" />
             </StackPanel>
 
             <!-- Bottom-Left Overlay -->

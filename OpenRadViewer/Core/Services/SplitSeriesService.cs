@@ -20,17 +20,42 @@ public enum SplitCriterion
 
 public static class SplitSeriesService
 {
+    public static double? GetEffectiveBValue(DicomSliceModel s)
+    {
+        if (!string.IsNullOrWhiteSpace(s.SequenceName))
+        {
+            var matches = System.Text.RegularExpressions.Regex.Matches(
+                s.SequenceName,
+                @"(?:^|[_\s\*])b[=_]?(\d{1,5})(?![0-9])",
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            if (matches.Count == 1 && double.TryParse(matches[0].Groups[1].Value, out double seqB))
+            {
+                return seqB;
+            }
+        }
+        return s.DiffusionBValue;
+    }
+
     public static bool CanSplit(SeriesModel series)
     {
         if (series == null || series.Slices.Count < 2) return false;
 
-        // Check b-values
+        // Check b-values (including per-slice SequenceName b-value)
         var bValues = series.Slices
-            .Where(s => s.DiffusionBValue.HasValue)
-            .Select(s => Math.Round(s.DiffusionBValue!.Value))
+            .Select(GetEffectiveBValue)
+            .Where(b => b.HasValue)
+            .Select(b => Math.Round(b!.Value))
             .Distinct()
             .ToList();
         if (bValues.Count > 1) return true;
+
+        // Check distinct per-slice SequenceNames with duplicate slice positions (e.g. *ep_b50d vs *ep_b800t)
+        var seqNames = series.Slices
+            .Select(s => s.SequenceName?.Trim() ?? "")
+            .Where(n => !string.IsNullOrEmpty(n))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        if (seqNames.Count > 1 && HasDuplicatePositions(series.Slices)) return true;
 
         // Check spatial orientations (Localizer / mixed planes)
         var orientations = series.Slices
@@ -58,11 +83,19 @@ public static class SplitSeriesService
         if (series == null || series.Slices.Count < 2) return SplitCriterion.Auto;
 
         var bValues = series.Slices
-            .Where(s => s.DiffusionBValue.HasValue)
-            .Select(s => Math.Round(s.DiffusionBValue!.Value))
+            .Select(GetEffectiveBValue)
+            .Where(b => b.HasValue)
+            .Select(b => Math.Round(b!.Value))
             .Distinct()
             .ToList();
         if (bValues.Count > 1) return SplitCriterion.DiffusionBValue;
+
+        var seqNames = series.Slices
+            .Select(s => s.SequenceName?.Trim() ?? "")
+            .Where(n => !string.IsNullOrEmpty(n))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        if (seqNames.Count > 1 && HasDuplicatePositions(series.Slices)) return SplitCriterion.DiffusionBValue;
 
         var orientations = series.Slices
             .Select(s => MprService.DetectOrientation(s).ToString())
@@ -97,12 +130,62 @@ public static class SplitSeriesService
         {
             case SplitCriterion.DiffusionBValue:
                 var bGroups = series.Slices
-                    .GroupBy(s => s.DiffusionBValue.HasValue ? (int)Math.Round(s.DiffusionBValue.Value) : -1)
-                    .OrderBy(g => g.Key);
-                foreach (var g in bGroups)
+                    .GroupBy(s =>
+                    {
+                        var b = GetEffectiveBValue(s);
+                        return b.HasValue ? (int)Math.Round(b.Value) : -1;
+                    })
+                    .OrderBy(g => g.Key)
+                    .ToList();
+
+                if (bGroups.Count > 1)
                 {
-                    string label = g.Key >= 0 ? $"b={g.Key}" : "b=Unknown";
-                    groups.Add((label, g.ToList()));
+                    foreach (var g in bGroups)
+                    {
+                        string baseLabel = g.Key >= 0 ? $"b={g.Key}" : "b=Unknown";
+                        var gSlices = g.ToList();
+
+                        // If a single b-value group still contains multiple passes at the same Z location (e.g. directional vs trace),
+                        // split those duplicate positions cleanly so each sub-series is a single 3D volume
+                        if (HasDuplicatePositions(gSlices))
+                        {
+                            var subPasses = SplitDuplicateLocationPasses(gSlices);
+                            if (subPasses.Count > 1)
+                            {
+                                for (int i = 0; i < subPasses.Count; i++)
+                                {
+                                    groups.Add(($"{baseLabel} ({i + 1})", subPasses[i].Slices));
+                                }
+                                continue;
+                            }
+                        }
+
+                        DicomLoaderService.SortSlices(gSlices);
+                        groups.Add((baseLabel, gSlices));
+                    }
+                }
+                else
+                {
+                    // Try grouping by SequenceName if b-values were not explicitly numeric
+                    var seqGroups = series.Slices
+                        .GroupBy(s => s.SequenceName?.Trim() ?? "")
+                        .Where(g => !string.IsNullOrEmpty(g.Key))
+                        .OrderBy(g => g.Key)
+                        .ToList();
+
+                    if (seqGroups.Count > 1)
+                    {
+                        foreach (var sg in seqGroups)
+                        {
+                            var sgSlices = sg.ToList();
+                            DicomLoaderService.SortSlices(sgSlices);
+                            groups.Add((sg.Key, sgSlices));
+                        }
+                    }
+                    else
+                    {
+                        groups = SplitDuplicateLocationPasses(series.Slices, series.SeriesDescription);
+                    }
                 }
                 break;
 
@@ -112,7 +195,9 @@ public static class SplitSeriesService
                     .OrderBy(g => g.Key);
                 foreach (var g in oGroups)
                 {
-                    groups.Add((g.Key, g.ToList()));
+                    var oSlices = g.ToList();
+                    DicomLoaderService.SortSlices(oSlices);
+                    groups.Add((g.Key, oSlices));
                 }
                 break;
 
@@ -122,7 +207,9 @@ public static class SplitSeriesService
                     .OrderBy(g => g.Key);
                 foreach (var g in teGroups)
                 {
-                    groups.Add(($"TE {g.Key}ms", g.ToList()));
+                    var teSlices = g.ToList();
+                    DicomLoaderService.SortSlices(teSlices);
+                    groups.Add(($"TE {g.Key}ms", teSlices));
                 }
                 break;
 
@@ -135,13 +222,15 @@ public static class SplitSeriesService
                     var tGroups = series.Slices.GroupBy(s => s.TemporalPosition).OrderBy(g => g.Key);
                     foreach (var g in tGroups)
                     {
-                        groups.Add(($"Phase {g.Key}", g.ToList()));
+                        var tSlices = g.ToList();
+                        DicomLoaderService.SortSlices(tSlices);
+                        groups.Add(($"Phase {g.Key}", tSlices));
                     }
                 }
                 else
                 {
-                    // Split duplicate slice position passes
-                    groups = SplitDuplicateLocationPasses(series.Slices);
+                    // Split duplicate slice position passes properly across Z
+                    groups = SplitDuplicateLocationPasses(series.Slices, series.SeriesDescription);
                 }
                 break;
         }
@@ -180,6 +269,7 @@ public static class SplitSeriesService
                 {
                     int midIdx = subSeries.Slices.Count / 2;
                     var midSlice = subSeries.Slices[midIdx];
+                    DicomLoaderService.LoadPixelData(midSlice);
                     System.Windows.Media.Imaging.WriteableBitmap? thumbBmp = null;
                     PixelRenderer.RenderToBitmap(midSlice, midSlice.DefaultWindowCenter, midSlice.DefaultWindowWidth, false, ref thumbBmp);
                     if (thumbBmp != null)
@@ -198,44 +288,83 @@ public static class SplitSeriesService
         return result;
     }
 
-    private static bool HasDuplicatePositions(List<DicomSliceModel> slices)
+    private static string GetPositionKey(DicomSliceModel s)
     {
-        var positions = slices
-            .Where(s => s.ImagePositionPatient != null && s.ImagePositionPatient.Length >= 3)
-            .Select(s => $"{Math.Round(s.ImagePositionPatient![0], 1)}_{Math.Round(s.ImagePositionPatient[1], 1)}_{Math.Round(s.ImagePositionPatient[2], 1)}")
-            .ToList();
-
-        return positions.Count > 0 && positions.Distinct().Count() < positions.Count;
+        return s.ImagePositionPatient != null && s.ImagePositionPatient.Length >= 3
+            ? $"{Math.Round(s.ImagePositionPatient[0], 1)}_{Math.Round(s.ImagePositionPatient[1], 1)}_{Math.Round(s.ImagePositionPatient[2], 1)}"
+            : s.SliceLocation.ToString("0.0");
     }
 
-    private static List<(string Label, List<DicomSliceModel> Slices)> SplitDuplicateLocationPasses(List<DicomSliceModel> slices)
+    private static bool HasDuplicatePositions(List<DicomSliceModel> slices)
+    {
+        if (slices.Count < 2) return false;
+        var posGroups = slices.GroupBy(GetPositionKey).ToList();
+        return posGroups.Count >= 1 && posGroups.Any(g => g.Count() > 1);
+    }
+
+    private static List<(string Label, List<DicomSliceModel> Slices)> SplitDuplicateLocationPasses(List<DicomSliceModel> slices, string? seriesDesc = null)
     {
         var result = new List<(string Label, List<DicomSliceModel> Slices)>();
-        if (slices.Count == 0) return result;
+        if (slices.Count < 2) return result;
 
-        // Find how many unique positions exist
-        var posKeys = slices
-            .Select(s => s.ImagePositionPatient != null && s.ImagePositionPatient.Length >= 3
-                ? $"{Math.Round(s.ImagePositionPatient[0], 1)}_{Math.Round(s.ImagePositionPatient[1], 1)}_{Math.Round(s.ImagePositionPatient[2], 1)}"
-                : s.SliceLocation.ToString("0.0"))
+        // Group slices by their 3D anatomical position key, and within each anatomical position,
+        // sort by InstanceNumber (then FrameIndex) so index p is always Pass p at that anatomical location.
+        var posGroups = slices
+            .GroupBy(GetPositionKey)
+            .Select(g => g.OrderBy(s => s.InstanceNumber).ThenBy(s => s.FrameIndex).ToList())
             .ToList();
 
-        int uniqueCount = posKeys.Distinct().Count();
-        if (uniqueCount > 0 && slices.Count % uniqueCount == 0)
+        int maxPasses = posGroups.Max(g => g.Count);
+        if (maxPasses <= 1) return result;
+
+        // Extract b-value hints from series description if present (e.g. "ep2d_diff_b50_b800" or "ep2d_diff_b50_800")
+        var bHints = new List<string>();
+        if (!string.IsNullOrWhiteSpace(seriesDesc))
         {
-            int numPasses = slices.Count / uniqueCount;
-            for (int p = 0; p < numPasses; p++)
+            var m = System.Text.RegularExpressions.Regex.Match(seriesDesc, @"b(\d{1,4})(?:[_\s]+b?(\d{1,4}))+(?![0-9])", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            if (m.Success)
             {
-                var passSlices = slices.Skip(p * uniqueCount).Take(uniqueCount).ToList();
-                result.Add(($"Pass {p + 1}", passSlices));
+                var nums = System.Text.RegularExpressions.Regex.Matches(m.Value, @"\d{1,4}");
+                foreach (System.Text.RegularExpressions.Match nm in nums)
+                {
+                    bHints.Add($"b={nm.Value}");
+                }
             }
-            return result;
         }
 
-        // Generic fallback into 2 halves
-        int half = slices.Count / 2;
-        result.Add(("Part 1", slices.Take(half).ToList()));
-        result.Add(("Part 2", slices.Skip(half).ToList()));
+        for (int p = 0; p < maxPasses; p++)
+        {
+            var passSlices = new List<DicomSliceModel>();
+            foreach (var locGroup in posGroups)
+            {
+                if (p < locGroup.Count)
+                {
+                    passSlices.Add(locGroup[p]);
+                }
+            }
+
+            if (passSlices.Count > 0)
+            {
+                DicomLoaderService.SortSlices(passSlices);
+                string label;
+                if (bHints.Count == maxPasses)
+                {
+                    label = bHints[p];
+                }
+                else if (bHints.Count > 0 && maxPasses % bHints.Count == 0)
+                {
+                    int bIdx = p % bHints.Count;
+                    int subPass = (p / bHints.Count) + 1;
+                    label = $"{bHints[bIdx]} ({subPass})";
+                }
+                else
+                {
+                    label = $"Pass {p + 1}";
+                }
+                result.Add((label, passSlices));
+            }
+        }
+
         return result;
     }
 }

@@ -110,7 +110,13 @@ public partial class ViewportViewModel : ObservableObject
     [ObservableProperty]
     private double _slabThicknessMm = 0.0;
 
+    private bool _isUpdatingSlabInternally;
+
     public bool IsSlabActive => SlabThicknessMm > 0.1 || ProjectionMode != SlabProjectionMode.Average;
+
+    public bool IsModeAvg => ProjectionMode == SlabProjectionMode.Average;
+    public bool IsModeMip => ProjectionMode == SlabProjectionMode.Mip;
+    public bool IsModeMinIp => ProjectionMode == SlabProjectionMode.MinIp;
 
     public bool ShowSlabBadge => IsMprViewport || (CurrentSeries != null && CurrentSeries.Slices.Count >= 3);
 
@@ -128,7 +134,7 @@ public partial class ViewportViewModel : ObservableObject
             string modeStr = ProjectionModeShortName;
             if (SlabThicknessMm > 0.1)
             {
-                return $"{modeStr}  {SlabThicknessMm:0.#} mm ▾";
+                return $"{modeStr} {SlabThicknessMm:0.#} mm ▾";
             }
             return $"{modeStr} ▾";
         }
@@ -146,17 +152,46 @@ public partial class ViewportViewModel : ObservableObject
         MprCenterPoint = null;
     }
 
+    partial void OnSlabThicknessMmChanged(double value)
+    {
+        if (_isUpdatingSlabInternally) return;
+        _isUpdatingSlabInternally = true;
+        try
+        {
+            double clamped = Math.Round(Math.Clamp(value, 0.0, 50.0), 1);
+            if (Math.Abs(_slabThicknessMm - clamped) > 0.01)
+            {
+                _slabThicknessMm = clamped;
+            }
+            RegenerateObliqueSliceIfNeeded();
+            RenderCurrentSlice();
+            NotifySlabPropertiesChanged();
+        }
+        finally
+        {
+            _isUpdatingSlabInternally = false;
+        }
+    }
+
     public void SetProjectionMode(SlabProjectionMode mode, double? customThicknessMm = null)
     {
-        ProjectionMode = mode;
-        if (customThicknessMm.HasValue)
+        _isUpdatingSlabInternally = true;
+        try
         {
-            SlabThicknessMm = Math.Clamp(customThicknessMm.Value, 0.0, 100.0);
+            ProjectionMode = mode;
+            if (customThicknessMm.HasValue)
+            {
+                SlabThicknessMm = Math.Clamp(customThicknessMm.Value, 0.0, 50.0);
+            }
+            else if (mode != SlabProjectionMode.Average && SlabThicknessMm <= 0.1)
+            {
+                // Default to 10 mm slab when enabling MIP / MinIP (standard clinical chest CT slab)
+                SlabThicknessMm = 10.0;
+            }
         }
-        else if (mode != SlabProjectionMode.Average && SlabThicknessMm <= 0.1)
+        finally
         {
-            // Default to 10 mm slab when enabling MIP / MinIP (standard clinical chest CT slab)
-            SlabThicknessMm = 10.0;
+            _isUpdatingSlabInternally = false;
         }
 
         RegenerateObliqueSliceIfNeeded();
@@ -166,11 +201,31 @@ public partial class ViewportViewModel : ObservableObject
 
     public void SetSlabThicknessMm(double thicknessMm)
     {
-        SlabThicknessMm = Math.Clamp(thicknessMm, 0.0, 100.0);
-        if (SlabThicknessMm <= 0.1 && ProjectionMode != SlabProjectionMode.Average)
+        _isUpdatingSlabInternally = true;
+        try
         {
-            // Thin slice (0 mm) returns to standard MPR slice
+            SlabThicknessMm = Math.Round(Math.Clamp(thicknessMm, 0.0, 50.0), 1);
+        }
+        finally
+        {
+            _isUpdatingSlabInternally = false;
+        }
+        RegenerateObliqueSliceIfNeeded();
+        RenderCurrentSlice();
+        NotifySlabPropertiesChanged();
+    }
+
+    public void ResetToNormalSlice()
+    {
+        _isUpdatingSlabInternally = true;
+        try
+        {
             ProjectionMode = SlabProjectionMode.Average;
+            SlabThicknessMm = 0.0;
+        }
+        finally
+        {
+            _isUpdatingSlabInternally = false;
         }
         RegenerateObliqueSliceIfNeeded();
         RenderCurrentSlice();
@@ -184,7 +239,7 @@ public partial class ViewportViewModel : ObservableObject
         {
             next = Math.Max(2.0, deltaMm);
         }
-        if (next < 1.0) next = 0.0;
+        if (next < 0.5) next = 0.0;
         SetSlabThicknessMm(Math.Round(next, 1));
     }
 
@@ -226,6 +281,9 @@ public partial class ViewportViewModel : ObservableObject
         OnPropertyChanged(nameof(ProjectionMode));
         OnPropertyChanged(nameof(SlabThicknessMm));
         OnPropertyChanged(nameof(IsSlabActive));
+        OnPropertyChanged(nameof(IsModeAvg));
+        OnPropertyChanged(nameof(IsModeMip));
+        OnPropertyChanged(nameof(IsModeMinIp));
         OnPropertyChanged(nameof(ShowSlabBadge));
         OnPropertyChanged(nameof(ProjectionModeShortName));
         OnPropertyChanged(nameof(SlabBadgeText));
@@ -331,13 +389,21 @@ public partial class ViewportViewModel : ObservableObject
         OriginalSeries = series;
         CurrentSeries = series;
         ResetMprOrientation();
-        ProjectionMode = SlabProjectionMode.Average;
-        SlabThicknessMm = 0.0;
+        _isUpdatingSlabInternally = true;
+        try
+        {
+            ProjectionMode = SlabProjectionMode.Average;
+            SlabThicknessMm = 0.0;
+        }
+        finally
+        {
+            _isUpdatingSlabInternally = false;
+        }
         CurrentSliceIndex = Math.Clamp(initialSlice, 0, Math.Max(0, series.Slices.Count - 1));
 
         if (CurrentSlice != null)
         {
-            CurrentPlane = MprService.DetectOrientation(CurrentSlice);
+            CurrentPlane = MprService.DetectSeriesOrientation(series);
             WindowCenter = CurrentSlice.DefaultWindowCenter;
             WindowWidth = CurrentSlice.DefaultWindowWidth;
         }

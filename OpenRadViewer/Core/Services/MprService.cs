@@ -51,6 +51,16 @@ public static class MprService
         return OrthogonalPlane.Sagittal;
     }
 
+    public static OrthogonalPlane DetectSeriesOrientation(SeriesModel series)
+    {
+        if (series == null || series.Slices.Count == 0)
+            return OrthogonalPlane.Axial;
+
+        // Use middle slice to avoid being misled by an embedded scout/localizer reference image at index 0
+        var midSlice = series.Slices[series.Slices.Count / 2];
+        return DetectOrientation(midSlice);
+    }
+
     /// <summary>
     /// Generates or retrieves an orthogonal MPR series (Coronal, Sagittal, or Axial) from a 3D volumetric series.
     /// Fast multi-threaded volume slicing with exact DICOM coordinates and full pixel preloading.
@@ -59,19 +69,27 @@ public static class MprService
     {
         if (sourceSeries.Slices.Count < 3) return null;
 
-        var firstSlice = sourceSeries.Slices[0];
-        var originalPlane = DetectOrientation(firstSlice);
+        var originalPlane = DetectSeriesOrientation(sourceSeries);
+        var midRef = sourceSeries.Slices[sourceSeries.Slices.Count / 2];
+
+        // Exclude any embedded reference scout slice that has a different orientation or dimensions
+        var validSlices = sourceSeries.Slices
+            .Where(s => DetectOrientation(s) == originalPlane && s.Rows == midRef.Rows && s.Columns == midRef.Columns)
+            .ToList();
+        if (validSlices.Count < 3)
+            validSlices = sourceSeries.Slices;
 
         if (originalPlane == targetPlane)
             return sourceSeries;
 
-        string cacheKey = $"{sourceSeries.SeriesInstanceUid}_{targetPlane}_{sourceSeries.Slices.Count}";
+        string cacheKey = $"{sourceSeries.SeriesInstanceUid}_{targetPlane}_{validSlices.Count}";
         if (_mprCache.TryGetValue(cacheKey, out var cachedSeries))
         {
             return cachedSeries;
         }
 
-        int numSlices = sourceSeries.Slices.Count;
+        var firstSlice = validSlices[0];
+        int numSlices = validSlices.Count;
         int origRows = firstSlice.Rows;
         int origCols = firstSlice.Columns;
 
@@ -85,7 +103,7 @@ public static class MprService
 
         // Calculate slice step vector and through-plane spacing
         double stepX = 0, stepY = 0, stepZ = 0;
-        var lastSlice = sourceSeries.Slices[numSlices - 1];
+        var lastSlice = validSlices[numSlices - 1];
 
         if (firstSlice.ImagePositionPatient != null && lastSlice.ImagePositionPatient != null &&
             firstSlice.ImagePositionPatient.Length >= 3 && lastSlice.ImagePositionPatient.Length >= 3 &&
@@ -139,13 +157,13 @@ public static class MprService
         {
             srcSignedSlices = new short[numSlices][];
             for (int z = 0; z < numSlices; z++)
-                srcSignedSlices[z] = sourceSeries.Slices[z].RawPixelsSigned ?? new short[origRows * origCols];
+                srcSignedSlices[z] = validSlices[z].RawPixelsSigned ?? new short[origRows * origCols];
         }
         else
         {
             srcUnsignedSlices = new ushort[numSlices][];
             for (int z = 0; z < numSlices; z++)
-                srcUnsignedSlices[z] = sourceSeries.Slices[z].RawPixelsUnsigned ?? new ushort[origRows * origCols];
+                srcUnsignedSlices[z] = validSlices[z].RawPixelsUnsigned ?? new ushort[origRows * origCols];
         }
 
         var mprSeries = new SeriesModel
@@ -698,8 +716,16 @@ public static class MprService
 
         DicomLoaderService.LoadSeriesPixelData(series);
 
-        var firstSlice = series.Slices[0];
-        int numSlices = series.Slices.Count;
+        var origPlane = DetectSeriesOrientation(series);
+        var midRef = series.Slices[series.Slices.Count / 2];
+        var validSlices = series.Slices
+            .Where(s => DetectOrientation(s) == origPlane && s.Rows == midRef.Rows && s.Columns == midRef.Columns)
+            .ToList();
+        if (validSlices.Count < 2)
+            validSlices = series.Slices;
+
+        var firstSlice = validSlices[0];
+        int numSlices = validSlices.Count;
         int origRows = firstSlice.Rows;
         int origCols = firstSlice.Columns;
         if (origRows <= 0 || origCols <= 0) return null;
@@ -708,7 +734,7 @@ public static class MprService
         double spY = Math.Max(0.0001, firstSlice.PixelSpacingY);
 
         double stepX = 0, stepY = 0, stepZ = 0;
-        var lastSlice = series.Slices[numSlices - 1];
+        var lastSlice = validSlices[numSlices - 1];
 
         if (firstSlice.ImagePositionPatient != null && lastSlice.ImagePositionPatient != null &&
             firstSlice.ImagePositionPatient.Length >= 3 && lastSlice.ImagePositionPatient.Length >= 3 &&
@@ -752,13 +778,13 @@ public static class MprService
         {
             signedSlices = new short[numSlices][];
             for (int z = 0; z < numSlices; z++)
-                signedSlices[z] = series.Slices[z].RawPixelsSigned ?? new short[origRows * origCols];
+                signedSlices[z] = validSlices[z].RawPixelsSigned ?? new short[origRows * origCols];
         }
         else
         {
             unsignedSlices = new ushort[numSlices][];
             for (int z = 0; z < numSlices; z++)
-                unsignedSlices[z] = series.Slices[z].RawPixelsUnsigned ?? new ushort[origRows * origCols];
+                unsignedSlices[z] = validSlices[z].RawPixelsUnsigned ?? new ushort[origRows * origCols];
         }
 
         var ctx = new VolumeContext

@@ -1157,18 +1157,40 @@ public class DicomLoaderService
     {
         if (slices.Count <= 1) return;
 
-        // Try sorting by position along normal vector
-        var first = slices[0];
-        if (first.ImageOrientationPatient != null && first.ImageOrientationPatient.Length >= 6 &&
+        // Strip embedded scout/reference localizer outlier slices from reformatted series
+        // (e.g. GE/CT Coronal or Sagittal series where Image 1 is an Axial reference image with dotted cut-lines)
+        if (slices.Count >= 4)
+        {
+            var orientGroups = slices
+                .GroupBy(s => MprService.DetectOrientation(s))
+                .OrderByDescending(g => g.Count())
+                .ToList();
+
+            if (orientGroups.Count > 1)
+            {
+                var majorityGroup = orientGroups[0];
+                int outlierCount = slices.Count - majorityGroup.Count();
+                if (outlierCount <= 2 && majorityGroup.Count() >= slices.Count * 0.80)
+                {
+                    var majorityPlane = majorityGroup.Key;
+                    slices.RemoveAll(s => MprService.DetectOrientation(s) != majorityPlane);
+                    if (slices.Count <= 1) return;
+                }
+            }
+        }
+
+        // Try sorting by position along normal vector (using middle slice as representative)
+        var refSlice = slices[slices.Count / 2];
+        if (refSlice.ImageOrientationPatient != null && refSlice.ImageOrientationPatient.Length >= 6 &&
             slices.All(s => s.ImagePositionPatient != null && s.ImagePositionPatient.Length >= 3))
         {
             // Normal vector = rowVector x colVector
-            double rx = first.ImageOrientationPatient[0];
-            double ry = first.ImageOrientationPatient[1];
-            double rz = first.ImageOrientationPatient[2];
-            double cx = first.ImageOrientationPatient[3];
-            double cy = first.ImageOrientationPatient[4];
-            double cz = first.ImageOrientationPatient[5];
+            double rx = refSlice.ImageOrientationPatient[0];
+            double ry = refSlice.ImageOrientationPatient[1];
+            double rz = refSlice.ImageOrientationPatient[2];
+            double cx = refSlice.ImageOrientationPatient[3];
+            double cy = refSlice.ImageOrientationPatient[4];
+            double cz = refSlice.ImageOrientationPatient[5];
 
             double nx = ry * cz - rz * cy;
             double ny = rz * cx - rx * cz;
@@ -1248,56 +1270,168 @@ public class DicomLoaderService
         return $"{comments.First()} - {comments.Last()}";
     }
 
+    private static double? TryReadBValueFromElement(DicomDataset dataset, DicomTag tag, bool isGeTag = false)
+    {
+        if (!dataset.Contains(tag)) return null;
+
+        try
+        {
+            if (isGeTag)
+            {
+                var vals = dataset.GetValues<int>(tag);
+                if (vals.Length > 0) return (double)(Math.Abs(vals[0]) % 100000);
+            }
+            else
+            {
+                double dVal = dataset.GetSingleValue<double>(tag);
+                if (!double.IsNaN(dVal) && dVal >= 0 && dVal <= 30000) return dVal;
+            }
+        }
+        catch { }
+
+        try
+        {
+            string sVal = dataset.GetString(tag);
+            if (!string.IsNullOrWhiteSpace(sVal))
+            {
+                var parts = sVal.Split(new[] { '\\', ' ', ';', ',' }, StringSplitOptions.RemoveEmptyEntries);
+                if (parts.Length > 0 && double.TryParse(parts[0].Trim(), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out double bVal))
+                {
+                    if (isGeTag) bVal = Math.Abs(bVal) % 100000;
+                    if (bVal >= 0 && bVal <= 30000) return bVal;
+                }
+            }
+        }
+        catch { }
+
+        try
+        {
+            var item = dataset.GetDicomItem<DicomElement>(tag);
+            if (item?.Buffer?.Data != null && item.Buffer.Data.Length > 0)
+            {
+                byte[] bytes = item.Buffer.Data;
+                string ascii = System.Text.Encoding.ASCII.GetString(bytes).Trim('\0', ' ', '\r', '\n');
+                var parts = ascii.Split(new[] { '\\', ' ', ';', ',' }, StringSplitOptions.RemoveEmptyEntries);
+                if (parts.Length > 0 && double.TryParse(parts[0].Trim(), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out double asciiB) &&
+                    asciiB >= 0 && asciiB <= 30000)
+                {
+                    return isGeTag ? (Math.Abs(asciiB) % 100000) : asciiB;
+                }
+
+                if (bytes.Length == 8)
+                {
+                    double binD = BitConverter.ToDouble(bytes, 0);
+                    if (!double.IsNaN(binD) && !double.IsInfinity(binD) && binD >= 0 && binD <= 30000 && Math.Abs(binD - Math.Round(binD)) < 0.01)
+                        return Math.Round(binD);
+                }
+                if (bytes.Length >= 4)
+                {
+                    int binI = BitConverter.ToInt32(bytes, 0);
+                    int modI = isGeTag ? (Math.Abs(binI) % 100000) : binI;
+                    if (modI >= 0 && modI <= 30000) return modI;
+
+                    float binF = BitConverter.ToSingle(bytes, 0);
+                    if (!float.IsNaN(binF) && !float.IsInfinity(binF) && binF >= 0 && binF <= 30000 && Math.Abs(binF - Math.Round(binF)) < 0.01)
+                        return Math.Round(binF);
+                }
+            }
+        }
+        catch { }
+
+        return null;
+    }
+
     private static double? ExtractDiffusionBValue(DicomDataset ds, DicomDataset? frameItem, DicomDataset? sharedItem, int frameIndex)
     {
         // 1. Standard DICOM tag (0018,9058)
-        if (ds.Contains(DicomTag.DiffusionBValue))
-        {
-            try { return ds.GetSingleValueOrDefault(DicomTag.DiffusionBValue, 0.0); } catch { }
-        }
+        var stdB = TryReadBValueFromElement(ds, DicomTag.DiffusionBValue);
+        if (stdB.HasValue) return stdB.Value;
 
         // 2. Functional groups sequence (Enhanced MR)
-        DicomDataset? target = frameItem ?? sharedItem;
-        if (target != null && target.Contains(DicomTag.MRDiffusionSequence))
+        foreach (var fg in new[] { frameItem, sharedItem })
         {
-            var diffSeq = target.GetSequence(DicomTag.MRDiffusionSequence);
-            if (diffSeq != null && diffSeq.Items.Count > 0)
+            if (fg == null) continue;
+            var fgB = TryReadBValueFromElement(fg, DicomTag.DiffusionBValue);
+            if (fgB.HasValue) return fgB.Value;
+
+            if (fg.Contains(DicomTag.MRDiffusionSequence))
             {
-                return diffSeq.Items[0].GetSingleValueOrDefault(DicomTag.DiffusionBValue, 0.0);
+                try
+                {
+                    var diffSeq = fg.GetSequence(DicomTag.MRDiffusionSequence);
+                    if (diffSeq != null && diffSeq.Items.Count > 0)
+                    {
+                        var seqB = TryReadBValueFromElement(diffSeq.Items[0], DicomTag.DiffusionBValue);
+                        if (seqB.HasValue) return seqB.Value;
+                    }
+                }
+                catch { }
             }
         }
 
-        // 3. Siemens private tag (0019, 100C)
-        var siemensBTag = new DicomTag(0x0019, 0x100C);
-        if (ds.Contains(siemensBTag))
+        // 3. Vendor private tags: Siemens (0019, xx0C), GE (0043, xx39), Philips (2001, xx03)
+        foreach (var container in new[] { frameItem, ds, sharedItem })
         {
-            try
+            if (container == null) continue;
+
+            // Direct known tags first
+            var siemensDirect = TryReadBValueFromElement(container, new DicomTag(0x0019, 0x100C));
+            if (siemensDirect.HasValue) return siemensDirect.Value;
+
+            var geDirect = TryReadBValueFromElement(container, new DicomTag(0x0043, 0x1039), isGeTag: true);
+            if (geDirect.HasValue) return geDirect.Value;
+
+            var philipsDirect = TryReadBValueFromElement(container, new DicomTag(0x2001, 0x1003));
+            if (philipsDirect.HasValue) return philipsDirect.Value;
+
+            // Scan private creator blocks in case element high byte is shifted (e.g. 0019,110C or 0019,000C)
+            foreach (var item in container)
             {
-                string sVal = ds.GetString(siemensBTag);
-                if (double.TryParse(sVal, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out double bVal))
-                    return bVal;
+                var t = item.Tag;
+                if (t.Group == 0x0019 && (t.Element & 0x00FF) == 0x000C && t.Element >= 0x0100)
+                {
+                    var v = TryReadBValueFromElement(container, t);
+                    if (v.HasValue) return v.Value;
+                }
+                else if (t.Group == 0x0043 && (t.Element & 0x00FF) == 0x0039 && t.Element >= 0x0100)
+                {
+                    var v = TryReadBValueFromElement(container, t, isGeTag: true);
+                    if (v.HasValue) return v.Value;
+                }
+                else if (t.Group == 0x2001 && (t.Element & 0x00FF) == 0x0003 && t.Element >= 0x0100)
+                {
+                    var v = TryReadBValueFromElement(container, t);
+                    if (v.HasValue) return v.Value;
+                }
             }
-            catch { }
         }
 
-        // 4. GE private tag (0043, 1039)
-        var geBTag = new DicomTag(0x0043, 0x1039);
-        if (ds.Contains(geBTag))
+        // 4. Per-slice SequenceName (0018,0024) or ImageComments (0020,4000) FIRST!
+        // e.g. Siemens "*ep_b50d", "*ep_b800t", "*ep_b1000t"
+        string seqName = ds.GetSingleValueOrDefault(DicomTag.SequenceName, "");
+        if (string.IsNullOrWhiteSpace(seqName))
+            seqName = ds.GetSingleValueOrDefault(new DicomTag(0x0018, 0x9005), ""); // PulseSequenceName
+        string imgComments = ds.GetSingleValueOrDefault(DicomTag.ImageComments, "");
+
+        string sliceSpecificText = $"{seqName} {imgComments}";
+        var sliceMatches = System.Text.RegularExpressions.Regex.Matches(
+            sliceSpecificText,
+            @"(?:^|[_\s\*])b[=_]?(\d{1,5})(?![0-9])",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        if (sliceMatches.Count == 1 && double.TryParse(sliceMatches[0].Groups[1].Value, out double sliceB))
         {
-            try
-            {
-                var vals = ds.GetValues<int>(geBTag);
-                if (vals.Length > 0) return (double)(vals[0] % 100000);
-            }
-            catch { }
+            return sliceB;
         }
 
-        // 5. Sequence Name / Series Description regex heuristics (e.g. "_b50", "_b800")
-        string desc = ds.GetSingleValueOrDefault(DicomTag.SeriesDescription, "") + " " +
-                      ds.GetSingleValueOrDefault(DicomTag.SequenceName, "") + " " +
-                      ds.GetSingleValueOrDefault(DicomTag.ProtocolName, "");
-        var match = System.Text.RegularExpressions.Regex.Match(desc, @"[_\s]b[=_]?(\d{1,5})", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-        if (match.Success && double.TryParse(match.Groups[1].Value, out double parsedB))
+        // 5. SeriesDescription / ProtocolName fallback ONLY if it mentions a single unambiguous b-value
+        // (Avoids matching "b50" on all slices of "ep2d_diff_b50_b800_tra_p2")
+        string seriesDesc = ds.GetSingleValueOrDefault(DicomTag.SeriesDescription, "") + " " +
+                            ds.GetSingleValueOrDefault(DicomTag.ProtocolName, "");
+        var seriesMatches = System.Text.RegularExpressions.Regex.Matches(
+            seriesDesc,
+            @"(?:^|[_\s])b[=_]?(\d{1,5})(?![0-9_])",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        if (seriesMatches.Count == 1 && double.TryParse(seriesMatches[0].Groups[1].Value, out double parsedB))
         {
             return parsedB;
         }
