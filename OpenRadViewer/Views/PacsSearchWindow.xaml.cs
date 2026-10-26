@@ -551,6 +551,7 @@ public partial class PacsSearchWindow : Window
                         if (filter.Matches(r) && !FoundStudies.Any(existing => existing.StudyInstanceUid == r.StudyInstanceUid))
                         {
                             r.IsReviewed = DatabaseService.IsStudyReviewed(r.StudyInstanceUid);
+                            EnrichStudyFromLocalDatabase(r);
                             FoundStudies.Add(r);
                         }
                     }
@@ -1080,6 +1081,7 @@ public partial class PacsSearchWindow : Window
                                 if (!string.IsNullOrWhiteSpace(fresh.ReadingPhysician) && existing.ReadingPhysician != fresh.ReadingPhysician) existing.ReadingPhysician = fresh.ReadingPhysician;
                                 if (!string.IsNullOrWhiteSpace(fresh.PerformingPhysician) && existing.PerformingPhysician != fresh.PerformingPhysician) existing.PerformingPhysician = fresh.PerformingPhysician;
                                 if (!string.IsNullOrWhiteSpace(fresh.ReferringPhysician) && existing.ReferringPhysician != fresh.ReferringPhysician) existing.ReferringPhysician = fresh.ReferringPhysician;
+                                EnrichStudyFromLocalDatabase(existing);
 
                                 if (seriesOrInstChanged && singleSelectedStudy != null &&
                                     string.Equals(singleSelectedStudy.StudyInstanceUid, existing.StudyInstanceUid, StringComparison.OrdinalIgnoreCase))
@@ -1096,6 +1098,7 @@ public partial class PacsSearchWindow : Window
                         {
                             if (!existingUids.Contains(fresh.StudyInstanceUid))
                             {
+                                EnrichStudyFromLocalDatabase(fresh);
                                 FoundStudies.Add(fresh);
                                 existingUids.Add(fresh.StudyInstanceUid);
                                 anyAdded = true;
@@ -1587,6 +1590,26 @@ public partial class PacsSearchWindow : Window
         {
             PbTransfer.Visibility = Visibility.Collapsed;
         }
+    }
+
+    private static void EnrichStudyFromLocalDatabase(PacsStudyResult r)
+    {
+        try
+        {
+            var local = DatabaseService.GetRecord(r.StudyInstanceUid);
+            if (local != null)
+            {
+                if (string.IsNullOrWhiteSpace(r.ReadingPhysician) && !string.IsNullOrWhiteSpace(local.ReadingPhysician))
+                    r.ReadingPhysician = local.ReadingPhysician;
+                if (string.IsNullOrWhiteSpace(r.PerformingPhysician) && !string.IsNullOrWhiteSpace(local.PerformingPhysician))
+                    r.PerformingPhysician = local.PerformingPhysician;
+                if (string.IsNullOrWhiteSpace(r.ReferringPhysician) && !string.IsNullOrWhiteSpace(local.ReferringPhysician))
+                    r.ReferringPhysician = local.ReferringPhysician;
+                if (string.IsNullOrWhiteSpace(r.AccessionNumber) && !string.IsNullOrWhiteSpace(local.AccessionNumber))
+                    r.AccessionNumber = local.AccessionNumber;
+            }
+        }
+        catch { }
     }
 
     #endregion

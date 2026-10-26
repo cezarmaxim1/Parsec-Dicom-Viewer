@@ -475,6 +475,17 @@ public class DatabaseService
         }
     }
 
+    public static DatabaseRecordModel? GetRecord(string studyInstanceUid)
+    {
+        if (string.IsNullOrWhiteSpace(studyInstanceUid)) return null;
+        string cleanUid = studyInstanceUid.Trim().TrimEnd('\0');
+        lock (_fileLock)
+        {
+            var records = LoadRecords();
+            return records.FirstOrDefault(r => string.Equals(r.StudyInstanceUid?.Trim().TrimEnd('\0'), cleanUid, StringComparison.OrdinalIgnoreCase));
+        }
+    }
+
     public static bool IsStudyReviewed(string studyInstanceUid)
     {
         if (string.IsNullOrWhiteSpace(studyInstanceUid)) return false;
