@@ -131,6 +131,8 @@ public partial class PacsSearchWindow : Window
     private void OnServerLocationChanged(object sender, SelectionChangedEventArgs e)
     {
         UpdateDefaultButtonVisual();
+        if (!IsLoaded || _isResetting) return;
+        OnSearchClicked(this, new RoutedEventArgs());
     }
 
     private void UpdateDefaultButtonVisual()
@@ -199,10 +201,143 @@ public partial class PacsSearchWindow : Window
         }
     }
 
-    private void OnFilterChanged(object sender, SelectionChangedEventArgs e)
+    private System.Windows.Threading.DispatcherTimer? _modalityDebounceTimer;
+    private bool _modalitySearchPending;
+
+    private CheckBox[] GetSpecificModalityCheckBoxes() => new[]
+    {
+        ChkModCT, ChkModMR, ChkModCRDX, ChkModUS, ChkModNMPT, ChkModXA
+    };
+
+    private void OnModalityAllClicked(object sender, RoutedEventArgs e)
+    {
+        if (_isResetting) return;
+        _isResetting = true;
+        try
+        {
+            ChkModAll.IsChecked = true;
+            foreach (var cb in GetSpecificModalityCheckBoxes())
+            {
+                cb.IsChecked = false;
+            }
+            UpdateModalitySummaryText();
+        }
+        finally
+        {
+            _isResetting = false;
+        }
+        ScheduleModalityFilterSearch();
+    }
+
+    private void OnModalityItemClicked(object sender, RoutedEventArgs e)
+    {
+        if (_isResetting) return;
+        _isResetting = true;
+        try
+        {
+            var specific = GetSpecificModalityCheckBoxes();
+            bool anyChecked = specific.Any(cb => cb.IsChecked == true);
+            if (anyChecked)
+            {
+                ChkModAll.IsChecked = false;
+            }
+            else
+            {
+                ChkModAll.IsChecked = true;
+            }
+            UpdateModalitySummaryText();
+        }
+        finally
+        {
+            _isResetting = false;
+        }
+        ScheduleModalityFilterSearch();
+    }
+
+    private void UpdateModalitySummaryText()
+    {
+        if (TxtSelectedModalities == null) return;
+        var checkedItems = GetSpecificModalityCheckBoxes()
+            .Where(cb => cb.IsChecked == true)
+            .Select(cb => cb.Tag?.ToString() ?? cb.Content?.ToString() ?? "")
+            .Where(s => !string.IsNullOrWhiteSpace(s))
+            .ToList();
+
+        if (ChkModAll.IsChecked == true || checkedItems.Count == 0 || checkedItems.Count == GetSpecificModalityCheckBoxes().Length)
+        {
+            TxtSelectedModalities.Text = "All";
+            BtnModalityDropDown.ToolTip = "Modality: All (Click to select one or multiple modalities)";
+        }
+        else
+        {
+            string joined = string.Join(", ", checkedItems);
+            TxtSelectedModalities.Text = joined;
+            BtnModalityDropDown.ToolTip = $"Selected Modalities: {joined}";
+        }
+    }
+
+    private string GetSelectedModalitiesString()
+    {
+        if (ChkModAll == null || ChkModAll.IsChecked == true) return "All";
+        var checkedItems = GetSpecificModalityCheckBoxes()
+            .Where(cb => cb.IsChecked == true)
+            .Select(cb => cb.Tag?.ToString() ?? cb.Content?.ToString() ?? "")
+            .Where(s => !string.IsNullOrWhiteSpace(s))
+            .ToList();
+
+        if (checkedItems.Count == 0 || checkedItems.Count == GetSpecificModalityCheckBoxes().Length)
+        {
+            return "All";
+        }
+        return string.Join(", ", checkedItems);
+    }
+
+    private void ResetModalitySelectionToAll()
+    {
+        if (ChkModAll == null) return;
+        ChkModAll.IsChecked = true;
+        foreach (var cb in GetSpecificModalityCheckBoxes())
+        {
+            if (cb != null) cb.IsChecked = false;
+        }
+        UpdateModalitySummaryText();
+    }
+
+    private void ScheduleModalityFilterSearch()
     {
         if (!IsLoaded || _isResetting) return;
-        OnSearchClicked(this, new RoutedEventArgs());
+        _modalitySearchPending = true;
+        if (_modalityDebounceTimer == null)
+        {
+            _modalityDebounceTimer = new System.Windows.Threading.DispatcherTimer
+            {
+                Interval = TimeSpan.FromMilliseconds(350)
+            };
+            _modalityDebounceTimer.Tick += (s, e) =>
+            {
+                _modalityDebounceTimer.Stop();
+                if (_modalitySearchPending)
+                {
+                    _modalitySearchPending = false;
+                    OnSearchClicked(this, new RoutedEventArgs());
+                }
+            };
+        }
+        _modalityDebounceTimer.Stop();
+        _modalityDebounceTimer.Start();
+    }
+
+    private void OnModalityPopupClosed(object? sender, EventArgs e)
+    {
+        if (_modalitySearchPending)
+        {
+            _modalityDebounceTimer?.Stop();
+            _modalitySearchPending = false;
+            if (IsLoaded && !_isResetting)
+            {
+                OnSearchClicked(this, new RoutedEventArgs());
+            }
+        }
     }
 
     private void OnDatePresetChanged(object sender, SelectionChangedEventArgs e)
@@ -242,7 +377,7 @@ public partial class PacsSearchWindow : Window
         try
         {
             TxtSearchQuery.Text = string.Empty;
-            CmbModality.SelectedIndex = 0;
+            ResetModalitySelectionToAll();
             CmbDatePreset.SelectedIndex = 0;
             DpFrom.SelectedDate = null;
             DpTo.SelectedDate = null;
@@ -368,6 +503,8 @@ public partial class PacsSearchWindow : Window
         finally
         {
             _isSearching = false;
+            _secondsUntilRefresh = 60;
+            UpdateAutoRefreshLabel();
             BtnSearch.IsEnabled = true;
             BtnStopSearch.Visibility = Visibility.Collapsed;
             BtnBottomStop.Visibility = Visibility.Collapsed;
@@ -517,7 +654,7 @@ public partial class PacsSearchWindow : Window
             filter.PatientName = q;
         }
 
-        string mod = (CmbModality.SelectedItem as ComboBoxItem)?.Content?.ToString() ?? "All";
+        string mod = GetSelectedModalitiesString();
         if (mod != "All" && mod != "Toate")
         {
             filter.Modality = mod;
@@ -739,12 +876,16 @@ public partial class PacsSearchWindow : Window
     #region Auto-Refresh (Silent, every 60s)
 
     private System.Windows.Threading.DispatcherTimer? _autoRefreshTimer;
+    private int _secondsUntilRefresh = 60;
+    private bool _isAutoRefreshing;
+    private string _lastAutoRefreshTime = string.Empty;
 
     private void SetupAutoRefresh()
     {
+        _secondsUntilRefresh = 60;
         _autoRefreshTimer = new System.Windows.Threading.DispatcherTimer
         {
-            Interval = TimeSpan.FromSeconds(60)
+            Interval = TimeSpan.FromSeconds(1)
         };
         _autoRefreshTimer.Tick += OnAutoRefreshTick;
         _autoRefreshTimer.Start();
@@ -753,21 +894,54 @@ public partial class PacsSearchWindow : Window
         {
             _autoRefreshTimer?.Stop();
             _autoRefreshTimer = null;
+            _modalityDebounceTimer?.Stop();
+            _modalityDebounceTimer = null;
         };
+    }
+
+    private void UpdateAutoRefreshLabel()
+    {
+        if (TxtAutoRefreshCountdown == null) return;
+        if (_isAutoRefreshing)
+        {
+            TxtAutoRefreshCountdown.Text = "🔄 Auto-refresh: se actualizează...";
+            TxtAutoRefreshCountdown.Foreground = (SolidColorBrush)new BrushConverter().ConvertFrom("#F5AF28")!;
+        }
+        else
+        {
+            string suffix = !string.IsNullOrEmpty(_lastAutoRefreshTime) ? $" • {_lastAutoRefreshTime}" : string.Empty;
+            TxtAutoRefreshCountdown.Text = $"🔄 Auto-refresh: {_secondsUntilRefresh}s{suffix}";
+            TxtAutoRefreshCountdown.Foreground = (SolidColorBrush)new BrushConverter().ConvertFrom("#888888")!;
+        }
     }
 
     private async void OnAutoRefreshTick(object? sender, EventArgs e)
     {
         if (!IsLoaded || _isResetting) return;
 
-        // If transfer or manual search is actively running, skip this cycle
-        if (PbTransfer.Visibility == Visibility.Visible) return;
+        // If manual search, transfer, or previous auto-refresh is actively running, pause countdown
+        if (_isSearching || _isAutoRefreshing || PbTransfer.Visibility == Visibility.Visible)
+        {
+            return;
+        }
 
+        _secondsUntilRefresh--;
+        if (_secondsUntilRefresh > 0)
+        {
+            UpdateAutoRefreshLabel();
+            return;
+        }
+
+        _secondsUntilRefresh = 60;
         await PerformSilentRefreshAsync();
     }
 
     private async Task PerformSilentRefreshAsync()
     {
+        if (_isSearching || _isAutoRefreshing) return;
+        _isAutoRefreshing = true;
+        UpdateAutoRefreshLabel();
+
         try
         {
             var selectedItem = CmbServerLocation.SelectedItem as ComboBoxItem;
@@ -788,26 +962,95 @@ public partial class PacsSearchWindow : Window
             if (targetServers.Count == 0) return;
 
             var filter = BuildSearchFilter();
-            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+            int timeoutSec = Math.Max(30, PacsService.Instance.Settings.TimeoutSeconds);
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSec));
             var ct = cts.Token;
 
-            var freshStudies = new List<PacsStudyResult>();
+            bool selectedStudyChanged = false;
+            PacsStudyResult? singleSelectedStudy = null;
+            if (GridStudies.SelectedItems.Count == 1 && GridStudies.SelectedItem is PacsStudyResult selSt)
+            {
+                singleSelectedStudy = selSt;
+            }
 
             var tasks = targetServers.Select(async s =>
             {
                 try
                 {
-                    var results = await PacsService.Instance.QueryStudiesAsync(s, filter, ct).ConfigureAwait(false);
-                    lock (freshStudies)
+                    var results = await PacsService.Instance.QueryStudiesAsync(s, filter, ct);
+                    if (_isSearching || _isResetting) return;
+
+                    await Dispatcher.InvokeAsync(() =>
                     {
+                        if (_isSearching || _isResetting) return;
+
+                        var serverFreshByUid = new Dictionary<string, PacsStudyResult>(StringComparer.OrdinalIgnoreCase);
                         foreach (var r in results)
                         {
-                            if (filter.Matches(r) && !freshStudies.Any(existing => existing.StudyInstanceUid == r.StudyInstanceUid))
+                            if (filter.Matches(r) && !serverFreshByUid.ContainsKey(r.StudyInstanceUid))
                             {
-                                freshStudies.Add(r);
+                                r.IsReviewed = DatabaseService.IsStudyReviewed(r.StudyInstanceUid);
+                                serverFreshByUid[r.StudyInstanceUid] = r;
                             }
                         }
-                    }
+
+                        // Update existing studies on this server or in table
+                        foreach (var existing in FoundStudies.ToList())
+                        {
+                            if (serverFreshByUid.TryGetValue(existing.StudyInstanceUid, out var fresh))
+                            {
+                                bool seriesOrInstChanged =
+                                    (fresh.SeriesCount > 0 && existing.SeriesCount != fresh.SeriesCount) ||
+                                    (fresh.InstanceCount > 0 && existing.InstanceCount != fresh.InstanceCount);
+
+                                if (existing.IsReviewed != fresh.IsReviewed) existing.IsReviewed = fresh.IsReviewed;
+                                if (fresh.InstanceCount > 0 && existing.InstanceCount != fresh.InstanceCount) existing.InstanceCount = fresh.InstanceCount;
+                                if (fresh.SeriesCount > 0 && existing.SeriesCount != fresh.SeriesCount) existing.SeriesCount = fresh.SeriesCount;
+                                if (!string.IsNullOrWhiteSpace(fresh.Modality) && existing.Modality != fresh.Modality) existing.Modality = fresh.Modality;
+                                if (!string.IsNullOrWhiteSpace(fresh.StudyDescription) && existing.StudyDescription != fresh.StudyDescription) existing.StudyDescription = fresh.StudyDescription;
+                                if (!string.IsNullOrWhiteSpace(fresh.ReferringPhysician) && existing.ReferringPhysician != fresh.ReferringPhysician) existing.ReferringPhysician = fresh.ReferringPhysician;
+
+                                if (seriesOrInstChanged && singleSelectedStudy != null &&
+                                    string.Equals(singleSelectedStudy.StudyInstanceUid, existing.StudyInstanceUid, StringComparison.OrdinalIgnoreCase))
+                                {
+                                    selectedStudyChanged = true;
+                                }
+                            }
+                        }
+
+                        // Add newly discovered studies
+                        var existingUids = new HashSet<string>(FoundStudies.Select(st => st.StudyInstanceUid), StringComparer.OrdinalIgnoreCase);
+                        bool anyAdded = false;
+                        foreach (var fresh in serverFreshByUid.Values)
+                        {
+                            if (!existingUids.Contains(fresh.StudyInstanceUid))
+                            {
+                                FoundStudies.Add(fresh);
+                                existingUids.Add(fresh.StudyInstanceUid);
+                                anyAdded = true;
+                            }
+                        }
+
+                        if (anyAdded || FoundStudies.Count > 1)
+                        {
+                            var sortedList = FoundStudies.OrderByDescending(x => x.SortDateTimeKey).ToList();
+                            for (int i = 0; i < sortedList.Count; i++)
+                            {
+                                int oldIdx = FoundStudies.IndexOf(sortedList[i]);
+                                if (oldIdx >= 0 && oldIdx != i)
+                                {
+                                    FoundStudies.Move(oldIdx, i);
+                                }
+                            }
+                        }
+
+                        if (GridStudies.SelectedItems.Count == 0 && FoundStudies.Count > 0)
+                        {
+                            GridStudies.SelectedIndex = 0;
+                        }
+
+                        TxtStudiesCount.Text = $"Studies found: {FoundStudies.Count}";
+                    });
                 }
                 catch
                 {
@@ -815,79 +1058,49 @@ public partial class PacsSearchWindow : Window
                 }
             });
 
-            await Task.WhenAll(tasks).ConfigureAwait(false);
+            await Task.WhenAll(tasks);
 
-            // Fetch reviewed marks from ParsecPACS
-            try
+            if (!_isSearching && !_isResetting)
             {
-                var hosts = ParsecPacsSyncService.GetCandidateHosts(targetServers);
-                var responses = await ParsecPacsSyncService.FetchReviewedUidsAsync(hosts, ct).ConfigureAwait(false);
-                var allReviewed = new HashSet<string>(responses.Values.SelectMany(v => v), StringComparer.OrdinalIgnoreCase);
+                // Best-effort sync of Reviewed marks from ParsecPACS
+                using var syncCts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+                await SyncReviewedFromParsecPacsAsync(targetServers, syncCts.Token);
 
-                foreach (var st in freshStudies)
+                // If the currently selected study gained new series/instances, refresh its series sub-table too
+                if (selectedStudyChanged && singleSelectedStudy != null)
                 {
-                    if (allReviewed.Contains(st.StudyInstanceUid))
+                    var srv = PacsService.Instance.Settings.Servers.FirstOrDefault(x => x.Id == singleSelectedStudy.ServerId) ?? GetSelectedServer();
+                    if (srv != null)
                     {
-                        st.IsReviewed = true;
-                        DatabaseService.SetStudyReviewed(st.StudyInstanceUid, true);
-                    }
-                    else
-                    {
-                        st.IsReviewed = DatabaseService.IsStudyReviewed(st.StudyInstanceUid);
+                        try
+                        {
+                            var seriesList = await PacsService.Instance.QuerySeriesAsync(srv, singleSelectedStudy.StudyInstanceUid);
+                            singleSelectedStudy.Series = seriesList;
+                            SelectedStudySeries.Clear();
+                            foreach (var ser in seriesList)
+                            {
+                                SelectedStudySeries.Add(ser);
+                            }
+                            TxtSeriesHeader.Text = $"Series in selected study: {SelectedStudySeries.Count}";
+                        }
+                        catch { }
                     }
                 }
+
+                _lastAutoRefreshTime = DateTime.Now.ToString("HH:mm:ss");
+                TxtTransferStatus.Foreground = (SolidColorBrush)new BrushConverter().ConvertFrom("#AAAAAA")!;
+                TxtTransferStatus.Text = $"Auto-refreshed at {_lastAutoRefreshTime} ({FoundStudies.Count} studies).";
             }
-            catch { }
-
-            // Update UI smoothly on Dispatcher
-            await Dispatcher.InvokeAsync(() =>
-            {
-                var freshDict = freshStudies.ToDictionary(s => s.StudyInstanceUid, StringComparer.OrdinalIgnoreCase);
-
-                // Update reviewed and properties on existing items
-                foreach (var existing in FoundStudies)
-                {
-                    if (freshDict.TryGetValue(existing.StudyInstanceUid, out var fresh))
-                    {
-                        if (existing.IsReviewed != fresh.IsReviewed) existing.IsReviewed = fresh.IsReviewed;
-                        if (fresh.InstanceCount > 0 && existing.InstanceCount != fresh.InstanceCount) existing.InstanceCount = fresh.InstanceCount;
-                        if (fresh.SeriesCount > 0 && existing.SeriesCount != fresh.SeriesCount) existing.SeriesCount = fresh.SeriesCount;
-                    }
-                    else
-                    {
-                        bool dbRev = DatabaseService.IsStudyReviewed(existing.StudyInstanceUid);
-                        if (existing.IsReviewed != dbRev) existing.IsReviewed = dbRev;
-                    }
-                }
-
-                // Add newly discovered studies
-                var existingUids = new HashSet<string>(FoundStudies.Select(s => s.StudyInstanceUid), StringComparer.OrdinalIgnoreCase);
-                foreach (var fresh in freshStudies)
-                {
-                    if (!existingUids.Contains(fresh.StudyInstanceUid))
-                    {
-                        FoundStudies.Add(fresh);
-                    }
-                }
-
-                // Sort descending by scan moment
-                var sortedList = FoundStudies.OrderByDescending(x => x.SortDateTimeKey).ToList();
-                for (int i = 0; i < sortedList.Count; i++)
-                {
-                    int oldIdx = FoundStudies.IndexOf(sortedList[i]);
-                    if (oldIdx >= 0 && oldIdx != i)
-                    {
-                        FoundStudies.Move(oldIdx, i);
-                    }
-                }
-
-                TxtStudiesCount.Text = $"Studies found: {FoundStudies.Count}";
-                TxtTransferStatus.Text = $"Auto-refreshed at {DateTime.Now:HH:mm:ss} ({FoundStudies.Count} studies).";
-            });
         }
         catch
         {
             // Fully silent
+        }
+        finally
+        {
+            _isAutoRefreshing = false;
+            _secondsUntilRefresh = 60;
+            UpdateAutoRefreshLabel();
         }
     }
 
@@ -1111,7 +1324,7 @@ public partial class PacsSearchWindow : Window
         _isResetting = true;
         try
         {
-            CmbModality.SelectedIndex = 0; // All modalities
+            ResetModalitySelectionToAll(); // All modalities
             CmbDatePreset.SelectedIndex = 0; // Any time
         }
         finally

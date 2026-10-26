@@ -67,11 +67,42 @@ public class PacsStudyResult : System.ComponentModel.INotifyPropertyChanged
     public string AccessionNumber { get; set; } = string.Empty;
     public string StudyDate { get; set; } = string.Empty;
     public string StudyTime { get; set; } = string.Empty;
-    public string Modality { get; set; } = string.Empty;
-    public string StudyDescription { get; set; } = string.Empty;
-    public string ReferringPhysician { get; set; } = string.Empty;
-    public int SeriesCount { get; set; }
-    public int InstanceCount { get; set; }
+
+    private string _modality = string.Empty;
+    public string Modality
+    {
+        get => _modality;
+        set { if (_modality != value) { _modality = value; OnPropertyChanged(); } }
+    }
+
+    private string _studyDescription = string.Empty;
+    public string StudyDescription
+    {
+        get => _studyDescription;
+        set { if (_studyDescription != value) { _studyDescription = value; OnPropertyChanged(); } }
+    }
+
+    private string _referringPhysician = string.Empty;
+    public string ReferringPhysician
+    {
+        get => _referringPhysician;
+        set { if (_referringPhysician != value) { _referringPhysician = value; OnPropertyChanged(); } }
+    }
+
+    private int _seriesCount;
+    public int SeriesCount
+    {
+        get => _seriesCount;
+        set { if (_seriesCount != value) { _seriesCount = value; OnPropertyChanged(); } }
+    }
+
+    private int _instanceCount;
+    public int InstanceCount
+    {
+        get => _instanceCount;
+        set { if (_instanceCount != value) { _instanceCount = value; OnPropertyChanged(); } }
+    }
+
     public string ServerDescription { get; set; } = string.Empty;
     public string ServerId { get; set; } = string.Empty;
     public List<PacsSeriesResult> Series { get; set; } = new();

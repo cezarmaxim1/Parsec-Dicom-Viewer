@@ -316,135 +316,141 @@ public class PacsService
             var client = DicomClientFactory.Create(server.IpAddress, server.Port, false, Settings.LocalAeTitle, server.AeTitle);
             client.NegotiateAsyncOps();
 
-            // Study Root Query
-            var request = new DicomCFindRequest(DicomQueryRetrieveLevel.Study);
-
-            // Return keys (empty tags instruct PACS to return these attributes)
-            request.Dataset.AddOrUpdate(DicomTag.PatientName, string.IsNullOrWhiteSpace(filter.PatientName) ? string.Empty : $"*{filter.PatientName.Trim()}*");
-            request.Dataset.AddOrUpdate(DicomTag.PatientID, string.IsNullOrWhiteSpace(filter.PatientId) ? string.Empty : $"*{filter.PatientId.Trim()}*");
-            request.Dataset.AddOrUpdate(DicomTag.PatientBirthDate, string.Empty);
-            request.Dataset.AddOrUpdate(DicomTag.AccessionNumber, string.IsNullOrWhiteSpace(filter.AccessionNumber) ? string.Empty : filter.AccessionNumber.Trim());
-            request.Dataset.AddOrUpdate(DicomTag.StudyDescription, string.IsNullOrWhiteSpace(filter.StudyDescription) ? string.Empty : $"*{filter.StudyDescription.Trim()}*");
-            request.Dataset.AddOrUpdate(TagStudyComments, string.Empty);
-            request.Dataset.AddOrUpdate(DicomTag.StudyInstanceUID, string.Empty);
-            request.Dataset.AddOrUpdate(DicomTag.StudyTime, string.Empty);
-            request.Dataset.AddOrUpdate(DicomTag.ReferringPhysicianName, string.Empty);
-            request.Dataset.AddOrUpdate(DicomTag.NumberOfStudyRelatedSeries, string.Empty);
-            request.Dataset.AddOrUpdate(DicomTag.NumberOfStudyRelatedInstances, string.Empty);
-
-            // Modality query tag
-            request.Dataset.AddOrUpdate(DicomTag.Modality, string.Empty);
-            if (!string.IsNullOrWhiteSpace(filter.Modality) && filter.Modality != "All" && filter.Modality != "Toate")
+            List<string> targetModalities = new();
+            if (!string.IsNullOrWhiteSpace(filter.Modality) &&
+                !filter.Modality.Equals("All", StringComparison.OrdinalIgnoreCase) &&
+                !filter.Modality.Equals("Toate", StringComparison.OrdinalIgnoreCase))
             {
-                string trimmedMod = filter.Modality.Trim();
-                if (!trimmedMod.Contains('/') && !trimmedMod.Contains('\\') && !trimmedMod.Contains(' '))
+                targetModalities = filter.Modality
+                    .Split(new[] { '/', '\\', ',', ' ' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+            }
+
+            if (targetModalities.Count == 0)
+            {
+                targetModalities.Add(string.Empty);
+            }
+
+            foreach (string reqMod in targetModalities)
+            {
+                // Study Root Query
+                var request = new DicomCFindRequest(DicomQueryRetrieveLevel.Study);
+
+                // Return keys (empty tags instruct PACS to return these attributes)
+                request.Dataset.AddOrUpdate(DicomTag.PatientName, string.IsNullOrWhiteSpace(filter.PatientName) ? string.Empty : $"*{filter.PatientName.Trim()}*");
+                request.Dataset.AddOrUpdate(DicomTag.PatientID, string.IsNullOrWhiteSpace(filter.PatientId) ? string.Empty : $"*{filter.PatientId.Trim()}*");
+                request.Dataset.AddOrUpdate(DicomTag.PatientBirthDate, string.Empty);
+                request.Dataset.AddOrUpdate(DicomTag.AccessionNumber, string.IsNullOrWhiteSpace(filter.AccessionNumber) ? string.Empty : filter.AccessionNumber.Trim());
+                request.Dataset.AddOrUpdate(DicomTag.StudyDescription, string.IsNullOrWhiteSpace(filter.StudyDescription) ? string.Empty : $"*{filter.StudyDescription.Trim()}*");
+                request.Dataset.AddOrUpdate(TagStudyComments, string.Empty);
+                request.Dataset.AddOrUpdate(DicomTag.StudyInstanceUID, string.Empty);
+                request.Dataset.AddOrUpdate(DicomTag.StudyTime, string.Empty);
+                request.Dataset.AddOrUpdate(DicomTag.ReferringPhysicianName, string.Empty);
+                request.Dataset.AddOrUpdate(DicomTag.NumberOfStudyRelatedSeries, string.Empty);
+                request.Dataset.AddOrUpdate(DicomTag.NumberOfStudyRelatedInstances, string.Empty);
+
+                // Modality query tag
+                request.Dataset.AddOrUpdate(DicomTag.Modality, string.Empty);
+                request.Dataset.AddOrUpdate(DicomTag.ModalitiesInStudy, reqMod);
+
+                // Study Date Range
+                if (filter.DateFrom.HasValue && filter.DateTo.HasValue)
                 {
-                    request.Dataset.AddOrUpdate(DicomTag.ModalitiesInStudy, trimmedMod);
+                    string fromStr = filter.DateFrom.Value.ToString("yyyyMMdd");
+                    string toStr = filter.DateTo.Value.ToString("yyyyMMdd");
+                    if (fromStr == toStr)
+                    {
+                        request.Dataset.AddOrUpdate(DicomTag.StudyDate, fromStr);
+                    }
+                    else
+                    {
+                        request.Dataset.AddOrUpdate(DicomTag.StudyDate, $"{fromStr}-{toStr}");
+                    }
+                }
+                else if (filter.DateFrom.HasValue)
+                {
+                    request.Dataset.AddOrUpdate(DicomTag.StudyDate, $"{filter.DateFrom.Value:yyyyMMdd}-");
+                }
+                else if (filter.DateTo.HasValue)
+                {
+                    request.Dataset.AddOrUpdate(DicomTag.StudyDate, $"-{filter.DateTo.Value:yyyyMMdd}");
                 }
                 else
                 {
-                    request.Dataset.AddOrUpdate(DicomTag.ModalitiesInStudy, string.Empty);
+                    request.Dataset.AddOrUpdate(DicomTag.StudyDate, string.Empty);
                 }
-            }
-            else
-            {
-                request.Dataset.AddOrUpdate(DicomTag.ModalitiesInStudy, string.Empty);
-            }
 
-            // Study Date Range
-            if (filter.DateFrom.HasValue && filter.DateTo.HasValue)
-            {
-                string fromStr = filter.DateFrom.Value.ToString("yyyyMMdd");
-                string toStr = filter.DateTo.Value.ToString("yyyyMMdd");
-                if (fromStr == toStr)
+                string queriedMod = reqMod;
+                request.OnResponseReceived += (req, res) =>
                 {
-                    request.Dataset.AddOrUpdate(DicomTag.StudyDate, fromStr);
-                }
-                else
-                {
-                    request.Dataset.AddOrUpdate(DicomTag.StudyDate, $"{fromStr}-{toStr}");
-                }
-            }
-            else if (filter.DateFrom.HasValue)
-            {
-                request.Dataset.AddOrUpdate(DicomTag.StudyDate, $"{filter.DateFrom.Value:yyyyMMdd}-");
-            }
-            else if (filter.DateTo.HasValue)
-            {
-                request.Dataset.AddOrUpdate(DicomTag.StudyDate, $"-{filter.DateTo.Value:yyyyMMdd}");
-            }
-            else
-            {
-                request.Dataset.AddOrUpdate(DicomTag.StudyDate, string.Empty);
-            }
-
-            request.OnResponseReceived += (req, res) =>
-            {
-                if (res.HasDataset)
-                {
-                    var ds = res.Dataset;
-                    string studyUid = ds.GetSingleValueOrDefault(DicomTag.StudyInstanceUID, string.Empty);
-                    if (string.IsNullOrWhiteSpace(studyUid)) return;
-
-                    string modality = string.Empty;
-                    if (ds.Contains(DicomTag.ModalitiesInStudy))
+                    if (res.HasDataset)
                     {
-                        try { modality = string.Join("\\", ds.GetValues<string>(DicomTag.ModalitiesInStudy)); } catch { }
-                    }
-                    if (string.IsNullOrWhiteSpace(modality) && ds.Contains(DicomTag.Modality))
-                    {
-                        try { modality = string.Join("\\", ds.GetValues<string>(DicomTag.Modality)); } catch { }
-                    }
-                    if (string.IsNullOrWhiteSpace(modality))
-                    {
-                        modality = ds.GetSingleValueOrDefault(DicomTag.ModalitiesInStudy, ds.GetSingleValueOrDefault(DicomTag.Modality, string.Empty));
-                    }
+                        var ds = res.Dataset;
+                        string studyUid = ds.GetSingleValueOrDefault(DicomTag.StudyInstanceUID, string.Empty);
+                        if (string.IsNullOrWhiteSpace(studyUid)) return;
 
-                    string studyComments = ds.GetSingleValueOrDefault(TagStudyComments, string.Empty);
-                    bool isDicomReviewed = studyComments.Equals("REVIEWED", StringComparison.OrdinalIgnoreCase) ||
-                                           studyComments.Contains("REVIEWED", StringComparison.OrdinalIgnoreCase);
-
-                    var item = new PacsStudyResult
-                    {
-                        StudyInstanceUid = studyUid,
-                        PatientName = ds.GetSingleValueOrDefault(DicomTag.PatientName, "Anonymous"),
-                        PatientId = ds.GetSingleValueOrDefault(DicomTag.PatientID, string.Empty),
-                        BirthDate = ds.GetSingleValueOrDefault(DicomTag.PatientBirthDate, string.Empty),
-                        AccessionNumber = ds.GetSingleValueOrDefault(DicomTag.AccessionNumber, string.Empty),
-                        StudyDate = ds.GetSingleValueOrDefault(DicomTag.StudyDate, string.Empty),
-                        StudyTime = ds.GetSingleValueOrDefault(DicomTag.StudyTime, string.Empty),
-                        Modality = modality,
-                        StudyDescription = ds.GetSingleValueOrDefault(DicomTag.StudyDescription, string.Empty),
-                        ReferringPhysician = ds.GetSingleValueOrDefault(DicomTag.ReferringPhysicianName, string.Empty),
-                        SeriesCount = ds.GetSingleValueOrDefault(DicomTag.NumberOfStudyRelatedSeries, 0),
-                        InstanceCount = ds.GetSingleValueOrDefault(DicomTag.NumberOfStudyRelatedInstances, 0),
-                        ServerDescription = server.Description,
-                        ServerId = server.Id,
-                        IsReviewed = isDicomReviewed || DatabaseService.IsStudyReviewed(studyUid)
-                    };
-
-                    if (isDicomReviewed)
-                    {
-                        DatabaseService.SetStudyReviewed(studyUid, true);
-                    }
-
-                    // Post-filter to ensure strict adherence to selected filters
-                    if (!filter.Matches(item))
-                    {
-                        return;
-                    }
-
-                    lock (results)
-                    {
-                        if (!results.Any(r => r.StudyInstanceUid == item.StudyInstanceUid))
+                        string modality = string.Empty;
+                        if (ds.Contains(DicomTag.ModalitiesInStudy))
                         {
-                            results.Add(item);
+                            try { modality = string.Join("\\", ds.GetValues<string>(DicomTag.ModalitiesInStudy)); } catch { }
+                        }
+                        if (string.IsNullOrWhiteSpace(modality) && ds.Contains(DicomTag.Modality))
+                        {
+                            try { modality = string.Join("\\", ds.GetValues<string>(DicomTag.Modality)); } catch { }
+                        }
+                        if (string.IsNullOrWhiteSpace(modality))
+                        {
+                            modality = ds.GetSingleValueOrDefault(DicomTag.ModalitiesInStudy, ds.GetSingleValueOrDefault(DicomTag.Modality, queriedMod));
+                        }
+
+                        string studyComments = ds.GetSingleValueOrDefault(TagStudyComments, string.Empty);
+                        bool isDicomReviewed = studyComments.Equals("REVIEWED", StringComparison.OrdinalIgnoreCase) ||
+                                               studyComments.Contains("REVIEWED", StringComparison.OrdinalIgnoreCase);
+
+                        var item = new PacsStudyResult
+                        {
+                            StudyInstanceUid = studyUid,
+                            PatientName = ds.GetSingleValueOrDefault(DicomTag.PatientName, "Anonymous"),
+                            PatientId = ds.GetSingleValueOrDefault(DicomTag.PatientID, string.Empty),
+                            BirthDate = ds.GetSingleValueOrDefault(DicomTag.PatientBirthDate, string.Empty),
+                            AccessionNumber = ds.GetSingleValueOrDefault(DicomTag.AccessionNumber, string.Empty),
+                            StudyDate = ds.GetSingleValueOrDefault(DicomTag.StudyDate, string.Empty),
+                            StudyTime = ds.GetSingleValueOrDefault(DicomTag.StudyTime, string.Empty),
+                            Modality = modality,
+                            StudyDescription = ds.GetSingleValueOrDefault(DicomTag.StudyDescription, string.Empty),
+                            ReferringPhysician = ds.GetSingleValueOrDefault(DicomTag.ReferringPhysicianName, string.Empty),
+                            SeriesCount = ds.GetSingleValueOrDefault(DicomTag.NumberOfStudyRelatedSeries, 0),
+                            InstanceCount = ds.GetSingleValueOrDefault(DicomTag.NumberOfStudyRelatedInstances, 0),
+                            ServerDescription = server.Description,
+                            ServerId = server.Id,
+                            IsReviewed = isDicomReviewed || DatabaseService.IsStudyReviewed(studyUid)
+                        };
+
+                        if (isDicomReviewed)
+                        {
+                            DatabaseService.SetStudyReviewed(studyUid, true);
+                        }
+
+                        // Post-filter to ensure strict adherence to selected filters
+                        if (!filter.Matches(item))
+                        {
+                            return;
+                        }
+
+                        lock (results)
+                        {
+                            if (!results.Any(r => r.StudyInstanceUid == item.StudyInstanceUid))
+                            {
+                                results.Add(item);
+                            }
                         }
                     }
-                }
-            };
+                };
 
-            await client.AddRequestAsync(request);
+                await client.AddRequestAsync(request);
+            }
+
             using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(Settings.TimeoutSeconds));
             using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct, timeoutCts.Token);
             await client.SendAsync(linked.Token);

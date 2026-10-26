@@ -52,6 +52,59 @@
             <Setter Property="BorderBrush" Value="#F5AF28" />
         </Style>
 
+        <!-- Multi-Select Modality CheckBox Item Style -->
+        <Style x:Key="ModalityCheckItemStyle" TargetType="CheckBox">
+            <Setter Property="Background" Value="#202020" />
+            <Setter Property="Foreground" Value="#FFFFFF" />
+            <Setter Property="Padding" Value="8,6" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="SnapsToDevicePixels" Value="True" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="CheckBox">
+                        <Border x:Name="ItemBorder"
+                                Background="{TemplateBinding Background}"
+                                Padding="{TemplateBinding Padding}"
+                                SnapsToDevicePixels="True">
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <Border x:Name="ChkBox"
+                                        Width="14" Height="14"
+                                        CornerRadius="2"
+                                        Background="#2A2A2A"
+                                        BorderBrush="#666666"
+                                        BorderThickness="1"
+                                        Margin="0,0,8,0"
+                                        VerticalAlignment="Center">
+                                    <Path x:Name="ChkMark"
+                                          Data="M1.5,5.5 L4.5,8.5 L10.5,2"
+                                          Stroke="#121212"
+                                          StrokeThickness="2"
+                                          Stretch="Uniform"
+                                          Margin="1.5"
+                                          Visibility="Collapsed" />
+                                </Border>
+                                <ContentPresenter VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="ItemBorder" Property="Background" Value="#303030" />
+                                <Setter Property="Foreground" Value="#F5AF28" />
+                                <Setter TargetName="ChkBox" Property="Background" Value="#F5AF28" />
+                                <Setter TargetName="ChkBox" Property="BorderBrush" Value="#F5AF28" />
+                                <Setter TargetName="ChkMark" Property="Visibility" Value="Visible" />
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ItemBorder" Property="Background" Value="#F5AF28" />
+                                <Setter Property="Foreground" Value="#000000" />
+                                <Setter TargetName="ChkBox" Property="BorderBrush" Value="#121212" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <Style TargetType="TextBox">
             <Setter Property="Background" Value="#222222" />
             <Setter Property="Foreground" Value="#EEEEEE" />
@@ -158,18 +211,54 @@
                     </Button>
                 </StackPanel>
 
-                <!-- Modality Filter -->
+                <!-- Modality Filter (Multi-Select) -->
                 <StackPanel Orientation="Horizontal" Margin="0,0,16,6">
                     <TextBlock Text="Modality:" Foreground="#AAAAAA" VerticalAlignment="Center" Margin="0,0,6,0" FontSize="11.5" />
-                    <ComboBox x:Name="CmbModality" Width="90" SelectionChanged="OnFilterChanged">
-                        <ComboBoxItem Content="All" IsSelected="True" />
-                        <ComboBoxItem Content="CT" />
-                        <ComboBoxItem Content="MR" />
-                        <ComboBoxItem Content="CR / DX" />
-                        <ComboBoxItem Content="US" />
-                        <ComboBoxItem Content="NM / PT" />
-                        <ComboBoxItem Content="XA" />
-                    </ComboBox>
+                    <Grid MinWidth="95" MaxWidth="220">
+                        <ToggleButton x:Name="BtnModalityDropDown"
+                                      Template="{StaticResource ComboBoxToggleButtonTemplate}"
+                                      Background="#252525"
+                                      BorderBrush="#484848"
+                                      BorderThickness="1"
+                                      Focusable="False"
+                                      ClickMode="Press"
+                                      ToolTip="Select one or multiple modalities (e.g. CT + MR)" />
+                        <TextBlock x:Name="TxtSelectedModalities"
+                                   Text="All"
+                                   Foreground="#FFFFFF"
+                                   Margin="8,4,24,4"
+                                   VerticalAlignment="Center"
+                                   HorizontalAlignment="Left"
+                                   TextTrimming="CharacterEllipsis"
+                                   IsHitTestVisible="False" />
+                        <Popup x:Name="PopupModality"
+                               AllowsTransparency="True"
+                               Focusable="False"
+                               IsOpen="{Binding IsChecked, ElementName=BtnModalityDropDown, Mode=TwoWay}"
+                               PlacementTarget="{Binding ElementName=BtnModalityDropDown}"
+                               Placement="Bottom"
+                               PopupAnimation="Slide"
+                               StaysOpen="False"
+                               Closed="OnModalityPopupClosed">
+                            <Border Background="#202020"
+                                    BorderBrush="#555555"
+                                    BorderThickness="1"
+                                    CornerRadius="3"
+                                    Margin="0,2,0,4"
+                                    MinWidth="115">
+                                <StackPanel x:Name="PnlModalityItems">
+                                    <CheckBox x:Name="ChkModAll" Content="All" Tag="All" IsChecked="True" Style="{StaticResource ModalityCheckItemStyle}" Click="OnModalityAllClicked" />
+                                    <Separator Background="#333333" Margin="4,1" />
+                                    <CheckBox x:Name="ChkModCT" Content="CT" Tag="CT" Style="{StaticResource ModalityCheckItemStyle}" Click="OnModalityItemClicked" />
+                                    <CheckBox x:Name="ChkModMR" Content="MR" Tag="MR" Style="{StaticResource ModalityCheckItemStyle}" Click="OnModalityItemClicked" />
+                                    <CheckBox x:Name="ChkModCRDX" Content="CR / DX" Tag="CR / DX" Style="{StaticResource ModalityCheckItemStyle}" Click="OnModalityItemClicked" />
+                                    <CheckBox x:Name="ChkModUS" Content="US" Tag="US" Style="{StaticResource ModalityCheckItemStyle}" Click="OnModalityItemClicked" />
+                                    <CheckBox x:Name="ChkModNMPT" Content="NM / PT" Tag="NM / PT" Style="{StaticResource ModalityCheckItemStyle}" Click="OnModalityItemClicked" />
+                                    <CheckBox x:Name="ChkModXA" Content="XA" Tag="XA" Style="{StaticResource ModalityCheckItemStyle}" Click="OnModalityItemClicked" />
+                                </StackPanel>
+                            </Border>
+                        </Popup>
+                    </Grid>
                 </StackPanel>
 
                 <!-- Date Filter Presets -->
@@ -223,7 +312,13 @@
             <!-- Table Header Bar -->
             <Border Grid.Row="0" Background="#1A1A1A" BorderBrush="#282828" BorderThickness="0,0,0,1" Padding="12,6">
                 <Grid>
-                    <TextBlock x:Name="TxtStudiesCount" Text="Studies found: 0" FontWeight="SemiBold" FontSize="12" Foreground="#F5AF28" VerticalAlignment="Center" />
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <TextBlock x:Name="TxtStudiesCount" Text="Studies found: 0" FontWeight="SemiBold" FontSize="12" Foreground="#F5AF28" VerticalAlignment="Center" />
+                        <Border Background="#242424" BorderBrush="#343434" BorderThickness="1" CornerRadius="3" Padding="7,2" Margin="14,0,0,0" VerticalAlignment="Center"
+                                ToolTip="Tabelul PACS se actualizează automat la fiecare 60 de secunde cât timp fereastra este deschisă">
+                            <TextBlock x:Name="TxtAutoRefreshCountdown" Text="🔄 Auto-refresh: 60s" FontSize="10.5" Foreground="#888888" VerticalAlignment="Center" />
+                        </Border>
+                    </StackPanel>
                     <TextBlock Text="Double-click a study to download and open immediately" HorizontalAlignment="Right" Foreground="#777777" FontSize="11" VerticalAlignment="Center" FontStyle="Italic" />
                 </Grid>
             </Border>
