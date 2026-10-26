@@ -21,6 +21,7 @@ public class PacsService
     public static PacsService Instance => _lazy.Value;
 
     private readonly string _configFilePath;
+    private readonly string _legacyConfigFilePath;
     private IDicomServer? _listenerServer;
     private readonly object _lock = new();
     private static readonly DicomTag TagStudyComments = new(0x0032, 0x4000);
@@ -34,7 +35,10 @@ public class PacsService
 
     private PacsService()
     {
-        _configFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "pacs_config.json");
+        string appDataDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Parsec");
+        try { Directory.CreateDirectory(appDataDir); } catch { }
+        _configFilePath = Path.Combine(appDataDir, "pacs_config.json");
+        _legacyConfigFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "pacs_config.json");
         LoadSettings();
         PacsCStoreScpService.OnFileStored += (study, series, file) =>
         {
@@ -54,13 +58,27 @@ public class PacsService
         {
             try
             {
+                string? pathToRead = null;
                 if (File.Exists(_configFilePath))
                 {
-                    string json = File.ReadAllText(_configFilePath);
+                    pathToRead = _configFilePath;
+                }
+                else if (File.Exists(_legacyConfigFilePath))
+                {
+                    pathToRead = _legacyConfigFilePath;
+                }
+
+                if (pathToRead != null)
+                {
+                    string json = File.ReadAllText(pathToRead);
                     var loaded = JsonSerializer.Deserialize<PacsGlobalSettings>(json);
                     if (loaded != null)
                     {
                         Settings = loaded;
+                        if (pathToRead == _legacyConfigFilePath)
+                        {
+                            try { File.WriteAllText(_configFilePath, json); } catch { }
+                        }
                     }
                 }
             }
@@ -109,7 +127,10 @@ public class PacsService
             try
             {
                 string json = JsonSerializer.Serialize(Settings, new JsonSerializerOptions { WriteIndented = true });
+                string? dir = Path.GetDirectoryName(_configFilePath);
+                if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
                 File.WriteAllText(_configFilePath, json);
+                try { File.WriteAllText(_legacyConfigFilePath, json); } catch { }
             }
             catch (Exception ex)
             {
@@ -346,6 +367,8 @@ public class PacsService
                 request.Dataset.AddOrUpdate(TagStudyComments, string.Empty);
                 request.Dataset.AddOrUpdate(DicomTag.StudyInstanceUID, string.Empty);
                 request.Dataset.AddOrUpdate(DicomTag.StudyTime, string.Empty);
+                request.Dataset.AddOrUpdate(DicomTag.NameOfPhysiciansReadingStudy, string.Empty);
+                request.Dataset.AddOrUpdate(DicomTag.PerformingPhysicianName, string.Empty);
                 request.Dataset.AddOrUpdate(DicomTag.ReferringPhysicianName, string.Empty);
                 request.Dataset.AddOrUpdate(DicomTag.NumberOfStudyRelatedSeries, string.Empty);
                 request.Dataset.AddOrUpdate(DicomTag.NumberOfStudyRelatedInstances, string.Empty);
@@ -419,7 +442,9 @@ public class PacsService
                             StudyTime = ds.GetSingleValueOrDefault(DicomTag.StudyTime, string.Empty),
                             Modality = modality,
                             StudyDescription = ds.GetSingleValueOrDefault(DicomTag.StudyDescription, string.Empty),
-                            ReferringPhysician = ds.GetSingleValueOrDefault(DicomTag.ReferringPhysicianName, string.Empty),
+                            ReadingPhysician = GetCleanPersonName(ds, DicomTag.NameOfPhysiciansReadingStudy),
+                            PerformingPhysician = GetCleanPersonName(ds, DicomTag.PerformingPhysicianName),
+                            ReferringPhysician = GetCleanPersonName(ds, DicomTag.ReferringPhysicianName),
                             SeriesCount = ds.GetSingleValueOrDefault(DicomTag.NumberOfStudyRelatedSeries, 0),
                             InstanceCount = ds.GetSingleValueOrDefault(DicomTag.NumberOfStudyRelatedInstances, 0),
                             ServerDescription = server.Description,
@@ -462,6 +487,29 @@ public class PacsService
         }
 
         return results.OrderByDescending(r => r.SortDateTimeKey).ToList();
+    }
+
+    private static string GetCleanPersonName(DicomDataset ds, DicomTag tag)
+    {
+        if (!ds.Contains(tag)) return string.Empty;
+        try
+        {
+            string raw = ds.GetString(tag) ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(raw)) return string.Empty;
+            return string.Join(" ", raw.Replace("^", " ").Split(' ', StringSplitOptions.RemoveEmptyEntries));
+        }
+        catch
+        {
+            try
+            {
+                string val = ds.GetSingleValueOrDefault(tag, string.Empty);
+                return string.Join(" ", val.Replace("^", " ").Split(' ', StringSplitOptions.RemoveEmptyEntries));
+            }
+            catch
+            {
+                return string.Empty;
+            }
+        }
     }
 
     public async Task<List<PacsSeriesResult>> QuerySeriesAsync(PacsServerConfig server, string studyInstanceUid, CancellationToken ct = default)

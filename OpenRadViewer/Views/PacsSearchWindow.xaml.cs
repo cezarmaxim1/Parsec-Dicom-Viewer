@@ -47,6 +47,7 @@ public partial class PacsSearchWindow : Window
         }
 
         PopulateServerLocations();
+        RestoreLastFilterSession();
         SetupAutoRefresh();
 
         Loaded += (s, e) =>
@@ -66,57 +67,113 @@ public partial class PacsSearchWindow : Window
 
     private void PopulateServerLocations()
     {
-        CmbServerLocation.Items.Clear();
-        var servers = PacsService.Instance.Settings.Servers;
-        string? defLoc = PacsService.Instance.Settings.DefaultServerLocation;
-
-        // Default to "All PACS Servers" as the first item
-        var allItem = new ComboBoxItem
+        bool prevResetting = _isResetting;
+        _isResetting = true;
+        try
         {
-            Content = "All PACS Servers",
-            Tag = null
-        };
-        CmbServerLocation.Items.Add(allItem);
+            CmbServerLocation.Items.Clear();
+            var servers = PacsService.Instance.Settings.Servers;
+            string? defLoc = PacsService.Instance.Settings.DefaultServerLocation;
 
-        ComboBoxItem? toSelect = null;
-
-        if (string.Equals(defLoc, "ALL", StringComparison.OrdinalIgnoreCase) || 
-            string.Equals(defLoc, "All PACS Servers", StringComparison.OrdinalIgnoreCase))
-        {
-            toSelect = allItem;
-        }
-
-        foreach (var s in servers)
-        {
-            string displayName = !string.IsNullOrWhiteSpace(s.Description) ? s.Description : s.AeTitle;
-            var item = new ComboBoxItem
+            // Default to "All PACS Servers" as the first item
+            var allItem = new ComboBoxItem
             {
-                Content = displayName,
-                Tag = s
+                Content = "All PACS Servers",
+                Tag = null
             };
-            CmbServerLocation.Items.Add(item);
+            CmbServerLocation.Items.Add(allItem);
 
-            if (toSelect == null && !string.IsNullOrEmpty(defLoc))
+            ComboBoxItem? toSelect = null;
+
+            if (string.Equals(defLoc, "ALL", StringComparison.OrdinalIgnoreCase) || 
+                string.Equals(defLoc, "All PACS Servers", StringComparison.OrdinalIgnoreCase))
             {
-                if (string.Equals(s.Id, defLoc, StringComparison.OrdinalIgnoreCase) ||
-                    string.Equals(s.Description, defLoc, StringComparison.OrdinalIgnoreCase) ||
-                    string.Equals(s.AeTitle, defLoc, StringComparison.OrdinalIgnoreCase))
+                toSelect = allItem;
+            }
+
+            foreach (var s in servers)
+            {
+                string displayName = !string.IsNullOrWhiteSpace(s.Description) ? s.Description : s.AeTitle;
+                var item = new ComboBoxItem
                 {
-                    toSelect = item;
+                    Content = displayName,
+                    Tag = s
+                };
+                CmbServerLocation.Items.Add(item);
+
+                if (toSelect == null && !string.IsNullOrEmpty(defLoc))
+                {
+                    string normDef = defLoc.Replace("_", " ").Trim();
+                    string normDesc = (s.Description ?? string.Empty).Replace("_", " ").Trim();
+                    if (string.Equals(s.Id, defLoc, StringComparison.OrdinalIgnoreCase) ||
+                        string.Equals(s.Description, defLoc, StringComparison.OrdinalIgnoreCase) ||
+                        string.Equals(normDesc, normDef, StringComparison.OrdinalIgnoreCase) ||
+                        string.Equals(s.AeTitle, defLoc, StringComparison.OrdinalIgnoreCase))
+                    {
+                        toSelect = item;
+                    }
+                }
+            }
+
+            if (toSelect != null)
+            {
+                CmbServerLocation.SelectedItem = toSelect;
+            }
+            else if (CmbServerLocation.Items.Count > 0)
+            {
+                CmbServerLocation.SelectedIndex = 0;
+            }
+
+            UpdateDefaultButtonVisual();
+        }
+        finally
+        {
+            _isResetting = prevResetting;
+        }
+    }
+
+    private void RestoreLastFilterSession()
+    {
+        bool prevResetting = _isResetting;
+        _isResetting = true;
+        try
+        {
+            string? savedMod = PacsService.Instance.Settings.LastModalityFilter;
+            if (!string.IsNullOrWhiteSpace(savedMod) &&
+                !string.Equals(savedMod, "All", StringComparison.OrdinalIgnoreCase))
+            {
+                var parts = savedMod.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                var specific = GetSpecificModalityCheckBoxes();
+                bool anyMatched = false;
+                foreach (var cb in specific)
+                {
+                    string tag = cb.Tag?.ToString() ?? cb.Content?.ToString() ?? "";
+                    bool match = parts.Any(p => string.Equals(p, tag, StringComparison.OrdinalIgnoreCase));
+                    cb.IsChecked = match;
+                    if (match) anyMatched = true;
+                }
+                ChkModAll.IsChecked = !anyMatched;
+                UpdateModalitySummaryText();
+            }
+
+            string? savedDate = PacsService.Instance.Settings.LastDatePreset;
+            if (!string.IsNullOrWhiteSpace(savedDate))
+            {
+                foreach (var obj in CmbDatePreset.Items)
+                {
+                    if (obj is ComboBoxItem cbi &&
+                        string.Equals(cbi.Content?.ToString(), savedDate, StringComparison.OrdinalIgnoreCase))
+                    {
+                        CmbDatePreset.SelectedItem = cbi;
+                        break;
+                    }
                 }
             }
         }
-
-        if (toSelect != null)
+        finally
         {
-            CmbServerLocation.SelectedItem = toSelect;
+            _isResetting = prevResetting;
         }
-        else if (CmbServerLocation.Items.Count > 0)
-        {
-            CmbServerLocation.SelectedIndex = 0;
-        }
-
-        UpdateDefaultButtonVisual();
     }
 
     private PacsServerConfig? GetSelectedServer()
@@ -130,6 +187,19 @@ public partial class PacsSearchWindow : Window
 
     private void OnServerLocationChanged(object sender, SelectionChangedEventArgs e)
     {
+        if (!_isResetting && CmbServerLocation.SelectedItem is ComboBoxItem item)
+        {
+            if (item.Tag is PacsServerConfig s)
+            {
+                PacsService.Instance.Settings.DefaultServerLocation = !string.IsNullOrWhiteSpace(s.Description) ? s.Description : s.Id;
+            }
+            else
+            {
+                PacsService.Instance.Settings.DefaultServerLocation = "ALL";
+            }
+            PacsService.Instance.SaveSettings();
+        }
+
         UpdateDefaultButtonVisual();
         if (!IsLoaded || _isResetting) return;
         OnSearchClicked(this, new RoutedEventArgs());
@@ -146,9 +216,12 @@ public partial class PacsSearchWindow : Window
         {
             if (item.Tag is PacsServerConfig s)
             {
+                string normDef = (defLoc ?? string.Empty).Replace("_", " ").Trim();
+                string normDesc = (s.Description ?? string.Empty).Replace("_", " ").Trim();
                 isCurrentDefault = !string.IsNullOrEmpty(defLoc) &&
                     (string.Equals(s.Id, defLoc, StringComparison.OrdinalIgnoreCase) ||
-                     string.Equals(s.Description, defLoc, StringComparison.OrdinalIgnoreCase));
+                     string.Equals(s.Description, defLoc, StringComparison.OrdinalIgnoreCase) ||
+                     string.Equals(normDesc, normDef, StringComparison.OrdinalIgnoreCase));
             }
             else
             {
@@ -185,7 +258,7 @@ public partial class PacsSearchWindow : Window
             string locName;
             if (item.Tag is PacsServerConfig s)
             {
-                PacsService.Instance.Settings.DefaultServerLocation = s.Id;
+                PacsService.Instance.Settings.DefaultServerLocation = !string.IsNullOrWhiteSpace(s.Description) ? s.Description : s.Id;
                 locName = !string.IsNullOrWhiteSpace(s.Description) ? s.Description : s.AeTitle;
             }
             else
@@ -306,6 +379,8 @@ public partial class PacsSearchWindow : Window
     private void ScheduleModalityFilterSearch()
     {
         if (!IsLoaded || _isResetting) return;
+        PacsService.Instance.Settings.LastModalityFilter = GetSelectedModalitiesString();
+        PacsService.Instance.SaveSettings();
         _modalitySearchPending = true;
         if (_modalityDebounceTimer == null)
         {
@@ -348,6 +423,11 @@ public partial class PacsSearchWindow : Window
         PnlCustomDate.Visibility = isCustom ? Visibility.Visible : Visibility.Collapsed;
 
         if (!IsLoaded || _isResetting) return;
+        if (!string.IsNullOrWhiteSpace(sel))
+        {
+            PacsService.Instance.Settings.LastDatePreset = sel;
+            PacsService.Instance.SaveSettings();
+        }
         if (!isCustom)
         {
             OnSearchClicked(this, new RoutedEventArgs());
@@ -381,6 +461,9 @@ public partial class PacsSearchWindow : Window
             CmbDatePreset.SelectedIndex = 0;
             DpFrom.SelectedDate = null;
             DpTo.SelectedDate = null;
+            PacsService.Instance.Settings.LastModalityFilter = "All";
+            PacsService.Instance.Settings.LastDatePreset = "Today";
+            PacsService.Instance.SaveSettings();
             FoundStudies.Clear();
             SelectedStudySeries.Clear();
             TxtStudiesCount.Text = "Studies found: 0";
@@ -1008,6 +1091,8 @@ public partial class PacsSearchWindow : Window
                                 if (fresh.SeriesCount > 0 && existing.SeriesCount != fresh.SeriesCount) existing.SeriesCount = fresh.SeriesCount;
                                 if (!string.IsNullOrWhiteSpace(fresh.Modality) && existing.Modality != fresh.Modality) existing.Modality = fresh.Modality;
                                 if (!string.IsNullOrWhiteSpace(fresh.StudyDescription) && existing.StudyDescription != fresh.StudyDescription) existing.StudyDescription = fresh.StudyDescription;
+                                if (!string.IsNullOrWhiteSpace(fresh.ReadingPhysician) && existing.ReadingPhysician != fresh.ReadingPhysician) existing.ReadingPhysician = fresh.ReadingPhysician;
+                                if (!string.IsNullOrWhiteSpace(fresh.PerformingPhysician) && existing.PerformingPhysician != fresh.PerformingPhysician) existing.PerformingPhysician = fresh.PerformingPhysician;
                                 if (!string.IsNullOrWhiteSpace(fresh.ReferringPhysician) && existing.ReferringPhysician != fresh.ReferringPhysician) existing.ReferringPhysician = fresh.ReferringPhysician;
 
                                 if (seriesOrInstChanged && singleSelectedStudy != null &&

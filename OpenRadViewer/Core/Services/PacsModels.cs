@@ -38,6 +38,8 @@ public class PacsGlobalSettings
     public int CacheRetentionDays { get; set; } = 0; // 0 = On application exit, 1 = 1 day, 3 = 3 days, 7 = 7 days, -1 = Never
     public List<PacsServerConfig> Servers { get; set; } = new();
     public string? DefaultServerLocation { get; set; } = null;
+    public string? LastModalityFilter { get; set; } = null;
+    public string? LastDatePreset { get; set; } = null;
 }
 
 public class PacsStudyResult : System.ComponentModel.INotifyPropertyChanged
@@ -80,6 +82,20 @@ public class PacsStudyResult : System.ComponentModel.INotifyPropertyChanged
     {
         get => _studyDescription;
         set { if (_studyDescription != value) { _studyDescription = value; OnPropertyChanged(); } }
+    }
+
+    private string _readingPhysician = string.Empty;
+    public string ReadingPhysician
+    {
+        get => _readingPhysician;
+        set { if (_readingPhysician != value) { _readingPhysician = value; OnPropertyChanged(); } }
+    }
+
+    private string _performingPhysician = string.Empty;
+    public string PerformingPhysician
+    {
+        get => _performingPhysician;
+        set { if (_performingPhysician != value) { _performingPhysician = value; OnPropertyChanged(); } }
     }
 
     private string _referringPhysician = string.Empty;
@@ -176,7 +192,7 @@ public class PacsSearchFilter
     {
         if (study == null) return false;
 
-        // 1. Text filter (PatientName, PatientId, AccessionNumber, StudyDescription)
+        // 1. Text filter (PatientName, PatientId, AccessionNumber, StudyDescription, Physicians)
         if (!string.IsNullOrWhiteSpace(PatientName))
         {
             string q = PatientName.Trim();
@@ -184,7 +200,10 @@ public class PacsSearchFilter
             bool idMatch = !string.IsNullOrEmpty(study.PatientId) && study.PatientId.IndexOf(q, StringComparison.OrdinalIgnoreCase) >= 0;
             bool accMatch = !string.IsNullOrEmpty(study.AccessionNumber) && study.AccessionNumber.IndexOf(q, StringComparison.OrdinalIgnoreCase) >= 0;
             bool descMatch = !string.IsNullOrEmpty(study.StudyDescription) && study.StudyDescription.IndexOf(q, StringComparison.OrdinalIgnoreCase) >= 0;
-            if (!nameMatch && !idMatch && !accMatch && !descMatch)
+            bool readMatch = !string.IsNullOrEmpty(study.ReadingPhysician) && study.ReadingPhysician.IndexOf(q, StringComparison.OrdinalIgnoreCase) >= 0;
+            bool perfMatch = !string.IsNullOrEmpty(study.PerformingPhysician) && study.PerformingPhysician.IndexOf(q, StringComparison.OrdinalIgnoreCase) >= 0;
+            bool refMatch = !string.IsNullOrEmpty(study.ReferringPhysician) && study.ReferringPhysician.IndexOf(q, StringComparison.OrdinalIgnoreCase) >= 0;
+            if (!nameMatch && !idMatch && !accMatch && !descMatch && !readMatch && !perfMatch && !refMatch)
             {
                 return false;
             }

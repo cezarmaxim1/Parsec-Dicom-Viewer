@@ -373,11 +373,13 @@
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>
 
-                    <DataGridTextColumn Header="Study Description" Binding="{Binding StudyDescription}" Width="260" />
-                    <DataGridTextColumn Header="Accession #" Binding="{Binding AccessionNumber}" Width="100" />
+                    <DataGridTextColumn Header="Study Description" Binding="{Binding StudyDescription}" Width="210" />
+                    <DataGridTextColumn Header="Reading Physician" Binding="{Binding ReadingPhysician}" Width="140" />
+                    <DataGridTextColumn Header="Performing Physician" Binding="{Binding PerformingPhysician}" Width="140" />
+                    <DataGridTextColumn Header="Referring Physician" Binding="{Binding ReferringPhysician}" Width="140" />
+                    <DataGridTextColumn Header="Accession #" Binding="{Binding AccessionNumber}" Width="95" />
                     <DataGridTextColumn Header="Series" Binding="{Binding SeriesCount}" Width="50" />
                     <DataGridTextColumn Header="Instances" Binding="{Binding InstanceCount}" Width="65" />
-                    <DataGridTextColumn Header="Referring Physician" Binding="{Binding ReferringPhysician}" Width="140" />
                     <DataGridTextColumn Header="PACS Server" Binding="{Binding ServerDescription}" Width="100" />
                 </DataGrid.Columns>
             </DataGrid>
