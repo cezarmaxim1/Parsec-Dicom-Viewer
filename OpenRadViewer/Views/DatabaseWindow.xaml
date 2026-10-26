@@ -180,6 +180,15 @@
                     </StackPanel>
                 </Button>
 
+                <!-- Send Selected Study/Studies to PACS -->
+                <Button x:Name="BtnSendToPacs" Style="{StaticResource ToolbarBtnStyle}" Click="OnSendToPacsClick" ToolTip="Send selected study or multiple studies to a PACS server (C-STORE)">
+                    <StackPanel Orientation="Horizontal">
+                        <Path Stroke="#F5AF28" StrokeThickness="1.5" Fill="Transparent" Data="M9,14 V4 M5.5,7.5 L9,4 L12.5,7.5 M3,13 V16 H15 V13" Width="14" Height="14" Stretch="Uniform" />
+                        <TextBlock Text=" Send to PACS" FontSize="11.5" FontWeight="SemiBold" Margin="4,0,2,0" VerticalAlignment="Center" Foreground="#F5AF28" />
+                        <Path Fill="#888888" Data="M0,0 L6,0 L3,4 Z" Width="6" Height="4" Margin="2,1,0,0" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+
                 <Border Width="1" Height="20" Background="#333333" Margin="4,0" />
 
                 <!-- Mark as Reviewed / Done Toggle -->
@@ -255,6 +264,7 @@
             <DataGrid.ContextMenu>
                 <ContextMenu>
                     <MenuItem Header="Open in Viewer (Enter)" Click="OnOpenInViewer" />
+                    <MenuItem Header="Send to PACS..." Click="OnSendToPacsClick" FontWeight="SemiBold" Foreground="#F5AF28" />
                     <MenuItem Header="Reviewed (Space)" Click="OnToggleReviewed" />
                     <Separator />
                     <MenuItem Header="Delete from Database (Del)" Click="OnDeleteStudy" Foreground="#FF5252" />
@@ -345,6 +355,8 @@
         <Border Grid.Row="5" Background="#181818" BorderBrush="#252525" BorderThickness="0,1,0,0" Padding="8,4">
             <DockPanel LastChildFill="False">
                 <TextBlock x:Name="TxtStatus" Text="Ready" FontSize="11.5" Foreground="#888888" VerticalAlignment="Center" />
+                <ProgressBar x:Name="PbTransfer" Width="180" Height="6" Margin="12,0,0,0" VerticalAlignment="Center"
+                             Background="#222222" Foreground="#F5AF28" BorderThickness="0" Visibility="Collapsed" />
                 <TextBlock x:Name="TxtDbPath" DockPanel.Dock="Right" Text="" FontSize="11" Foreground="#666666" VerticalAlignment="Center" />
             </DockPanel>
         </Border>

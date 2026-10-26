@@ -355,6 +355,8 @@ public partial class DatabaseWindow : Window
         }
     }
 
+    private bool _isSendingToPacs;
+
     private void OnToggleReviewed(object sender, RoutedEventArgs e)
     {
         var selected = GridStudies.SelectedItems.OfType<DatabaseRecordModel>().ToList();
@@ -373,6 +375,158 @@ public partial class DatabaseWindow : Window
             GridStudies.Items.Refresh();
             bool state = selected[0].IsReviewed;
             TxtStatus.Text = $"{selected.Count} studii marcate ca: {(state ? "VERIFICAT (✓)" : "NEVERIFICAT")}";
+        }
+    }
+
+    private void OnSendToPacsClick(object sender, RoutedEventArgs e)
+    {
+        if (_isSendingToPacs)
+        {
+            MessageBox.Show(this, "Un transfer către PACS este deja în desfășurare.", "Transfer PACS", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        var selected = GridStudies.SelectedItems.OfType<DatabaseRecordModel>().ToList();
+        if (selected.Count == 0)
+        {
+            MessageBox.Show(this, "Selectați una sau mai multe investigații din tabel pentru a le trimite în PACS.", "Send to PACS", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        var servers = PacsService.Instance.Settings.Servers;
+        if (servers == null || servers.Count == 0)
+        {
+            MessageBox.Show(this, "Nu există niciun server PACS configurat. Adăugați un server în fereastra PACS Settings.", "Send to PACS", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        if (servers.Count == 1)
+        {
+            _ = SendSelectedStudiesToServerAsync(selected, servers[0]);
+            return;
+        }
+
+        // Multiple servers configured: show a quick picker menu with the default/last-used PACS server first
+        string? defLoc = PacsService.Instance.Settings.DefaultServerLocation;
+        bool IsDefaultServer(PacsServerConfig s)
+        {
+            if (string.IsNullOrWhiteSpace(defLoc)) return false;
+            return string.Equals(s.Id, defLoc, StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(s.Description, defLoc, StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(s.AeTitle, defLoc, StringComparison.OrdinalIgnoreCase);
+        }
+
+        var orderedServers = servers
+            .OrderByDescending(IsDefaultServer)
+            .ToList();
+
+        var menu = new ContextMenu();
+        foreach (var srv in orderedServers)
+        {
+            bool isLast = IsDefaultServer(srv);
+            var mi = new MenuItem
+            {
+                Header = isLast
+                    ? $"★ {srv.Description} ({srv.AeTitle} @ {srv.IpAddress}:{srv.Port})"
+                    : $"{srv.Description} ({srv.AeTitle} @ {srv.IpAddress}:{srv.Port})",
+                FontWeight = isLast ? FontWeights.Bold : FontWeights.Normal
+            };
+            var capturedServer = srv;
+            mi.Click += (_, _) => _ = SendSelectedStudiesToServerAsync(selected, capturedServer);
+            menu.Items.Add(mi);
+        }
+
+        if (sender == BtnSendToPacs)
+        {
+            menu.PlacementTarget = BtnSendToPacs;
+            menu.Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom;
+        }
+        menu.IsOpen = true;
+    }
+
+    private async Task SendSelectedStudiesToServerAsync(List<DatabaseRecordModel> selectedStudies, PacsServerConfig server)
+    {
+        if (_isSendingToPacs) return;
+
+        var allFiles = new List<string>();
+        foreach (var rec in selectedStudies)
+        {
+            if (!string.IsNullOrWhiteSpace(rec.FolderPath) && Directory.Exists(rec.FolderPath))
+            {
+                try
+                {
+                    var files = Directory.EnumerateFiles(rec.FolderPath, "*", SearchOption.AllDirectories)
+                        .Where(f => !f.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
+                        .ToList();
+                    allFiles.AddRange(files);
+                }
+                catch { }
+            }
+        }
+
+        allFiles = allFiles.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        if (allFiles.Count == 0)
+        {
+            MessageBox.Show(this,
+                "Nu s-au găsit fișiere DICOM pe disc pentru investigațiile selectate.",
+                "Send to PACS",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+            return;
+        }
+
+        string studiesSummary = selectedStudies.Count == 1
+            ? $"Pacient: {selectedStudies[0].PatientName}\nDescriere: {selectedStudies[0].StudyDescription}\nFișiere DICOM: {allFiles.Count}"
+            : $"Investigații selectate: {selectedStudies.Count} studii\nPacienți: {string.Join(", ", selectedStudies.Select(s => s.PatientName).Distinct().Take(4))}{(selectedStudies.Select(s => s.PatientName).Distinct().Count() > 4 ? "..." : "")}\nTotal fișiere DICOM: {allFiles.Count}";
+
+        var confirm = MessageBox.Show(this,
+            $"Doriți să trimiteți {(selectedStudies.Count == 1 ? "investigația selectată" : $"cele {selectedStudies.Count} investigații selectate")} în PACS?\n\n{studiesSummary}\n\nDestinație PACS: {server.Description} ({server.IpAddress}:{server.Port}, AE: {server.AeTitle})",
+            "Confirmare Trimitere în PACS (C-STORE)",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Question);
+
+        if (confirm != MessageBoxResult.Yes) return;
+
+        _isSendingToPacs = true;
+        BtnSendToPacs.IsEnabled = false;
+        PbTransfer.Visibility = Visibility.Visible;
+        PbTransfer.Maximum = allFiles.Count;
+        PbTransfer.Value = 0;
+        TxtStatus.Text = $"Se trimit {allFiles.Count} fișiere DICOM către {server.Description}...";
+
+        var progress = new Progress<(int current, int total, string message)>(p =>
+        {
+            Dispatcher.Invoke(() =>
+            {
+                PbTransfer.Value = p.current;
+                TxtStatus.Text = $"[{server.Description}] {p.message}";
+            });
+        });
+
+        try
+        {
+            var result = await PacsService.Instance.SendFilesToPacsAsync(server, allFiles, progress);
+            TxtStatus.Text = result.message;
+            MessageBox.Show(this,
+                result.message,
+                "Transfer PACS Finalizat",
+                MessageBoxButton.OK,
+                result.failedCount == 0 ? MessageBoxImage.Information : MessageBoxImage.Warning);
+        }
+        catch (Exception ex)
+        {
+            TxtStatus.Text = $"Eroare C-STORE: {ex.Message}";
+            MessageBox.Show(this,
+                $"Eroare la trimiterea în PACS:\n{ex.Message}",
+                "Eroare Transfer PACS",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
+        finally
+        {
+            _isSendingToPacs = false;
+            BtnSendToPacs.IsEnabled = true;
+            PbTransfer.Visibility = Visibility.Collapsed;
         }
     }
 
