@@ -22,22 +22,22 @@
 
         <StackPanel Grid.Row="1">
             <!-- Scope -->
-            <TextBlock Text="Ce doriți să exportați / Export Scope:" FontWeight="SemiBold" Margin="0,0,0,8" />
+            <TextBlock Text="Export Scope:" FontWeight="SemiBold" Margin="0,0,0,8" />
             <StackPanel Orientation="Vertical" Margin="4,0,0,12">
                 <RadioButton x:Name="RadioAllSeriesPatient" 
-                             Content="Tot studiul pacientului / All Series of Patient (Recomandat)" 
+                             Content="Entire patient study (All Series)" 
                              IsChecked="True" 
                              Foreground="#FFFFFF" 
                              FontWeight="SemiBold" 
                              Margin="0,0,0,6" 
                              Checked="OnScopeChanged" />
                 <RadioButton x:Name="RadioEntireSeries" 
-                             Content="Doar seria activă curentă / Active Series Only" 
+                             Content="Active series only" 
                              Foreground="#D0D0D0" 
                              Margin="0,0,0,6" 
                              Checked="OnScopeChanged" />
                 <RadioButton x:Name="RadioCurrentSlice" 
-                             Content="Doar imaginea / felia curentă / Current Slice Only" 
+                             Content="Current slice / image only" 
                              Foreground="#D0D0D0" 
                              Margin="0,0,0,6" 
                              Checked="OnScopeChanged" />
@@ -45,32 +45,32 @@
             </StackPanel>
 
             <!-- Image Format -->
-            <TextBlock Text="Format fișiere / File Format:" FontWeight="SemiBold" Margin="0,4,0,6" />
+            <TextBlock Text="File Format:" FontWeight="SemiBold" Margin="0,4,0,6" />
             <ComboBox x:Name="ComboFormat" SelectedIndex="0" Width="220" HorizontalAlignment="Left" Margin="4,0,0,12" SelectionChanged="OnFormatChanged">
-                <ComboBoxItem Content="DICOM (*.dcm) - Standard Medical" />
-                <ComboBoxItem Content="PNG (*.png) - Imagini fără pierderi" />
-                <ComboBoxItem Content="JPEG (*.jpg) - Format compact" />
-                <ComboBoxItem Content="TIFF (*.tif) - Rezoluție maximă" />
-                <ComboBoxItem Content="BMP (*.bmp) - Bitmap necomprimat" />
+                <ComboBoxItem Content="DICOM (*.dcm) - Medical Standard" />
+                <ComboBoxItem Content="PNG (*.png) - Lossless Image" />
+                <ComboBoxItem Content="JPEG (*.jpg) - Compact Image" />
+                <ComboBoxItem Content="TIFF (*.tif) - High Resolution" />
+                <ComboBoxItem Content="BMP (*.bmp) - Uncompressed Bitmap" />
             </ComboBox>
 
             <!-- Options -->
-            <TextBlock Text="Opțiuni suplimentare / Options:" FontWeight="SemiBold" Margin="0,4,0,6" />
+            <TextBlock Text="Export Options:" FontWeight="SemiBold" Margin="0,4,0,6" />
             <StackPanel Margin="4,0,0,0">
-                <CheckBox x:Name="CheckOrganizeFolders" Content="Organizează în foldere (Pacient / Studiu / Serie)" IsChecked="True" Foreground="#D0D0D0" Margin="0,2"
-                          ToolTip="Creează o structură ierarhică curată: [NumePacient_ID] / [Data_Studiu] / [Serie]" />
-                <CheckBox x:Name="CheckBurnOverlays" Content="Inscripționează datele pe imagine (Nume, ID, WL, scară)" IsChecked="False" Foreground="#D0D0D0" Margin="0,2" />
-                <TextBlock x:Name="TextBurnOverlaysNote" Text="* Inscripționarea textului este disponibilă pentru PNG, JPEG, TIFF. Fișierele DICOM păstrează metadatele medicale standard." 
+                <CheckBox x:Name="CheckOrganizeFolders" Content="Organize into folders (Patient / Study / Series)" IsChecked="True" Foreground="#D0D0D0" Margin="0,2"
+                          ToolTip="Creates a clean hierarchical folder structure: [PatientName_ID] / [Date_Study] / [Series]" />
+                <CheckBox x:Name="CheckBurnOverlays" Content="Burn-in annotations on image (Name, ID, WL, scale)" IsChecked="False" Foreground="#D0D0D0" Margin="0,2" />
+                <TextBlock x:Name="TextBurnOverlaysNote" Text="* Annotation burn-in is available for PNG, JPEG, and TIFF. DICOM files preserve standard medical metadata." 
                            FontSize="11" Foreground="#888888" Margin="20,0,0,4" Visibility="Collapsed" TextWrapping="Wrap" />
-                <CheckBox x:Name="CheckAnonymize" Content="Anonimizează datele pacientului (etichete DICOM)" IsChecked="False" Foreground="#D0D0D0" Margin="0,2" 
-                          ToolTip="Înlocuiește numele și CNP/ID-ul cu valori anonime în fișierele DICOM exportate." />
+                <CheckBox x:Name="CheckAnonymize" Content="Anonymize patient data (DICOM tags)" IsChecked="False" Foreground="#D0D0D0" Margin="0,2" 
+                          ToolTip="Replaces patient name and ID/CNP with anonymous values in exported DICOM files." />
             </StackPanel>
         </StackPanel>
 
         <!-- Footer -->
         <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,14,0,0">
-            <Button Content="Anulează / Cancel" Click="OnCancel" Margin="0,0,10,0" Padding="14,6" Background="#303030" Foreground="#D0D0D0" BorderBrush="#444444" />
-            <Button Content="Exportă... / Export..." Click="OnExport" Padding="20,6" Background="#F5AF28" Foreground="Black" FontWeight="Bold" BorderBrush="#F5AF28" />
+            <Button Content="Cancel" Click="OnCancel" Margin="0,0,10,0" Padding="14,6" Background="#303030" Foreground="#D0D0D0" BorderBrush="#444444" />
+            <Button Content="Export..." Click="OnExport" Padding="20,6" Background="#F5AF28" Foreground="Black" FontWeight="Bold" BorderBrush="#F5AF28" />
         </StackPanel>
     </Grid>
 </Window>

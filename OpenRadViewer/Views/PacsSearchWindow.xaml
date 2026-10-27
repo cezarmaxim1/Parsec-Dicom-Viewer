@@ -356,6 +356,19 @@
                     </DataGridTemplateColumn>
 
                     <DataGridTextColumn Header="Study Date &amp; Time" Binding="{Binding FormattedDateTime}" SortMemberPath="SortDateTimeKey" SortDirection="Descending" Width="150" FontWeight="SemiBold" />
+
+                    <!-- Local Database Indicator Dot (Orange circle, no header text) -->
+                    <DataGridTemplateColumn Header="" Width="26" CanUserResize="False">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <Grid HorizontalAlignment="Center" VerticalAlignment="Center" ToolTip="Saved in Local Database">
+                                    <Ellipse Visibility="{Binding IsInLocalDatabase, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                             Width="8" Height="8" Fill="#F5AF28" />
+                                </Grid>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+
                     <DataGridTextColumn Header="Patient Name" Binding="{Binding DisplayPatientName}" Width="180" FontWeight="SemiBold" />
                     <DataGridTextColumn Header="Patient ID" Binding="{Binding PatientId}" Width="120" />
                     <DataGridTextColumn Header="Age" Binding="{Binding Age}" Width="75" />

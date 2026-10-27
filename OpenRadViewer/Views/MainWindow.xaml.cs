@@ -1841,11 +1841,7 @@ public partial class MainWindow : Window
     {
         try
         {
-            if (ProtocolsTextBox == null || string.IsNullOrWhiteSpace(ProtocolsTextBox.Text))
-            {
-                MessageBox.Show(this, "Documentul este gol. Introduceți text sau alegeți un șablon înainte de a salva.", "Salvare Raport", MessageBoxButton.OK, MessageBoxImage.Information);
-                return;
-            }
+            string reportBodyText = ProtocolsTextBox?.Text ?? string.Empty;
 
             var (patient, study, curSeries) = ViewModel.GetCurrentPatientContext();
             string rawPatientName = !string.IsNullOrWhiteSpace(patient?.Name)
@@ -1878,7 +1874,7 @@ public partial class MainWindow : Window
 
             if (dlg.ShowDialog(this) == true)
             {
-                string fullReportForDocx = ViewModel.BuildCompleteReportForDocxExport(ProtocolsTextBox.Text);
+                string fullReportForDocx = ViewModel.BuildCompleteReportForDocxExport(reportBodyText);
                 Core.Services.DocxExportService.SaveTextToDocx(fullReportForDocx, dlg.FileName, $"Raport {cleanPatientName}");
                 ViewModel.ProtocolsStatusMessage = $"Report saved: {System.IO.Path.GetFileName(dlg.FileName)} ({DateTime.Now:HH:mm:ss})";
             }

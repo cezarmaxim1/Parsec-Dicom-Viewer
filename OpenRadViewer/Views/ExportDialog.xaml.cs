@@ -97,19 +97,19 @@ public partial class ExportDialog : Window
 
         string patientName = !string.IsNullOrWhiteSpace(_patient?.Name)
             ? _patient.Name
-            : (!string.IsNullOrWhiteSpace(_currentSeries.PatientName) ? _currentSeries.PatientName : "Pacient");
+            : (!string.IsNullOrWhiteSpace(_currentSeries.PatientName) ? _currentSeries.PatientName : "Patient");
 
         string seriesDesc = !string.IsNullOrWhiteSpace(_currentSeries.SeriesDescription)
             ? _currentSeries.SeriesDescription
-            : $"Seria {_currentSeries.SeriesNumber}";
+            : $"Series {_currentSeries.SeriesNumber}";
 
         int curSliceIdx = active?.CurrentSliceIndex ?? 0;
         int curSeriesSlices = _currentSeries.Slices.Count;
 
-        // Set clear, informative bilingual labels
-        RadioAllSeriesPatient.Content = $"Tot studiul pacientului ({patientName} - {_patientSeriesCount} serii, {_patientSlicesCount} imagini) [Recomandat]";
-        RadioEntireSeries.Content = $"Doar seria activă curentă ({seriesDesc} - {curSeriesSlices} imagini)";
-        RadioCurrentSlice.Content = $"Doar imaginea / felia curentă (Felia {curSliceIdx + 1} din {curSeriesSlices})";
+        // Set clear, informative English labels
+        RadioAllSeriesPatient.Content = $"Entire patient study ({patientName} - {_patientSeriesCount} series, {_patientSlicesCount} images)";
+        RadioEntireSeries.Content = $"Active series only ({seriesDesc} - {curSeriesSlices} images)";
+        RadioCurrentSlice.Content = $"Current slice / image only (Slice {curSliceIdx + 1} of {curSeriesSlices})";
 
         UpdateScopeSummary();
         UpdateFormatDependencies();
@@ -126,16 +126,16 @@ public partial class ExportDialog : Window
 
         if (RadioAllSeriesPatient.IsChecked == true)
         {
-            TextScopeSummary.Text = $"• Vor fi exportate toate cele {_patientSeriesCount} serii ({_patientSlicesCount} imagini în total) ale pacientului în foldere organizate.";
+            TextScopeSummary.Text = $"• All {_patientSeriesCount} series ({_patientSlicesCount} total images) of the patient will be exported into organized folders.";
         }
         else if (RadioEntireSeries.IsChecked == true)
         {
             int slices = _currentSeries?.Slices.Count ?? 0;
-            TextScopeSummary.Text = $"• Va fi exportată doar o singură serie ({slices} imagini). Atenție: celelalte serii din studiu nu vor fi incluse!";
+            TextScopeSummary.Text = $"• Only the active series ({slices} images) will be exported. Other series in the study will not be included.";
         }
         else if (RadioCurrentSlice.IsChecked == true)
         {
-            TextScopeSummary.Text = "• Va fi salvată doar 1 singură imagine (felia afișată în acest moment pe ecran).";
+            TextScopeSummary.Text = "• Only 1 single image (the slice currently displayed on screen) will be saved.";
         }
     }
 
@@ -175,14 +175,14 @@ public partial class ExportDialog : Window
         var active = _mainVm.ActiveViewport;
         if (active?.CurrentSlice == null || active.DisplayImage == null)
         {
-            MessageBox.Show(this, "Nu există nicio imagine sau serie DICOM activă pentru export.", "Export", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show(this, "No active DICOM image or series available for export.", "Export", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
 
         var currentSeries = active.CurrentSeries;
         if (currentSeries == null)
         {
-            MessageBox.Show(this, "Nu există nicio serie activă selectată.", "Export", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show(this, "No active series selected.", "Export", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
 
@@ -223,7 +223,7 @@ public partial class ExportDialog : Window
                         bool ok = ExportDicomSlice(active.CurrentSlice, saveDlg.FileName, anonymize);
                         if (!ok)
                         {
-                            throw new InvalidOperationException("Fișierul DICOM sursă nu a putut fi accesat.");
+                            throw new InvalidOperationException("Source DICOM file could not be accessed.");
                         }
                     }
                     else
@@ -236,13 +236,13 @@ public partial class ExportDialog : Window
                         ExportService.SaveBitmapToFile(bmpToExport, saveDlg.FileName, imageFormat);
                     }
 
-                    MessageBox.Show(this, "Imaginea a fost exportată cu succes!", "Export Parsec", MessageBoxButton.OK, MessageBoxImage.Information);
+                    MessageBox.Show(this, "Image exported successfully!", "Parsec Export", MessageBoxButton.OK, MessageBoxImage.Information);
                     DialogResult = true;
                     Close();
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show(this, $"Exportul a eșuat: {ex.Message}", "Eroare Export", MessageBoxButton.OK, MessageBoxImage.Error);
+                    MessageBox.Show(this, $"Export failed: {ex.Message}", "Export Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 }
             }
             return;
@@ -252,8 +252,8 @@ public partial class ExportDialog : Window
         var folderDlg = new OpenFolderDialog
         {
             Title = RadioAllSeriesPatient.IsChecked == true
-                ? "Selectați folderul de destinație pentru salvarea întregului studiu"
-                : "Selectați folderul de destinație pentru seria selectată"
+                ? "Select destination folder for exporting the entire study"
+                : "Select destination folder for exporting the selected series"
         };
 
         if (folderDlg.ShowDialog(this) != true)
@@ -416,20 +416,20 @@ public partial class ExportDialog : Window
             if (totalExportedSlices == 0)
             {
                 MessageBox.Show(this,
-                    "Nu s-a putut exporta nicio imagine. Verificați dacă fișierele sursă sunt accesibile pe disc.",
-                    "Avertisment Export",
+                    "No images could be exported. Please verify that the source files are accessible on disk.",
+                    "Export Warning",
                     MessageBoxButton.OK,
                     MessageBoxImage.Warning);
                 return;
             }
 
             MessageBox.Show(this,
-                $"Exportul s-a încheiat cu succes!\n\n" +
-                $"• Serii exportate: {totalExportedSeries}\n" +
-                $"• Imagini totale: {totalExportedSlices}\n" +
+                $"Export completed successfully!\n\n" +
+                $"• Exported series: {totalExportedSeries}\n" +
+                $"• Total images: {totalExportedSlices}\n" +
                 $"• Format: {(isDicom ? "DICOM (*.dcm)" : imageFormat)}\n\n" +
-                $"Destinație:\n{destinationDisplay}",
-                "Export Finalizat - Parsec",
+                $"Destination:\n{destinationDisplay}",
+                "Export Complete - Parsec",
                 MessageBoxButton.OK,
                 MessageBoxImage.Information);
 
@@ -438,7 +438,7 @@ public partial class ExportDialog : Window
         }
         catch (Exception ex)
         {
-            MessageBox.Show(this, $"Eroare în timpul exportului: {ex.Message}", "Eroare Export", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show(this, $"Error during export: {ex.Message}", "Export Error", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 

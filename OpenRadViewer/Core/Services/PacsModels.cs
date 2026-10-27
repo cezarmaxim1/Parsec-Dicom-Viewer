@@ -62,6 +62,20 @@ public class PacsStudyResult : System.ComponentModel.INotifyPropertyChanged
         }
     }
 
+    private bool _isInLocalDatabase;
+    public bool IsInLocalDatabase
+    {
+        get => _isInLocalDatabase;
+        set
+        {
+            if (_isInLocalDatabase != value)
+            {
+                _isInLocalDatabase = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+
     public string StudyInstanceUid { get; set; } = string.Empty;
     public string PatientName { get; set; } = string.Empty;
     public string PatientId { get; set; } = string.Empty;

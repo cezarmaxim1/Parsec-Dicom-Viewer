@@ -926,22 +926,60 @@ public partial class MainViewModel : ObservableObject
         }
         else if (isAbdomen)
         {
-            var sNative = nonScoutSeries.FirstOrDefault(s => {
-                string d = s.SeriesDescription.ToUpperInvariant();
-                return d.Contains("NATIV") || d.Contains("NON-CONTRAST") || d.Contains("PLAIN") || d.Contains("PRE") || d.Contains("C-");
-            });
-            var sArt = nonScoutSeries.FirstOrDefault(s => {
-                string d = s.SeriesDescription.ToUpperInvariant();
-                return d.Contains("ART") || d.Contains("EARLY") || d.Contains("LATE ART");
-            });
-            var sVen = nonScoutSeries.FirstOrDefault(s => {
-                string d = s.SeriesDescription.ToUpperInvariant();
-                return d.Contains("VEN") || d.Contains("PORTAL") || d.Contains("PV");
-            });
-            var sDel = nonScoutSeries.FirstOrDefault(s => {
-                string d = s.SeriesDescription.ToUpperInvariant();
-                return d.Contains("TARD") || d.Contains("DELAY") || d.Contains("4 MIN") || d.Contains("4MIN") || d.Contains("5 MIN") || d.Contains("EQUILIBR");
-            });
+            var diagCandidates = nonScoutSeries
+                .Where(s =>
+                {
+                    string d = (s.SeriesDescription ?? string.Empty).ToUpperInvariant();
+                    return !d.Contains("SMART") && !d.Contains("PREP") && !d.Contains("BOLUS") &&
+                           !d.Contains("MONITOR") && !d.Contains("DOSE") && !d.Contains("TRACK");
+                })
+                .ToList();
+
+            if (diagCandidates.Any(s => s.SliceCount >= 20))
+            {
+                diagCandidates = diagCandidates.Where(s => s.SliceCount >= 20).ToList();
+            }
+            if (diagCandidates.Count == 0) diagCandidates = nonScoutSeries;
+
+            int refSlices = curSeries.SliceCount >= 20 ? curSeries.SliceCount : 0;
+
+            SeriesModel? PickBestPhase(Func<string, bool> matcher, params SeriesModel?[] alreadyPicked)
+            {
+                var matches = diagCandidates
+                    .Where(s => !alreadyPicked.Contains(s) && matcher((s.SeriesDescription ?? string.Empty).ToUpperInvariant()))
+                    .OrderByDescending(s =>
+                    {
+                        string d = (s.SeriesDescription ?? string.Empty).ToUpperInvariant();
+                        bool isAxial = !d.Contains("COR") && !d.Contains("SAG");
+                        int score = isAxial ? 1000 : 0;
+                        if (refSlices > 0 && Math.Abs(s.SliceCount - refSlices) <= 5) score += 500;
+                        return score;
+                    })
+                    .ToList();
+                return matches.FirstOrDefault();
+            }
+
+            var sNative = PickBestPhase(d =>
+                d.Contains("NATIV") || d.Contains("NON-CONTRAST") || d.Contains("PLAIN") ||
+                d.Contains("C-") || Regex.IsMatch(d, @"(^|[^A-Z])PRE([^A-Z]|$)"));
+
+            if (sNative != null && refSlices == 0) refSlices = sNative.SliceCount;
+
+            var sArt = PickBestPhase(d =>
+                !d.Contains("SMART") && (
+                    d.Contains("ARTER") ||
+                    Regex.IsMatch(d, @"(^|[^A-Z])(ART|EARLY)([^A-Z]|$)") ||
+                    d.Contains("LATE ART")),
+                sNative);
+
+            var sVen = PickBestPhase(d =>
+                d.Contains("VEN") || d.Contains("PORTAL") || Regex.IsMatch(d, @"(^|[^A-Z])PV([^A-Z]|$)"),
+                sNative, sArt);
+
+            var sDel = PickBestPhase(d =>
+                d.Contains("TARD") || d.Contains("DELAY") || d.Contains("3 MIN") || d.Contains("4 MIN") ||
+                d.Contains("4MIN") || d.Contains("5 MIN") || d.Contains("EQUILIBR") || d.Contains("EXCRET"),
+                sNative, sArt, sVen);
 
             if (rows == 2 && cols == 2) // X+4
             {

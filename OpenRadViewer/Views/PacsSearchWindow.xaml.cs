@@ -1359,6 +1359,7 @@ public partial class PacsSearchWindow : Window
                                 primaryStudy.AccessionNumber = study.AccessionNumber;
 
                             DatabaseService.ImportStudy(primaryStudy, study.DisplayPatientName, study.PatientId, study.BirthDate);
+                            Dispatcher.Invoke(() => study.IsInLocalDatabase = true);
                             Interlocked.Increment(ref imported);
                         }
                     });
@@ -1599,6 +1600,7 @@ public partial class PacsSearchWindow : Window
             var local = DatabaseService.GetRecord(r.StudyInstanceUid);
             if (local != null)
             {
+                r.IsInLocalDatabase = !string.IsNullOrWhiteSpace(local.FolderPath) && Directory.Exists(local.FolderPath);
                 if (string.IsNullOrWhiteSpace(r.ReadingPhysician) && !string.IsNullOrWhiteSpace(local.ReadingPhysician))
                     r.ReadingPhysician = local.ReadingPhysician;
                 if (string.IsNullOrWhiteSpace(r.PerformingPhysician) && !string.IsNullOrWhiteSpace(local.PerformingPhysician))
@@ -1607,6 +1609,10 @@ public partial class PacsSearchWindow : Window
                     r.ReferringPhysician = local.ReferringPhysician;
                 if (string.IsNullOrWhiteSpace(r.AccessionNumber) && !string.IsNullOrWhiteSpace(local.AccessionNumber))
                     r.AccessionNumber = local.AccessionNumber;
+            }
+            else
+            {
+                r.IsInLocalDatabase = false;
             }
         }
         catch { }

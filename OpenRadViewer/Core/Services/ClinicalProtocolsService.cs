@@ -481,9 +481,10 @@ Arbore traheo-bronsic permeabil."
                     cleanBody.Contains("decelabile ct", StringComparison.OrdinalIgnoreCase) ||
                     cleanBody.Contains("aspect ct", StringComparison.OrdinalIgnoreCase);
 
-        // If the caller provided a valid selected protocol matching the examination modality, respect it 100%
+        // If the caller provided a valid selected protocol matching the examination modality and non-empty body, respect it 100%;
+        // when saving a blank report (empty body), allow DetectBestProtocol to infer the exam zone from DICOM Study/Series description first.
         ClinicalProtocol effectiveProtocol;
-        if (protocol != null && (!isCt || protocol.Category == "CT") && (isCt || protocol.Category == "IRM"))
+        if (!string.IsNullOrWhiteSpace(cleanBody) && protocol != null && (!isCt || protocol.Category == "CT") && (isCt || protocol.Category == "IRM"))
         {
             effectiveProtocol = protocol;
         }

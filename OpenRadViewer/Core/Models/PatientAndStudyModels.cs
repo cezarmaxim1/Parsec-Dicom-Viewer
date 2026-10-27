@@ -386,7 +386,13 @@ public class SeriesModel : ObservableObject
                                                       SeriesDescription.Contains("loc", StringComparison.OrdinalIgnoreCase) ||
                                                       SeriesDescription.Contains("surv", StringComparison.OrdinalIgnoreCase) ||
                                                       SeriesDescription.Contains("topogram", StringComparison.OrdinalIgnoreCase) ||
-                                                      SeriesDescription.Contains("scanogram", StringComparison.OrdinalIgnoreCase)));
+                                                      SeriesDescription.Contains("scanogram", StringComparison.OrdinalIgnoreCase) ||
+                                                      SeriesDescription.Contains("smart prep", StringComparison.OrdinalIgnoreCase) ||
+                                                      SeriesDescription.Contains("smartprep", StringComparison.OrdinalIgnoreCase) ||
+                                                      SeriesDescription.Contains("bolus", StringComparison.OrdinalIgnoreCase) ||
+                                                      SeriesDescription.Contains("monitoring", StringComparison.OrdinalIgnoreCase) ||
+                                                      SeriesDescription.Contains("dose report", StringComparison.OrdinalIgnoreCase) ||
+                                                      SeriesDescription.Contains("screen save", StringComparison.OrdinalIgnoreCase)));
 
     public double CardOpacity => IsScoutOrFewSlices ? 0.45 : 1.0;
 

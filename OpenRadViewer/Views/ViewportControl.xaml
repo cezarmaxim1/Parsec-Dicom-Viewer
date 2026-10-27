@@ -136,7 +136,7 @@
                         PreviewMouseLeftButtonDown="OnSlabBadgeClick"
                         PreviewMouseRightButtonDown="OnSlabBadgeClick"
                         PreviewMouseWheel="OnSlabBadgeMouseWheel"
-                        ToolTip="Click pentru selecție MPR / MIP / MinIP și cursor grosime (mm)&#x0a;Rotiță mouse: ajustează grosimea în mm">
+                        ToolTip="Click to select MPR / MIP / MinIP and slab thickness (mm)&#x0a;Mouse wheel: adjust slab thickness in mm">
                     <TextBlock x:Name="TxtSlabBadge" Text="{Binding SlabBadgeText}" FontSize="11" FontWeight="SemiBold" HorizontalAlignment="Right">
                         <TextBlock.Style>
                             <Style TargetType="TextBlock">
@@ -170,10 +170,31 @@
                             CornerRadius="6"
                             Padding="10,8"
                             Width="215">
+                        <Border.Resources>
+                            <ControlTemplate x:Key="DarkSlabModeBtnTemplate" TargetType="Button">
+                                <Border x:Name="bd"
+                                        Background="{TemplateBinding Background}"
+                                        BorderBrush="{TemplateBinding BorderBrush}"
+                                        BorderThickness="{TemplateBinding BorderThickness}"
+                                        CornerRadius="3"
+                                        Padding="{TemplateBinding Padding}">
+                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="bd" Property="Background" Value="#323842" />
+                                        <Setter TargetName="bd" Property="BorderBrush" Value="#00E5FF" />
+                                    </Trigger>
+                                    <Trigger Property="IsPressed" Value="True">
+                                        <Setter TargetName="bd" Property="Background" Value="#0A2E3C" />
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Border.Resources>
                         <StackPanel>
                             <!-- Mode Buttons: MPR | MIP | MinIP -->
                             <UniformGrid Rows="1" Columns="3" Margin="0,0,0,8">
-                                <Button Content="MPR" Click="OnSelectModeAvg" Margin="0,0,3,0" Padding="0,4" Cursor="Hand" FontSize="11" FontWeight="SemiBold">
+                                <Button Content="MPR" Click="OnSelectModeAvg" Margin="0,0,3,0" Padding="0,4" Cursor="Hand" FontSize="11" FontWeight="SemiBold" Template="{StaticResource DarkSlabModeBtnTemplate}">
                                     <Button.Style>
                                         <Style TargetType="Button">
                                             <Setter Property="Background" Value="#26262B" />
@@ -191,7 +212,7 @@
                                         </Style>
                                     </Button.Style>
                                 </Button>
-                                <Button Content="MIP" Click="OnSelectModeMip" Margin="1.5,0,1.5,0" Padding="0,4" Cursor="Hand" FontSize="11" FontWeight="SemiBold">
+                                <Button Content="MIP" Click="OnSelectModeMip" Margin="1.5,0,1.5,0" Padding="0,4" Cursor="Hand" FontSize="11" FontWeight="SemiBold" Template="{StaticResource DarkSlabModeBtnTemplate}">
                                     <Button.Style>
                                         <Style TargetType="Button">
                                             <Setter Property="Background" Value="#26262B" />
@@ -209,7 +230,7 @@
                                         </Style>
                                     </Button.Style>
                                 </Button>
-                                <Button Content="MinIP" Click="OnSelectModeMinIp" Margin="3,0,0,0" Padding="0,4" Cursor="Hand" FontSize="11" FontWeight="SemiBold">
+                                <Button Content="MinIP" Click="OnSelectModeMinIp" Margin="3,0,0,0" Padding="0,4" Cursor="Hand" FontSize="11" FontWeight="SemiBold" Template="{StaticResource DarkSlabModeBtnTemplate}">
                                     <Button.Style>
                                         <Style TargetType="Button">
                                             <Setter Property="Background" Value="#26262B" />
@@ -231,7 +252,7 @@
 
                             <!-- Thickness Slider Header -->
                             <DockPanel Margin="0,0,0,4">
-                                <TextBlock Text="Grosime (Thickness):" Foreground="#B0B0B0" FontSize="11" VerticalAlignment="Center" />
+                                <TextBlock Text="Thickness:" Foreground="#B0B0B0" FontSize="11" VerticalAlignment="Center" />
                                 <TextBlock Text="{Binding SlabThicknessMm, StringFormat='{}{0:0.0} mm'}"
                                            Foreground="#00E5FF" FontWeight="Bold" FontSize="11"
                                            HorizontalAlignment="Right" VerticalAlignment="Center" />
@@ -251,29 +272,73 @@
                                     Margin="0,2,0,8" />
 
                             <!-- Reset to Normal Slice Button -->
-                            <Button Content="↺ Revenire la Slice Normal"
+                            <Button Content="↺ Reset to Normal Slice"
                                     Click="OnResetNormalSliceClick"
                                     Cursor="Hand"
-                                    Padding="6,4"
+                                    Padding="6,5"
                                     FontSize="11"
                                     FontWeight="SemiBold"
                                     Background="#25252B"
                                     Foreground="#FFD54F"
                                     BorderBrush="#44444E"
-                                    BorderThickness="1" />
+                                    BorderThickness="1">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border x:Name="bd"
+                                                Background="{TemplateBinding Background}"
+                                                BorderBrush="{TemplateBinding BorderBrush}"
+                                                BorderThickness="{TemplateBinding BorderThickness}"
+                                                CornerRadius="3"
+                                                Padding="{TemplateBinding Padding}">
+                                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="bd" Property="Background" Value="#383222" />
+                                                <Setter TargetName="bd" Property="BorderBrush" Value="#FFD54F" />
+                                            </Trigger>
+                                            <Trigger Property="IsPressed" Value="True">
+                                                <Setter TargetName="bd" Property="Background" Value="#1E1B12" />
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Button.Template>
+                            </Button>
 
                             <!-- Apply to all MPR planes (only when in 3D MPR) -->
-                            <Button Content="Aplică pe toate planurile MPR"
+                            <Button Content="Apply to all MPR planes"
                                     Click="OnApplySlabToAllMprPlanes"
                                     Visibility="{Binding IsMprViewport, Converter={StaticResource BooleanToVisibilityConverter}}"
                                     Cursor="Hand"
                                     Margin="0,4,0,0"
-                                    Padding="6,3"
+                                    Padding="6,4"
                                     FontSize="10.5"
                                     Background="#1E1E24"
                                     Foreground="#90CAF9"
                                     BorderBrush="#33333D"
-                                    BorderThickness="1" />
+                                    BorderThickness="1">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border x:Name="bd"
+                                                Background="{TemplateBinding Background}"
+                                                BorderBrush="{TemplateBinding BorderBrush}"
+                                                BorderThickness="{TemplateBinding BorderThickness}"
+                                                CornerRadius="3"
+                                                Padding="{TemplateBinding Padding}">
+                                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="bd" Property="Background" Value="#263342" />
+                                                <Setter TargetName="bd" Property="BorderBrush" Value="#90CAF9" />
+                                            </Trigger>
+                                            <Trigger Property="IsPressed" Value="True">
+                                                <Setter TargetName="bd" Property="Background" Value="#161E28" />
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Button.Template>
+                            </Button>
                         </StackPanel>
                     </Border>
                 </Popup>
