@@ -794,14 +794,21 @@ public class PacsService
                         destFile += ".dcm";
                     }
 
-                    using (var entryStream = entry.Open())
-                    using (var outFs = new FileStream(destFile, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize: 256 * 1024, useAsync: true))
+                    try
                     {
-                        int read;
-                        while ((read = await entryStream.ReadAsync(extractBuffer, 0, extractBuffer.Length, ct).ConfigureAwait(false)) > 0)
+                        using (var entryStream = entry.Open())
+                        using (var outFs = new FileStream(destFile, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize: 256 * 1024, useAsync: true))
                         {
-                            await outFs.WriteAsync(extractBuffer, 0, read, ct).ConfigureAwait(false);
+                            int read;
+                            while ((read = await entryStream.ReadAsync(extractBuffer, 0, extractBuffer.Length, ct).ConfigureAwait(false)) > 0)
+                            {
+                                await outFs.WriteAsync(extractBuffer, 0, read, ct).ConfigureAwait(false);
+                            }
                         }
+                    }
+                    catch (IOException) when (File.Exists(destFile) && new FileInfo(destFile).Length > 132)
+                    {
+                        // Slice file already exists on disk and is currently open in the viewer; keep existing valid file
                     }
 
                     extracted++;
@@ -909,14 +916,21 @@ public class PacsService
                         destFile += ".dcm";
                     }
 
-                    using (var entryStream = entry.Open())
-                    using (var outFs = new FileStream(destFile, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize: 256 * 1024, useAsync: true))
+                    try
                     {
-                        int read;
-                        while ((read = await entryStream.ReadAsync(extractBuffer, 0, extractBuffer.Length, ct).ConfigureAwait(false)) > 0)
+                        using (var entryStream = entry.Open())
+                        using (var outFs = new FileStream(destFile, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize: 256 * 1024, useAsync: true))
                         {
-                            await outFs.WriteAsync(extractBuffer, 0, read, ct).ConfigureAwait(false);
+                            int read;
+                            while ((read = await entryStream.ReadAsync(extractBuffer, 0, extractBuffer.Length, ct).ConfigureAwait(false)) > 0)
+                            {
+                                await outFs.WriteAsync(extractBuffer, 0, read, ct).ConfigureAwait(false);
+                            }
                         }
+                    }
+                    catch (IOException) when (File.Exists(destFile) && new FileInfo(destFile).Length > 132)
+                    {
+                        // Slice file already exists on disk and is currently open in the viewer; keep existing valid file
                     }
 
                     extracted++;
@@ -1165,8 +1179,15 @@ public class PacsService
                 }
 
                 string filePath = Path.Combine(destDir, $"{Sanitize(sopUid)}.dcm");
-                var file = new DicomFile(ds);
-                await file.SaveAsync(filePath);
+                try
+                {
+                    var file = new DicomFile(ds);
+                    await file.SaveAsync(filePath);
+                }
+                catch (IOException) when (File.Exists(filePath) && new FileInfo(filePath).Length > 132)
+                {
+                    // Slice file already exists on disk and is currently open in the viewer; keep existing valid file
+                }
 
                 int curSlices = Interlocked.Add(ref receivedSliceCount, Math.Max(1, numFrames));
                 int curFiles = Interlocked.Increment(ref receivedFileCount);

@@ -330,6 +330,7 @@
                 <DataGrid.ContextMenu>
                     <ContextMenu>
                         <MenuItem Header="Open in Viewer" Click="OnDownloadAndOpenClicked" FontWeight="Bold" />
+                        <MenuItem Header="Add to current study" Click="OnAddStudyToCurrentStudyClicked" />
                         <MenuItem Header="Toggle Reviewed (Space)" Click="OnToggleReviewedContextMenu" />
                         <Separator Background="#333333" />
                         <MenuItem Header="Import into Local Database" Click="OnImportToDatabaseClicked" />
@@ -413,6 +414,7 @@
                 <Grid>
                     <TextBlock x:Name="TxtSeriesHeader" Text="Series in selected study: 0" FontWeight="SemiBold" FontSize="11.5" Foreground="#CCCCCC" VerticalAlignment="Center" />
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                        <Button Style="{StaticResource DarkButton}" Content="➕ Add Series to Current Study" Padding="8,3" FontSize="11" Margin="0,0,8,0" Click="OnAddSelectedSeriesToCurrentStudyClicked" ToolTip="Download and add selected series (or missing slices) into the currently open study" />
                         <Button Style="{StaticResource DarkButton}" Content="Open Selected Series Only" Padding="8,3" FontSize="11" Click="OnDownloadSelectedSeriesClicked" />
                     </StackPanel>
                 </Grid>
@@ -422,6 +424,8 @@
                 <DataGrid.ContextMenu>
                     <ContextMenu>
                         <MenuItem Header="Open selected series only" Click="OnDownloadSelectedSeriesClicked" FontWeight="Bold" />
+                        <MenuItem Header="Add series to current study" Click="OnAddSelectedSeriesToCurrentStudyClicked" FontWeight="SemiBold" Foreground="#F5AF28" />
+                        <Separator Background="#333333" />
                         <MenuItem Header="Send selected series to PACS..." Click="OnSendSeriesToPacsClicked" />
                     </ContextMenu>
                 </DataGrid.ContextMenu>

@@ -328,6 +328,10 @@ public class DicomLoaderService
     {
         try
         {
+            var fi = new FileInfo(file);
+            if (!fi.Exists || fi.Length <= 132)
+                return null;
+
             var dcm = DicomFile.Open(file, FileReadOption.ReadLargeOnDemand);
             var ds = dcm.Dataset;
 
@@ -335,6 +339,10 @@ public class DicomLoaderService
             int rows = ds.GetSingleValueOrDefault(DicomTag.Rows, 0);
             int cols = ds.GetSingleValueOrDefault(DicomTag.Columns, 0);
             if (!hasPixelData || rows <= 0 || cols <= 0)
+                return null;
+
+            var pxData = DicomPixelData.Create(ds);
+            if (pxData.NumberOfFrames <= 0)
                 return null;
 
             string patientId = ds.GetSingleValueOrDefault(DicomTag.PatientID, "UNKNOWN_ID");
@@ -531,6 +539,7 @@ public class DicomLoaderService
                         StudyDescription = study.StudyDescription,
                         Laterality = item.Laterality,
                         SeriesNumber = item.SeriesNumber,
+                        BaseSeriesDescription = item.SeriesDescription,
                         SeriesDescription = item.SeriesDescription,
                         Modality = item.Modality,
                         BodyPart = item.BodyPart,

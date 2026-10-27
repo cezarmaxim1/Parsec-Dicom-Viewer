@@ -1184,6 +1184,16 @@ public partial class PacsSearchWindow : Window
 
     private void OnDownloadAndOpenClicked(object sender, RoutedEventArgs e)
     {
+        StartSelectedStudiesStreaming(appendToCurrentStudy: false);
+    }
+
+    private void OnAddStudyToCurrentStudyClicked(object sender, RoutedEventArgs e)
+    {
+        StartSelectedStudiesStreaming(appendToCurrentStudy: true);
+    }
+
+    private void StartSelectedStudiesStreaming(bool appendToCurrentStudy)
+    {
         var selectedStudies = GridStudies.SelectedItems.Cast<PacsStudyResult>().ToList();
         if (selectedStudies.Count == 0) return;
 
@@ -1206,11 +1216,11 @@ public partial class PacsSearchWindow : Window
         // Immediately start progressive live streaming into the viewer and close dialog
         if (studyList.Count == 1)
         {
-            _mainWindow.StartPacsStreamingStudy(studyList[0].server, studyList[0].study);
+            _mainWindow.StartPacsStreamingStudy(studyList[0].server, studyList[0].study, null, appendToCurrentStudy);
         }
         else
         {
-            _mainWindow.StartPacsStreamingStudies(studyList);
+            _mainWindow.StartPacsStreamingStudies(studyList, appendToCurrentStudy);
         }
 
         Close();
@@ -1218,17 +1228,46 @@ public partial class PacsSearchWindow : Window
 
     private void OnDownloadSelectedSeriesClicked(object sender, RoutedEventArgs e)
     {
-        if (GridStudies.SelectedItem is not PacsStudyResult study || GridSeries.SelectedItem is not PacsSeriesResult series)
+        StartSelectedSeriesStreaming(appendToCurrentStudy: false);
+    }
+
+    private void OnAddSelectedSeriesToCurrentStudyClicked(object sender, RoutedEventArgs e)
+    {
+        StartSelectedSeriesStreaming(appendToCurrentStudy: true);
+    }
+
+    private void StartSelectedSeriesStreaming(bool appendToCurrentStudy)
+    {
+        if (GridStudies.SelectedItem is not PacsStudyResult study)
         {
-            MessageBox.Show("Please select a study and a series.", "Notice", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show("Please select a study first.", "Notice", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        var selectedSeries = GridSeries.SelectedItems.Cast<PacsSeriesResult>().ToList();
+        if (selectedSeries.Count == 0 && GridSeries.SelectedItem is PacsSeriesResult singleSeries)
+        {
+            selectedSeries.Add(singleSeries);
+        }
+
+        if (selectedSeries.Count == 0)
+        {
+            MessageBox.Show("Please select at least one series.", "Notice", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
 
         var server = PacsService.Instance.Settings.Servers.FirstOrDefault(s => s.Id == study.ServerId) ?? GetSelectedServer();
         if (server == null) return;
 
-        // Immediately start progressive live streaming of this series into viewer and close dialog
-        _mainWindow.StartPacsStreamingStudy(server, study, series);
+        // Immediately start progressive live streaming of selected series into viewer and close dialog
+        if (selectedSeries.Count == 1)
+        {
+            _mainWindow.StartPacsStreamingStudy(server, study, selectedSeries[0], appendToCurrentStudy);
+        }
+        else
+        {
+            _mainWindow.StartPacsStreamingSeriesList(server, study, selectedSeries, appendToCurrentStudy);
+        }
         Close();
     }
 

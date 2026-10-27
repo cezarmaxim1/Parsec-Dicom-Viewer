@@ -167,24 +167,39 @@ public partial class DatabaseWindow : Window
 
     private void OnOpenInViewer(object sender, RoutedEventArgs e)
     {
-        OpenSelectedStudy();
+        OpenSelectedStudy(appendToCurrentStudy: false);
+    }
+
+    private void OnAddStudyToCurrentStudy(object sender, RoutedEventArgs e)
+    {
+        OpenSelectedStudy(appendToCurrentStudy: true);
     }
 
     private void OnStudyDoubleClick(object sender, MouseButtonEventArgs e)
     {
-        OpenSelectedStudy();
+        OpenSelectedStudy(appendToCurrentStudy: false);
     }
 
     private void OnSeriesDoubleClick(object sender, MouseButtonEventArgs e)
     {
-        OpenSelectedStudy();
+        OpenSelectedSeries(appendToCurrentStudy: false);
+    }
+
+    private void OnOpenSelectedSeriesOnly(object sender, RoutedEventArgs e)
+    {
+        OpenSelectedSeries(appendToCurrentStudy: false);
+    }
+
+    private void OnAddSeriesToCurrentStudy(object sender, RoutedEventArgs e)
+    {
+        OpenSelectedSeries(appendToCurrentStudy: true);
     }
 
     private void OnGridStudiesKeyDown(object sender, KeyEventArgs e)
     {
         if (e.Key == Key.Enter)
         {
-            OpenSelectedStudy();
+            OpenSelectedStudy(appendToCurrentStudy: false);
             e.Handled = true;
         }
         else if (e.Key == Key.Space)
@@ -199,7 +214,48 @@ public partial class DatabaseWindow : Window
         }
     }
 
-    private void OpenSelectedStudy()
+    private void OpenSelectedSeries(bool appendToCurrentStudy)
+    {
+        if (GridStudies.SelectedItem is not DatabaseRecordModel record) return;
+        if (!Directory.Exists(record.FolderPath))
+        {
+            MessageBox.Show(this,
+                $"Dosarul de imagini pentru acest studiu nu a fost găsit:\n{record.FolderPath}",
+                "Studiu Negăsit",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+            return;
+        }
+
+        var selectedSeries = GridSeries.SelectedItems.OfType<DatabaseSeriesRecord>().ToList();
+        if (selectedSeries.Count == 0 && GridSeries.SelectedItem is DatabaseSeriesRecord single)
+        {
+            selectedSeries.Add(single);
+        }
+
+        if (selectedSeries.Count == 0)
+        {
+            OpenSelectedStudy(appendToCurrentStudy);
+            return;
+        }
+
+        var allowedUids = new HashSet<string>(
+            selectedSeries.Where(s => !string.IsNullOrWhiteSpace(s.SeriesInstanceUid)).Select(s => s.SeriesInstanceUid),
+            StringComparer.OrdinalIgnoreCase);
+
+        if (!appendToCurrentStudy)
+        {
+            _mainViewModel.CloseAllPatients();
+        }
+
+        _ = _mainViewModel.ScanPathsAsync(
+            new[] { record.FolderPath },
+            allowedSeriesUids: allowedUids.Count > 0 ? allowedUids : null,
+            appendToCurrentStudy: appendToCurrentStudy);
+        Close();
+    }
+
+    private void OpenSelectedStudy(bool appendToCurrentStudy = false)
     {
         var selected = GridStudies.SelectedItems.OfType<DatabaseRecordModel>().ToList();
         if (selected.Count == 0) return;
@@ -209,8 +265,11 @@ public partial class DatabaseWindow : Window
             var record = selected[0];
             if (Directory.Exists(record.FolderPath))
             {
-                _mainViewModel.CloseAllPatients();
-                _ = _mainViewModel.ScanFolderAsync(record.FolderPath);
+                if (!appendToCurrentStudy)
+                {
+                    _mainViewModel.CloseAllPatients();
+                }
+                _ = _mainViewModel.ScanPathsAsync(new[] { record.FolderPath }, appendToCurrentStudy: appendToCurrentStudy);
                 Close();
             }
             else
@@ -230,8 +289,11 @@ public partial class DatabaseWindow : Window
                                        .ToList();
             if (validFolders.Count > 0)
             {
-                _mainViewModel.CloseAllPatients();
-                _ = _mainViewModel.ScanMultipleFoldersAsync(validFolders);
+                if (!appendToCurrentStudy)
+                {
+                    _mainViewModel.CloseAllPatients();
+                }
+                _ = _mainViewModel.ScanPathsAsync(validFolders, appendToCurrentStudy: appendToCurrentStudy);
                 Close();
             }
             else

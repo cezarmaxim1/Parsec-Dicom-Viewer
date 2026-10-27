@@ -1409,12 +1409,19 @@ public partial class MainViewModel : ObservableObject
     }
 
     private readonly SemaphoreSlim _scanLock = new(1, 1);
+    private StudyModel? _appendTargetStudy;
+    private PatientModel? _appendTargetPatient;
 
     public Task ScanFolderAsync(string folderPath) => ScanPathsAsync(new[] { folderPath });
 
     public Task ScanMultipleFoldersAsync(IEnumerable<string> folderPaths) => ScanPathsAsync(folderPaths);
 
-    public async Task ScanPathsAsync(IEnumerable<string> rawPaths, ViewportViewModel? targetViewport = null, string? targetFilePath = null)
+    public async Task ScanPathsAsync(
+        IEnumerable<string> rawPaths,
+        ViewportViewModel? targetViewport = null,
+        string? targetFilePath = null,
+        HashSet<string>? allowedSeriesUids = null,
+        bool appendToCurrentStudy = false)
     {
         if (rawPaths == null) return;
         var inputList = rawPaths.Where(p => !string.IsNullOrWhiteSpace(p)).ToList();
@@ -1467,6 +1474,18 @@ public partial class MainViewModel : ObservableObject
         try
         {
             IsLoading = true;
+            if (appendToCurrentStudy)
+            {
+                var (curPat, curSt, _) = GetCurrentPatientContext();
+                _appendTargetPatient = curPat;
+                _appendTargetStudy = curSt;
+            }
+            else
+            {
+                _appendTargetPatient = null;
+                _appendTargetStudy = null;
+            }
+
             int totalPaths = pathsToScan.Count;
 
             for (int i = 0; i < totalPaths; i++)
@@ -1489,6 +1508,15 @@ public partial class MainViewModel : ObservableObject
 
                 await _loaderService.ScanPathsStreamingAsync(new[] { currentPath }, batch =>
                 {
+                    if (allowedSeriesUids != null && allowedSeriesUids.Count > 0)
+                    {
+                        batch = batch.Where(item =>
+                            allowedSeriesUids.Contains(item.SeriesUid) ||
+                            allowedSeriesUids.Any(u => item.SeriesUid.StartsWith(u + "_", StringComparison.OrdinalIgnoreCase)))
+                            .ToList();
+                        if (batch.Count == 0) return;
+                    }
+
                     if (System.Windows.Application.Current?.Dispatcher != null &&
                         !System.Windows.Application.Current.Dispatcher.CheckAccess())
                     {
@@ -1613,6 +1641,8 @@ public partial class MainViewModel : ObservableObject
         }
         finally
         {
+            _appendTargetPatient = null;
+            _appendTargetStudy = null;
             IsLoading = false;
             _scanLock.Release();
         }
@@ -1621,7 +1651,9 @@ public partial class MainViewModel : ObservableObject
     /// <summary>
     /// Starts background progressive streaming for multiple PACS studies sequentially.
     /// </summary>
-    public async Task StartPacsStreamingStudiesAsync(List<(PacsServerConfig server, PacsStudyResult study)> studies)
+    public async Task StartPacsStreamingStudiesAsync(
+        List<(PacsServerConfig server, PacsStudyResult study)> studies,
+        bool appendToCurrentStudy = false)
     {
         if (studies == null || studies.Count == 0) return;
         int count = studies.Count;
@@ -1631,10 +1663,40 @@ public partial class MainViewModel : ObservableObject
             for (int i = 0; i < count; i++)
             {
                 var (server, study) = studies[i];
-                await StartPacsStreamingStudyAsync(server, study, null, i, count);
+                await StartPacsStreamingStudyAsync(server, study, null, i, count, appendToCurrentStudy: appendToCurrentStudy || i > 0);
                 if (i + 1 < count)
                 {
                     await Task.Delay(400);
+                }
+            }
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    /// <summary>
+    /// Starts background progressive streaming for one or multiple selected PACS series of a study.
+    /// When appendToCurrentStudy is true, existing open series/slices are preserved and only new slices/series are added.
+    /// </summary>
+    public async Task StartPacsStreamingSeriesListAsync(
+        PacsServerConfig server,
+        PacsStudyResult study,
+        List<PacsSeriesResult> seriesList,
+        bool appendToCurrentStudy = false)
+    {
+        if (seriesList == null || seriesList.Count == 0) return;
+        int count = seriesList.Count;
+        IsLoading = true;
+        try
+        {
+            for (int i = 0; i < count; i++)
+            {
+                await StartPacsStreamingStudyAsync(server, study, seriesList[i], i, count, appendToCurrentStudy: appendToCurrentStudy || i > 0);
+                if (i + 1 < count)
+                {
+                    await Task.Delay(250);
                 }
             }
         }
@@ -1654,9 +1716,10 @@ public partial class MainViewModel : ObservableObject
         PacsStudyResult study, 
         PacsSeriesResult? seriesFilter = null,
         int batchIndex = 0,
-        int batchTotal = 1)
+        int batchTotal = 1,
+        bool appendToCurrentStudy = false)
     {
-        if (batchIndex == 0)
+        if (batchIndex == 0 && !appendToCurrentStudy)
         {
             if (System.Windows.Application.Current?.Dispatcher != null &&
                 !System.Windows.Application.Current.Dispatcher.CheckAccess())
@@ -1669,6 +1732,30 @@ public partial class MainViewModel : ObservableObject
             }
         }
 
+        if (appendToCurrentStudy)
+        {
+            void CaptureAppendContext()
+            {
+                var (curPat, curSt, _) = GetCurrentPatientContext();
+                _appendTargetPatient = curPat;
+                _appendTargetStudy = curSt;
+            }
+            if (System.Windows.Application.Current?.Dispatcher != null &&
+                !System.Windows.Application.Current.Dispatcher.CheckAccess())
+            {
+                System.Windows.Application.Current.Dispatcher.Invoke(CaptureAppendContext);
+            }
+            else
+            {
+                CaptureAppendContext();
+            }
+        }
+        else
+        {
+            _appendTargetPatient = null;
+            _appendTargetStudy = null;
+        }
+
         IsLoading = true;
         StatusMessage = batchTotal > 1
             ? $"[{batchIndex + 1}/{batchTotal}] PACS ({server.Description}): Conectare pentru {study.DisplayPatientName}..."
@@ -1678,47 +1765,128 @@ public partial class MainViewModel : ObservableObject
         var seenSeries = new ConcurrentDictionary<string, byte>();
         var incomingQueue = new ConcurrentQueue<ParsedSliceBatchItem>();
         var processedFiles = new ConcurrentDictionary<string, byte>(StringComparer.OrdinalIgnoreCase);
+        var alreadyInMemorySopUids = new ConcurrentDictionary<string, byte>(StringComparer.OrdinalIgnoreCase);
+        var alreadyInMemorySanitizedSopUids = new ConcurrentDictionary<string, byte>(StringComparer.OrdinalIgnoreCase);
 
         var sw = Stopwatch.StartNew();
         long totalBytesDownloaded = 0;
         int receivedImageCount = 0;
         int activeParsers = 0;
 
-        // Pre-fill seenSeries with any existing series in GroupedPatientStudies for this study
-        var existingGroup = GroupedPatientStudies.FirstOrDefault(g => g.StudyInstanceUid == study.StudyInstanceUid);
-        if (existingGroup != null)
+        // Collect existing series and already-loaded slices in memory so half-downloaded series never re-parse or duplicate existing slices
+        void CollectInMemoryState()
         {
-            foreach (var s in existingGroup.SeriesList)
+            foreach (var p in Patients)
             {
-                seenSeries.TryAdd(s.SeriesInstanceUid, 1);
+                foreach (var st in p.Studies)
+                {
+                    if (!string.Equals(st.StudyInstanceUid, study.StudyInstanceUid, StringComparison.OrdinalIgnoreCase) &&
+                        st != _appendTargetStudy)
+                    {
+                        continue;
+                    }
+
+                    foreach (var se in st.Series)
+                    {
+                        seenSeries.TryAdd(se.SeriesInstanceUid, 1);
+
+                        bool isTargetSeries = seriesFilter == null ||
+                            string.IsNullOrWhiteSpace(seriesFilter.SeriesInstanceUid) ||
+                            string.Equals(se.SeriesInstanceUid, seriesFilter.SeriesInstanceUid, StringComparison.OrdinalIgnoreCase) ||
+                            se.SeriesInstanceUid.StartsWith(seriesFilter.SeriesInstanceUid + "_", StringComparison.OrdinalIgnoreCase);
+
+                        foreach (var sl in se.Slices)
+                        {
+                            if (!string.IsNullOrWhiteSpace(sl.FilePath))
+                            {
+                                processedFiles.TryAdd(sl.FilePath, 1);
+                            }
+                            if (!string.IsNullOrWhiteSpace(sl.SopInstanceUid))
+                            {
+                                string cleanSop = sl.SopInstanceUid.Trim();
+                                alreadyInMemorySopUids.TryAdd($"{ cleanSop }|{ sl.FrameIndex }", 1);
+                                alreadyInMemorySanitizedSopUids.TryAdd(PacsService.Sanitize(cleanSop), 1);
+                            }
+                            if (isTargetSeries)
+                            {
+                                Interlocked.Increment(ref receivedImageCount);
+                            }
+                        }
+                    }
+                }
             }
         }
 
-        // Check if there are already cached files on disk for this study
-        string studyCacheDir = Path.Combine(PacsService.Instance.Settings.CacheDirectory, PacsService.Sanitize(study.StudyInstanceUid));
-        if (Directory.Exists(studyCacheDir))
+        if (System.Windows.Application.Current?.Dispatcher != null &&
+            !System.Windows.Application.Current.Dispatcher.CheckAccess())
         {
-            var cachedFiles = Directory.EnumerateFiles(studyCacheDir, "*", SearchOption.AllDirectories).ToList();
+            System.Windows.Application.Current.Dispatcher.Invoke(CollectInMemoryState);
+        }
+        else
+        {
+            CollectInMemoryState();
+        }
+
+        // Determine the exact cache directory to scan (only the specific series folder when seriesFilter is provided)
+        string studyCacheDir = Path.Combine(PacsService.Instance.Settings.CacheDirectory, PacsService.Sanitize(study.StudyInstanceUid));
+        string targetCacheDir = (seriesFilter != null && !string.IsNullOrWhiteSpace(seriesFilter.SeriesInstanceUid))
+            ? Path.Combine(studyCacheDir, PacsService.Sanitize(seriesFilter.SeriesInstanceUid))
+            : studyCacheDir;
+
+        if (Directory.Exists(targetCacheDir))
+        {
+            var cachedFiles = Directory.EnumerateFiles(targetCacheDir, "*", SearchOption.AllDirectories).ToList();
             if (cachedFiles.Count > 0)
             {
                 await Task.Run(() =>
                 {
                     foreach (var file in cachedFiles)
                     {
-                        if (processedFiles.TryAdd(file, 1))
+                        if (processedFiles.ContainsKey(file))
                         {
-                            try
+                            continue;
+                        }
+
+                        string fileNameNoExt = Path.GetFileNameWithoutExtension(file);
+                        if (!string.IsNullOrWhiteSpace(fileNameNoExt) && alreadyInMemorySanitizedSopUids.ContainsKey(fileNameNoExt))
+                        {
+                            processedFiles.TryAdd(file, 1);
+                            continue;
+                        }
+
+                        var item = _loaderService.ParseSingleFile(file, seenSeries);
+                        if (item != null && item.Slices.Count > 0)
+                        {
+                            processedFiles.TryAdd(file, 1);
+                            item.Slices.RemoveAll(s =>
+                                !string.IsNullOrWhiteSpace(s.SopInstanceUid) &&
+                                alreadyInMemorySopUids.ContainsKey($"{s.SopInstanceUid.Trim()}|{s.FrameIndex}"));
+
+                            if (item.Slices.Count > 0)
                             {
-                                var fi = new FileInfo(file);
-                                if (fi.Exists) Interlocked.Add(ref totalBytesDownloaded, fi.Length);
-                            }
-                            catch { }
-                            var item = _loaderService.ParseSingleFile(file, seenSeries);
-                            if (item != null)
-                            {
-                                Interlocked.Add(ref receivedImageCount, item.Slices.Count > 0 ? item.Slices.Count : 1);
+                                try
+                                {
+                                    var fi = new FileInfo(file);
+                                    if (fi.Exists) Interlocked.Add(ref totalBytesDownloaded, fi.Length);
+                                }
+                                catch { }
+
+                                foreach (var s in item.Slices)
+                                {
+                                    if (!string.IsNullOrWhiteSpace(s.SopInstanceUid))
+                                    {
+                                        alreadyInMemorySopUids.TryAdd($"{s.SopInstanceUid.Trim()}|{s.FrameIndex}", 1);
+                                    }
+                                }
+
+                                Interlocked.Add(ref receivedImageCount, item.Slices.Count);
                                 incomingQueue.Enqueue(item);
                             }
+                        }
+                        else
+                        {
+                            // Corrupted or truncated file from a previously interrupted transfer: remove it so PACS re-downloads it cleanly
+                            try { File.Delete(file); } catch { }
                         }
                     }
                 });
@@ -1738,6 +1906,13 @@ public partial class MainViewModel : ObservableObject
                     return;
                 }
 
+                string fileNameNoExt = Path.GetFileNameWithoutExtension(filePath);
+                if (!string.IsNullOrWhiteSpace(fileNameNoExt) && alreadyInMemorySanitizedSopUids.ContainsKey(fileNameNoExt))
+                {
+                    processedFiles.TryAdd(filePath, 1);
+                    return;
+                }
+
                 if (processedFiles.TryAdd(filePath, 1))
                 {
                     try
@@ -1753,10 +1928,25 @@ public partial class MainViewModel : ObservableObject
                         try
                         {
                             var item = _loaderService.ParseSingleFile(filePath, seenSeries);
-                            if (item != null)
+                            if (item != null && item.Slices.Count > 0)
                             {
-                                Interlocked.Add(ref receivedImageCount, item.Slices.Count > 0 ? item.Slices.Count : 1);
-                                incomingQueue.Enqueue(item);
+                                item.Slices.RemoveAll(s =>
+                                    !string.IsNullOrWhiteSpace(s.SopInstanceUid) &&
+                                    alreadyInMemorySopUids.ContainsKey($"{s.SopInstanceUid.Trim()}|{s.FrameIndex}"));
+
+                                if (item.Slices.Count > 0)
+                                {
+                                    foreach (var s in item.Slices)
+                                    {
+                                        if (!string.IsNullOrWhiteSpace(s.SopInstanceUid))
+                                        {
+                                            alreadyInMemorySopUids.TryAdd($"{s.SopInstanceUid.Trim()}|{s.FrameIndex}", 1);
+                                        }
+                                    }
+
+                                    Interlocked.Add(ref receivedImageCount, item.Slices.Count);
+                                    incomingQueue.Enqueue(item);
+                                }
                             }
                         }
                         catch { }
@@ -1781,7 +1971,7 @@ public partial class MainViewModel : ObservableObject
             double sec = sw.Elapsed.TotalSeconds;
             double ips = sec > 0.2 ? receivedImageCount / sec : 0;
             double mbps = sec > 0.2 ? (totalBytesDownloaded / (1024.0 * 1024.0)) / sec : 0;
-            int total = p.total > 0 ? p.total : expectedCount;
+            int total = Math.Max(receivedImageCount, p.total > 0 ? p.total : expectedCount);
 
             if (total > 0)
             {
@@ -1805,7 +1995,7 @@ public partial class MainViewModel : ObservableObject
         // AI-NOTE: loop must not terminate while download is running OR active parsers are still decoding files in threadpool
         var flusherTask = Task.Run(async () =>
         {
-            bool firstSeriesLoaded = false;
+            bool firstSeriesLoaded = appendToCurrentStudy && ActiveViewport?.CurrentSeries != null && ActiveViewport.CurrentSeries.Slices.Count > 0;
 
             while (!downloadTask.IsCompleted || Volatile.Read(ref activeParsers) > 0 || !incomingQueue.IsEmpty)
             {
@@ -1821,13 +2011,15 @@ public partial class MainViewModel : ObservableObject
                     {
                         ProcessIncomingBatch(batch);
 
-                        // If viewport has no series or belongs to another study, load the first series of this incoming study!
+                        // If viewport has no series (or we are opening a new study), load the first series of this incoming study!
                         if (!firstSeriesLoaded)
                         {
                             var currentStudyUid = ActiveViewport?.CurrentSeries?.StudyInstanceUid;
-                            if (string.IsNullOrEmpty(currentStudyUid) || currentStudyUid != study.StudyInstanceUid)
+                            if (string.IsNullOrEmpty(currentStudyUid) || (!appendToCurrentStudy && currentStudyUid != study.StudyInstanceUid))
                             {
-                                var grp = GroupedPatientStudies.FirstOrDefault(g => g.StudyInstanceUid == study.StudyInstanceUid);
+                                var targetStudyUid = _appendTargetStudy?.StudyInstanceUid ?? study.StudyInstanceUid;
+                                var grp = GroupedPatientStudies.FirstOrDefault(g => g.StudyInstanceUid == targetStudyUid)
+                                          ?? GroupedPatientStudies.FirstOrDefault(g => g.StudyInstanceUid == study.StudyInstanceUid);
                                 var firstSe = grp?.SeriesList.FirstOrDefault(s => s.Slices.Count > 0);
                                 if (firstSe != null)
                                 {
@@ -1847,10 +2039,11 @@ public partial class MainViewModel : ObservableObject
                         {
                             double ips = receivedImageCount / sec;
                             double mbps = (totalBytesDownloaded / (1024.0 * 1024.0)) / sec;
+                            int totalToShow = Math.Max(receivedImageCount, expectedCount);
                             string speedInfo = ips > 0 ? $"({ips:F1} img/s, {mbps:F1} MB/s)" : "";
                             StatusMessage = batchTotal > 1
-                                ? $"[{batchIndex + 1}/{batchTotal}] {study.DisplayPatientName}: {receivedImageCount}/{expectedCount} imagini {speedInfo}"
-                                : $"PACS ({server.Description}): {receivedImageCount}/{expectedCount} imagini {speedInfo} — {study.DisplayPatientName}";
+                                ? $"[{batchIndex + 1}/{batchTotal}] {study.DisplayPatientName}: {receivedImageCount}/{totalToShow} imagini {speedInfo}"
+                                : $"PACS ({server.Description}): {receivedImageCount}/{totalToShow} imagini {speedInfo} — {study.DisplayPatientName}";
                         }
                     });
                 }
@@ -1884,26 +2077,49 @@ public partial class MainViewModel : ObservableObject
                 await Task.Delay(25).ConfigureAwait(false);
             }
 
-            // Safety sweep: ensure any downloaded or cached files on disk were not missed
-            if (Directory.Exists(studyCacheDir))
+            // Safety sweep: ensure any downloaded or cached files on disk in targetCacheDir were not missed
+            if (Directory.Exists(targetCacheDir))
             {
-                var diskFiles = Directory.EnumerateFiles(studyCacheDir, "*", SearchOption.AllDirectories).ToList();
+                var diskFiles = Directory.EnumerateFiles(targetCacheDir, "*", SearchOption.AllDirectories).ToList();
                 var missedBatch = new List<ParsedSliceBatchItem>();
                 foreach (var df in diskFiles)
                 {
+                    string fnNoExt = Path.GetFileNameWithoutExtension(df);
+                    if (!string.IsNullOrWhiteSpace(fnNoExt) && alreadyInMemorySanitizedSopUids.ContainsKey(fnNoExt))
+                    {
+                        processedFiles.TryAdd(df, 1);
+                        continue;
+                    }
+
                     if (processedFiles.TryAdd(df, 1))
                     {
-                        try
-                        {
-                            var fi = new FileInfo(df);
-                            if (fi.Exists) Interlocked.Add(ref totalBytesDownloaded, fi.Length);
-                        }
-                        catch { }
                         var item = _loaderService.ParseSingleFile(df, seenSeries);
-                        if (item != null)
+                        if (item != null && item.Slices.Count > 0)
                         {
-                            Interlocked.Add(ref receivedImageCount, item.Slices.Count > 0 ? item.Slices.Count : 1);
-                            missedBatch.Add(item);
+                            item.Slices.RemoveAll(s =>
+                                !string.IsNullOrWhiteSpace(s.SopInstanceUid) &&
+                                alreadyInMemorySopUids.ContainsKey($"{s.SopInstanceUid.Trim()}|{s.FrameIndex}"));
+
+                            if (item.Slices.Count > 0)
+                            {
+                                try
+                                {
+                                    var fi = new FileInfo(df);
+                                    if (fi.Exists) Interlocked.Add(ref totalBytesDownloaded, fi.Length);
+                                }
+                                catch { }
+
+                                foreach (var s in item.Slices)
+                                {
+                                    if (!string.IsNullOrWhiteSpace(s.SopInstanceUid))
+                                    {
+                                        alreadyInMemorySopUids.TryAdd($"{s.SopInstanceUid.Trim()}|{s.FrameIndex}", 1);
+                                    }
+                                }
+
+                                Interlocked.Add(ref receivedImageCount, item.Slices.Count);
+                                missedBatch.Add(item);
+                            }
                         }
                     }
                 }
@@ -1919,7 +2135,9 @@ public partial class MainViewModel : ObservableObject
             // Post-download chronological sort of series & guaranteed viewport display
             await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
             {
-                var pGroup = GroupedPatientStudies.FirstOrDefault(g => g.StudyInstanceUid == study.StudyInstanceUid);
+                var targetStudyUid = _appendTargetStudy?.StudyInstanceUid ?? study.StudyInstanceUid;
+                var pGroup = GroupedPatientStudies.FirstOrDefault(g => g.StudyInstanceUid == study.StudyInstanceUid)
+                             ?? GroupedPatientStudies.FirstOrDefault(g => g.StudyInstanceUid == targetStudyUid);
                 if (pGroup != null)
                 {
                     var sorted = pGroup.SeriesList
@@ -1937,9 +2155,9 @@ public partial class MainViewModel : ObservableObject
                     }
                 }
 
-                // Guaranteed viewport load: if active viewport has no series or belongs to another study, load first series
+                // Guaranteed viewport load: if active viewport has no series (or we opened a new study), load first series
                 var curVpSeries = ActiveViewport?.CurrentSeries;
-                if (curVpSeries == null || curVpSeries.StudyInstanceUid != study.StudyInstanceUid || curVpSeries.Slices.Count == 0)
+                if (curVpSeries == null || curVpSeries.Slices.Count == 0 || (!appendToCurrentStudy && curVpSeries.StudyInstanceUid != study.StudyInstanceUid))
                 {
                     var firstSe = pGroup?.SeriesList.FirstOrDefault(s => s.Slices.Count > 0);
                     if (firstSe != null)
@@ -1950,12 +2168,14 @@ public partial class MainViewModel : ObservableObject
 
                 int totalReceivedSlices = pGroup?.SeriesList.Sum(s => s.Slices.Count) ?? 0;
                 double totalSec = sw.Elapsed.TotalSeconds;
-                double avgIps = totalSec > 0 ? totalReceivedSlices / totalSec : 0;
+                double avgIps = totalSec > 0 ? receivedImageCount / totalSec : 0;
                 double avgMbps = totalSec > 0 ? (totalBytesDownloaded / (1024.0 * 1024.0)) / totalSec : 0;
 
                 if (batchIndex + 1 >= batchTotal)
                 {
-                    StatusMessage = $"Descărcare PACS completă: {study.DisplayPatientName} — {totalReceivedSlices} imagini în {totalSec:F1}s ({avgIps:F1} img/s, {avgMbps:F1} MB/s).";
+                    StatusMessage = appendToCurrentStudy
+                        ? $"Serie adăugată / actualizată în studiul curent: {study.DisplayPatientName} ({totalReceivedSlices} imagini în studiu)."
+                        : $"Descărcare PACS completă: {study.DisplayPatientName} — {totalReceivedSlices} imagini în {totalSec:F1}s ({avgIps:F1} img/s, {avgMbps:F1} MB/s).";
                     ProgressPercent = 100;
                 }
                 else
@@ -1975,6 +2195,8 @@ public partial class MainViewModel : ObservableObject
             PacsService.Instance.InstanceReceived -= OnInstanceReceived;
             if (batchIndex + 1 >= batchTotal)
             {
+                _appendTargetPatient = null;
+                _appendTargetStudy = null;
                 IsLoading = false;
             }
         }
@@ -1986,9 +2208,11 @@ public partial class MainViewModel : ObservableObject
 
         foreach (var item in batch)
         {
-            // 1. Patient
+            // 1. Patient (if appending to current study and study doesn't exist yet, attach to current active patient/study)
             string pKey = string.IsNullOrEmpty(item.PatientId) ? item.PatientName : item.PatientId;
-            var patient = Patients.FirstOrDefault(p => (string.IsNullOrEmpty(p.Id) ? p.Name : p.Id) == pKey);
+            var patient = Patients.FirstOrDefault(p => p.Studies.Any(s => string.Equals(s.StudyInstanceUid, item.StudyUid, StringComparison.OrdinalIgnoreCase)))
+                          ?? _appendTargetPatient
+                          ?? Patients.FirstOrDefault(p => (string.IsNullOrEmpty(p.Id) ? p.Name : p.Id) == pKey);
             if (patient == null)
             {
                 patient = new PatientModel
@@ -2007,7 +2231,8 @@ public partial class MainViewModel : ObservableObject
             }
 
             // 2. Study
-            var study = patient.Studies.FirstOrDefault(s => s.StudyInstanceUid == item.StudyUid);
+            var study = patient.Studies.FirstOrDefault(s => string.Equals(s.StudyInstanceUid, item.StudyUid, StringComparison.OrdinalIgnoreCase))
+                        ?? _appendTargetStudy;
             if (study == null)
             {
                 study = new StudyModel
@@ -2052,7 +2277,7 @@ public partial class MainViewModel : ObservableObject
             }
 
             // 3. PatientGroupModel for UI sidebar
-            var pGroup = GroupedPatientStudies.FirstOrDefault(g => g.StudyInstanceUid == item.StudyUid);
+            var pGroup = GroupedPatientStudies.FirstOrDefault(g => string.Equals(g.StudyInstanceUid, study.StudyInstanceUid, StringComparison.OrdinalIgnoreCase));
             if (pGroup == null)
             {
                 pGroup = new PatientGroupModel
@@ -2069,16 +2294,17 @@ public partial class MainViewModel : ObservableObject
             }
 
             // 4. Series
-            var series = study.Series.FirstOrDefault(s => s.SeriesInstanceUid == item.SeriesUid);
+            var series = study.Series.FirstOrDefault(s => string.Equals(s.SeriesInstanceUid, item.SeriesUid, StringComparison.OrdinalIgnoreCase));
             if (series == null)
             {
                 series = new SeriesModel
                 {
                     SeriesInstanceUid = item.SeriesUid,
-                    StudyInstanceUid = item.StudyUid,
+                    StudyInstanceUid = study.StudyInstanceUid,
                     StudyDescription = study.StudyDescription,
                     Laterality = item.Laterality,
                     SeriesNumber = item.SeriesNumber,
+                    BaseSeriesDescription = item.SeriesDescription,
                     SeriesDescription = item.SeriesDescription,
                     Modality = item.Modality,
                     BodyPart = item.BodyPart,
@@ -2094,7 +2320,10 @@ public partial class MainViewModel : ObservableObject
                     ThumbnailImage = item.InitialThumbnail
                 };
                 study.Series.Add(series);
-                pGroup.SeriesList.Add(series);
+                if (!pGroup.SeriesList.Contains(series))
+                {
+                    pGroup.SeriesList.Add(series);
+                }
 
                 bool matches = string.IsNullOrWhiteSpace(FilterQuery) ||
                     patient.Name.Contains(FilterQuery, StringComparison.OrdinalIgnoreCase) ||
@@ -2103,13 +2332,15 @@ public partial class MainViewModel : ObservableObject
                     study.StudyDescription.Contains(FilterQuery, StringComparison.OrdinalIgnoreCase) ||
                     study.StudyDate.Contains(FilterQuery, StringComparison.OrdinalIgnoreCase);
 
-                if (matches)
+                if (matches && !FilteredSeries.Contains(series))
                 {
                     FilteredSeries.Add(series);
                 }
             }
             else
             {
+                if (string.IsNullOrWhiteSpace(series.BaseSeriesDescription) && !string.IsNullOrWhiteSpace(item.SeriesDescription))
+                    series.BaseSeriesDescription = item.SeriesDescription;
                 if (string.IsNullOrWhiteSpace(series.PatientBirthDate) && !string.IsNullOrWhiteSpace(item.BirthDate))
                     series.PatientBirthDate = item.BirthDate;
                 if (string.IsNullOrWhiteSpace(series.PatientAge) && !string.IsNullOrWhiteSpace(item.PatientAge))
@@ -2122,6 +2353,23 @@ public partial class MainViewModel : ObservableObject
                     series.ContrastBolusAgent = item.ContrastBolusAgent;
                 if (series.ThumbnailImage == null && item.InitialThumbnail != null)
                     series.ThumbnailImage = item.InitialThumbnail;
+
+                if (!pGroup.SeriesList.Contains(series))
+                {
+                    pGroup.SeriesList.Add(series);
+                }
+
+                bool matches = string.IsNullOrWhiteSpace(FilterQuery) ||
+                    patient.Name.Contains(FilterQuery, StringComparison.OrdinalIgnoreCase) ||
+                    patient.Id.Contains(FilterQuery, StringComparison.OrdinalIgnoreCase) ||
+                    series.SeriesDescription.Contains(FilterQuery, StringComparison.OrdinalIgnoreCase) ||
+                    study.StudyDescription.Contains(FilterQuery, StringComparison.OrdinalIgnoreCase) ||
+                    study.StudyDate.Contains(FilterQuery, StringComparison.OrdinalIgnoreCase);
+
+                if (matches && !FilteredSeries.Contains(series))
+                {
+                    FilteredSeries.Add(series);
+                }
             }
 
             int beforeCount = series.Slices.Count;
@@ -2129,9 +2377,10 @@ public partial class MainViewModel : ObservableObject
             {
                 bool isDuplicate = series.Slices.Any(existing =>
                     existing.FrameIndex == s.FrameIndex &&
-                    (!string.IsNullOrEmpty(s.SopInstanceUid) && !string.IsNullOrEmpty(existing.SopInstanceUid)
-                        ? existing.SopInstanceUid == s.SopInstanceUid
-                        : string.Equals(existing.FilePath, s.FilePath, StringComparison.OrdinalIgnoreCase)));
+                    ((!string.IsNullOrEmpty(s.SopInstanceUid) && !string.IsNullOrEmpty(existing.SopInstanceUid) &&
+                      string.Equals(existing.SopInstanceUid.Trim(), s.SopInstanceUid.Trim(), StringComparison.OrdinalIgnoreCase)) ||
+                     (!string.IsNullOrEmpty(s.FilePath) && !string.IsNullOrEmpty(existing.FilePath) &&
+                      string.Equals(existing.FilePath, s.FilePath, StringComparison.OrdinalIgnoreCase))));
 
                 if (!isDuplicate)
                 {
@@ -2147,6 +2396,27 @@ public partial class MainViewModel : ObservableObject
         // Update all series that received slices in this batch
         foreach (var series in updatedSeries)
         {
+            // Capture active slice & measurement slice references BEFORE SortSlices reorders series.Slices
+            var vpSavedSlices = new Dictionary<ViewportViewModel, DicomSliceModel?>();
+            var vpSavedMeasurementSlices = new Dictionary<MeasurementItem, DicomSliceModel>();
+            foreach (var vp in Viewports)
+            {
+                if (vp.CurrentSeries == series || vp.OriginalSeries == series)
+                {
+                    vpSavedSlices[vp] = vp.CurrentSlice;
+                    if (vp.CurrentSeries == series)
+                    {
+                        foreach (var m in vp.Measurements)
+                        {
+                            if (m.SliceIndex >= 0 && m.SliceIndex < series.Slices.Count)
+                            {
+                                vpSavedMeasurementSlices[m] = series.Slices[m.SliceIndex];
+                            }
+                        }
+                    }
+                }
+            }
+
             DicomLoaderService.SortSlices(series.Slices);
 
             // Always ensure series thumbnail represents the anatomical middle slice (never an index-0 scout reference image)
@@ -2160,33 +2430,51 @@ public partial class MainViewModel : ObservableObject
                 }
             }
 
-            string commentSummary = DicomLoaderService.FormatSpineCommentsSummary(series.Slices.Select(s => s.ImageComments));
-            if (!string.IsNullOrWhiteSpace(commentSummary) && !series.SeriesDescription.Contains(commentSummary, StringComparison.OrdinalIgnoreCase))
+            if (string.IsNullOrWhiteSpace(series.BaseSeriesDescription))
             {
-                series.SeriesDescription = $"{series.SeriesDescription} ({commentSummary})";
+                series.BaseSeriesDescription = series.SeriesDescription;
+            }
+            string commentSummary = DicomLoaderService.FormatSpineCommentsSummary(series.Slices.Select(s => s.ImageComments));
+            if (!string.IsNullOrWhiteSpace(commentSummary) && !series.BaseSeriesDescription.Contains(commentSummary, StringComparison.OrdinalIgnoreCase))
+            {
+                series.SeriesDescription = $"{series.BaseSeriesDescription} ({commentSummary})";
             }
 
             series.NotifySlicesUpdated();
+
+            // Restore measurement slice indices after sorting
+            foreach (var kvp in vpSavedMeasurementSlices)
+            {
+                int newMIdx = series.Slices.IndexOf(kvp.Value);
+                if (newMIdx >= 0)
+                {
+                    kvp.Key.SliceIndex = newMIdx;
+                }
+            }
 
             // Real-time update for any viewport currently showing this series
             foreach (var vp in Viewports)
             {
                 if (vp.CurrentSeries == series || vp.OriginalSeries == series)
                 {
-                    var curSlice = vp.CurrentSlice;
-                    if (curSlice != null)
+                    vpSavedSlices.TryGetValue(vp, out var curSlice);
+                    if (curSlice != null && vp.CurrentSeries == series)
                     {
-                        int newIdx = series.Slices.FindIndex(s =>
-                            s.FrameIndex == curSlice.FrameIndex &&
-                            (!string.IsNullOrEmpty(curSlice.SopInstanceUid) && !string.IsNullOrEmpty(s.SopInstanceUid)
-                                ? s.SopInstanceUid == curSlice.SopInstanceUid
-                                : string.Equals(s.FilePath, curSlice.FilePath, StringComparison.OrdinalIgnoreCase)));
+                        int newIdx = series.Slices.IndexOf(curSlice);
+                        if (newIdx < 0)
+                        {
+                            newIdx = series.Slices.FindIndex(s =>
+                                s.FrameIndex == curSlice.FrameIndex &&
+                                (!string.IsNullOrEmpty(curSlice.SopInstanceUid) && !string.IsNullOrEmpty(s.SopInstanceUid)
+                                    ? string.Equals(s.SopInstanceUid.Trim(), curSlice.SopInstanceUid.Trim(), StringComparison.OrdinalIgnoreCase)
+                                    : string.Equals(s.FilePath, curSlice.FilePath, StringComparison.OrdinalIgnoreCase)));
+                        }
                         if (newIdx >= 0)
                         {
                             vp.CurrentSliceIndex = newIdx;
                         }
                     }
-                    else if (series.Slices.Count > 0)
+                    else if (vp.CurrentSeries == series && series.Slices.Count > 0)
                     {
                         vp.CurrentSliceIndex = 0;
                         vp.WindowCenter = series.Slices[0].DefaultWindowCenter;

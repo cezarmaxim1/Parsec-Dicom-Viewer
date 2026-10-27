@@ -373,14 +373,21 @@ public class PacsCStoreScpService : DicomService, IDicomServiceProvider, IDicomC
             Directory.CreateDirectory(seriesFolder);
             string filePath = Path.Combine(seriesFolder, $"{Sanitize(sopUid)}.dcm");
 
-            if (request.File != null)
+            try
             {
-                await request.File.SaveAsync(filePath);
+                if (request.File != null)
+                {
+                    await request.File.SaveAsync(filePath);
+                }
+                else
+                {
+                    var file = new DicomFile(dataset);
+                    await file.SaveAsync(filePath);
+                }
             }
-            else
+            catch (IOException) when (File.Exists(filePath) && new FileInfo(filePath).Length > 132)
             {
-                var file = new DicomFile(dataset);
-                await file.SaveAsync(filePath);
+                // Slice file already exists on disk and is currently open in the viewer; keep existing valid file
             }
 
             OnFileStored?.Invoke(studyUid, seriesUid, filePath);

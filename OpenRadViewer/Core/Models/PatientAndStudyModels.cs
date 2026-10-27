@@ -307,6 +307,8 @@ public class SeriesModel : ObservableObject
         }
     }
 
+    public string BaseSeriesDescription { get; set; } = string.Empty;
+
     private string _seriesDescription = string.Empty;
     public string SeriesDescription
     {

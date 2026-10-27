@@ -263,7 +263,8 @@
                   MouseDoubleClick="OnStudyDoubleClick" KeyDown="OnGridStudiesKeyDown">
             <DataGrid.ContextMenu>
                 <ContextMenu>
-                    <MenuItem Header="Open in Viewer (Enter)" Click="OnOpenInViewer" />
+                    <MenuItem Header="Open in Viewer (Enter)" Click="OnOpenInViewer" FontWeight="Bold" />
+                    <MenuItem Header="Add to current study" Click="OnAddStudyToCurrentStudy" />
                     <MenuItem Header="Send to PACS..." Click="OnSendToPacsClick" FontWeight="SemiBold" Foreground="#F5AF28" />
                     <MenuItem Header="Reviewed (Space)" Click="OnToggleReviewed" />
                     <Separator />
@@ -330,7 +331,13 @@
                       Background="#282828" Cursor="SizeNS" ResizeDirection="Rows" />
 
         <!-- 5. BOTTOM GRID: SERIES OF SELECTED STUDY -->
-        <DataGrid Grid.Row="4" x:Name="GridSeries" SelectionMode="Single" MouseDoubleClick="OnSeriesDoubleClick">
+        <DataGrid Grid.Row="4" x:Name="GridSeries" SelectionMode="Extended" MouseDoubleClick="OnSeriesDoubleClick">
+            <DataGrid.ContextMenu>
+                <ContextMenu>
+                    <MenuItem Header="Open selected series only" Click="OnOpenSelectedSeriesOnly" FontWeight="Bold" />
+                    <MenuItem Header="Add series to current study" Click="OnAddSeriesToCurrentStudy" FontWeight="SemiBold" Foreground="#F5AF28" />
+                </ContextMenu>
+            </DataGrid.ContextMenu>
             <DataGrid.Columns>
                 <DataGridTextColumn Header="#" Binding="{Binding SeriesNumber}" Width="45" />
                 <DataGridTextColumn Header="Date" Binding="{Binding Date}" Width="100" />

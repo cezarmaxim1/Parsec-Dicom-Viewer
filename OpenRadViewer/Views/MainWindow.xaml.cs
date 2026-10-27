@@ -1515,14 +1515,19 @@ public partial class MainWindow : Window
         }
     }
 
-    public void StartPacsStreamingStudy(PacsServerConfig server, PacsStudyResult study, PacsSeriesResult? series = null)
+    public void StartPacsStreamingStudy(PacsServerConfig server, PacsStudyResult study, PacsSeriesResult? series = null, bool appendToCurrentStudy = false)
     {
-        _ = ViewModel.StartPacsStreamingStudyAsync(server, study, series);
+        _ = ViewModel.StartPacsStreamingStudyAsync(server, study, series, appendToCurrentStudy: appendToCurrentStudy);
     }
 
-    public void StartPacsStreamingStudies(List<(PacsServerConfig server, PacsStudyResult study)> studies)
+    public void StartPacsStreamingStudies(List<(PacsServerConfig server, PacsStudyResult study)> studies, bool appendToCurrentStudy = false)
     {
-        _ = ViewModel.StartPacsStreamingStudiesAsync(studies);
+        _ = ViewModel.StartPacsStreamingStudiesAsync(studies, appendToCurrentStudy: appendToCurrentStudy);
+    }
+
+    public void StartPacsStreamingSeriesList(PacsServerConfig server, PacsStudyResult study, List<PacsSeriesResult> seriesList, bool appendToCurrentStudy = false)
+    {
+        _ = ViewModel.StartPacsStreamingSeriesListAsync(server, study, seriesList, appendToCurrentStudy: appendToCurrentStudy);
     }
 
     private void OnOpenPacsSearch(object sender, RoutedEventArgs e)
