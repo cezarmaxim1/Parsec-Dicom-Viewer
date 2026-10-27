@@ -25,6 +25,9 @@ public partial class ViewportControl : UserControl
     private MeasurementItem? _activeMeasurement;
     private MeasurementItem? _selectedMeasurement;
     private bool _isMovingMeasurement;
+    private bool _isDraggingMeasurementText;
+    private Point _dragTextStartMouse;
+    private Point _dragTextStartOffset;
     private bool _isResizingHandle;
     private int _activeHandleIndex = -1;
     private int _angleCreationStep = 0; // 0: idle, 1: placing vertex, 2: placing end
@@ -707,6 +710,41 @@ public partial class ViewportControl : UserControl
             }
         }
 
+        // 2.5. Double-click on moved Measurement Text Badge resets its offset to default
+        if (e.ClickCount == 2 && e.ChangedButton == MouseButton.Left)
+        {
+            var textHit = FindMeasurementTextAt(_lastMousePos);
+            if (textHit != null && textHit.TextOffset != null)
+            {
+                textHit.TextOffset = null;
+                RedrawMeasurements();
+                e.Handled = true;
+                return;
+            }
+        }
+
+        // 2.6. Interactive Selection and Dragging of Measurement Text Badge (moving text table independently of ROI shape)
+        if (e.ChangedButton == MouseButton.Left)
+        {
+            var textHit = FindMeasurementTextAt(_lastMousePos);
+            if (textHit != null)
+            {
+                foreach (var m in vm.Measurements) m.IsSelected = false;
+                textHit.IsSelected = true;
+                _selectedMeasurement = textHit;
+                mainVm.NotifyMeasurementSelected(textHit);
+
+                _isDraggingMeasurementText = true;
+                _dragTextStartMouse = _lastMousePos;
+                _dragTextStartOffset = textHit.TextOffset ?? new Point(0, 0);
+                _isDragging = true;
+                CaptureMouse();
+                RedrawMeasurements();
+                e.Handled = true;
+                return;
+            }
+        }
+
         // 3. Interactive Handle Resizing on currently selected measurement
         if (e.ChangedButton == MouseButton.Left && _selectedMeasurement != null)
         {
@@ -901,6 +939,18 @@ public partial class ViewportControl : UserControl
         Point currentPos = e.GetPosition(this);
         Point currentImgPt = ScreenToImageCoords(currentPos);
 
+        if (_isDraggingMeasurementText && _selectedMeasurement != null)
+        {
+            Vector deltaScreen = currentPos - _dragTextStartMouse;
+            double zoom = Math.Max(0.01, vm.Zoom);
+            double deltaImgX = deltaScreen.X / zoom;
+            double deltaImgY = deltaScreen.Y / zoom;
+            _selectedMeasurement.TextOffset = new Point(_dragTextStartOffset.X + deltaImgX, _dragTextStartOffset.Y + deltaImgY);
+            RedrawMeasurements();
+            e.Handled = true;
+            return;
+        }
+
         if (_isDraggingVertebra && _draggedVertebra != null)
         {
             double dx = currentImgPt.X - _dragVertebraStartImgPt.X;
@@ -1007,7 +1057,20 @@ public partial class ViewportControl : UserControl
             }
         }
 
-        if (!_isDragging) return;
+        if (!_isDragging)
+        {
+            if (FindMeasurementTextAt(currentPos) != null)
+            {
+                Cursor = Cursors.SizeAll;
+                return;
+            }
+            if (_selectedMeasurement != null && HitTestHandles(_selectedMeasurement, currentPos) >= 0)
+            {
+                Cursor = Cursors.Cross;
+                return;
+            }
+            return;
+        }
 
         // MPR Crosshair / Reference Line Active Dragging & Rotation
         if (_mprDragTarget != MprDragTarget.None)
@@ -1257,6 +1320,14 @@ public partial class ViewportControl : UserControl
         {
             _isDragging = false;
             ReleaseMouseCapture();
+
+            if (_isDraggingMeasurementText)
+            {
+                _isDraggingMeasurementText = false;
+                RedrawMeasurements();
+                e.Handled = true;
+                return;
+            }
 
             if (_isResizingHandle)
             {
@@ -1524,6 +1595,29 @@ public partial class ViewportControl : UserControl
         return null;
     }
 
+    private MeasurementItem? FindMeasurementTextAt(Point screenPt)
+    {
+        var vm = ViewModel;
+        if (vm == null || !vm.ShowAnnotations) return null;
+
+        var allItems = new List<MeasurementItem>(vm.Measurements);
+        if (_activeMeasurement != null) allItems.Add(_activeMeasurement);
+
+        for (int i = allItems.Count - 1; i >= 0; i--)
+        {
+            var m = allItems[i];
+            if (string.IsNullOrEmpty(m.Details) || m.LastTextScreenRect.IsEmpty) continue;
+
+            // Expand hit area slightly (4px margin) for comfortable clicking and dragging
+            var rect = m.LastTextScreenRect;
+            rect.Inflate(4, 4);
+            if (rect.Contains(screenPt))
+                return m;
+        }
+
+        return null;
+    }
+
     private static double DistanceToSegment(Point p, Point v, Point w)
     {
         double l2 = (w.X - v.X) * (w.X - v.X) + (w.Y - v.Y) * (w.Y - v.Y);
@@ -1611,6 +1705,88 @@ public partial class ViewportControl : UserControl
         MeasurementCanvas.Children.Add(handle);
     }
 
+    private void RenderRoiBadge(MeasurementItem m, Point p1, Point p2, Brush strokeBrush, Brush textBgBrush)
+    {
+        if (string.IsNullOrEmpty(m.Details))
+        {
+            m.LastTextScreenRect = Rect.Empty;
+            return;
+        }
+
+        double left = Math.Min(p1.X, p2.X);
+        double top = Math.Min(p1.Y, p2.Y);
+        double width = Math.Abs(p2.X - p1.X);
+        double height = Math.Abs(p2.Y - p1.Y);
+
+        double defaultTextX = left + width + 8;
+        double defaultTextY = top;
+
+        var vm = ViewModel;
+        double zoom = vm?.Zoom ?? 1.0;
+
+        double textX = defaultTextX;
+        double textY = defaultTextY;
+
+        bool hasCustomOffset = false;
+        if (m.TextOffset != null)
+        {
+            textX += m.TextOffset.Value.X * zoom;
+            textY += m.TextOffset.Value.Y * zoom;
+            if (Math.Abs(m.TextOffset.Value.X) > 4 || Math.Abs(m.TextOffset.Value.Y) > 4)
+            {
+                hasCustomOffset = true;
+            }
+        }
+
+        var border = new Border
+        {
+            Background = textBgBrush,
+            BorderBrush = strokeBrush,
+            BorderThickness = new Thickness(m.IsSelected ? 1.5 : 1.0),
+            CornerRadius = new CornerRadius(3),
+            Padding = new Thickness(6, 4, 6, 4),
+            Cursor = Cursors.SizeAll,
+            Child = new TextBlock
+            {
+                Text = m.Details,
+                Foreground = strokeBrush,
+                FontSize = 10.5,
+                FontWeight = m.IsSelected ? FontWeights.Bold : FontWeights.Normal,
+                LineHeight = 14
+            }
+        };
+
+        border.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+        double badgeW = Math.Max(border.DesiredSize.Width, 115);
+        double badgeH = Math.Max(border.DesiredSize.Height, 44);
+
+        m.LastTextScreenRect = new Rect(textX, textY, badgeW, badgeH);
+
+        // If moved away from ROI, draw a subtle leader line connecting to the ROI center
+        if (hasCustomOffset)
+        {
+            Point roiCenter = new Point(left + width / 2.0, top + height / 2.0);
+            Point badgeCenter = new Point(textX + badgeW / 2.0, textY + badgeH / 2.0);
+
+            var leaderLine = new Line
+            {
+                X1 = roiCenter.X,
+                Y1 = roiCenter.Y,
+                X2 = badgeCenter.X,
+                Y2 = badgeCenter.Y,
+                Stroke = strokeBrush,
+                StrokeThickness = 1.0,
+                StrokeDashArray = new DoubleCollection { 3, 2 },
+                Opacity = 0.65
+            };
+            MeasurementCanvas.Children.Add(leaderLine);
+        }
+
+        Canvas.SetLeft(border, textX);
+        Canvas.SetTop(border, textY);
+        MeasurementCanvas.Children.Add(border);
+    }
+
     public void RedrawMeasurements()
     {
         MeasurementCanvas.Children.Clear();
@@ -1687,7 +1863,8 @@ public partial class ViewportControl : UserControl
 
         var yellowBrush = new SolidColorBrush(Color.FromRgb(255, 215, 0)); // Unselected is Yellow
         var selectedBrush = new SolidColorBrush(Color.FromRgb(0, 230, 118)); // Selected is Crisp Green (#00E676)
-        var textBgBrush = new SolidColorBrush(Color.FromArgb(200, 20, 20, 20));
+        var textBgBrush = new SolidColorBrush(Color.FromArgb(90, 10, 10, 14)); // Translucent background so image details underneath remain visible
+        textBgBrush.Freeze();
 
         var allItems = new List<MeasurementItem>(vm.Measurements);
         if (_activeMeasurement != null) allItems.Add(_activeMeasurement);
@@ -1739,13 +1916,21 @@ public partial class ViewportControl : UserControl
                         Text = m.Details,
                         Foreground = strokeBrush,
                         Background = textBgBrush,
-                        Padding = new Thickness(3, 1, 3, 1),
+                        Padding = new Thickness(4, 2, 4, 2),
                         FontSize = 11,
                         FontWeight = FontWeights.SemiBold
                     };
-                    Canvas.SetLeft(tb, (p1.X + p2.X) / 2.0 + 6);
-                    Canvas.SetTop(tb, (p1.Y + p2.Y) / 2.0 + 6);
+                    double lx = (p1.X + p2.X) / 2.0 + 6;
+                    double ly = (p1.Y + p2.Y) / 2.0 + 6;
+                    Canvas.SetLeft(tb, lx);
+                    Canvas.SetTop(tb, ly);
                     MeasurementCanvas.Children.Add(tb);
+                    tb.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+                    m.LastTextScreenRect = new Rect(lx, ly, tb.DesiredSize.Width, tb.DesiredSize.Height);
+                }
+                else
+                {
+                    m.LastTextScreenRect = Rect.Empty;
                 }
 
                 if (m.IsSelected)
@@ -1812,13 +1997,21 @@ public partial class ViewportControl : UserControl
                         Text = m.Details,
                         Foreground = strokeBrush,
                         Background = textBgBrush,
-                        Padding = new Thickness(3, 1, 3, 1),
+                        Padding = new Thickness(4, 2, 4, 2),
                         FontSize = 11,
                         FontWeight = FontWeights.SemiBold
                     };
-                    Canvas.SetLeft(tb, vertex.X + 8);
-                    Canvas.SetTop(tb, vertex.Y + 8);
+                    double ax = vertex.X + 8;
+                    double ay = vertex.Y + 8;
+                    Canvas.SetLeft(tb, ax);
+                    Canvas.SetTop(tb, ay);
                     MeasurementCanvas.Children.Add(tb);
+                    tb.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+                    m.LastTextScreenRect = new Rect(ax, ay, tb.DesiredSize.Width, tb.DesiredSize.Height);
+                }
+                else
+                {
+                    m.LastTextScreenRect = Rect.Empty;
                 }
 
                 if (m.IsSelected)
@@ -1859,9 +2052,17 @@ public partial class ViewportControl : UserControl
                         FontSize = 11,
                         FontWeight = FontWeights.Bold
                     };
-                    Canvas.SetLeft(tb, vertex.X + 8);
-                    Canvas.SetTop(tb, vertex.Y - 14);
+                    double ix = vertex.X + 8;
+                    double iy = vertex.Y - 14;
+                    Canvas.SetLeft(tb, ix);
+                    Canvas.SetTop(tb, iy);
                     MeasurementCanvas.Children.Add(tb);
+                    tb.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+                    m.LastTextScreenRect = new Rect(ix, iy, tb.DesiredSize.Width, tb.DesiredSize.Height);
+                }
+                else
+                {
+                    m.LastTextScreenRect = Rect.Empty;
                 }
 
                 if (m.IsSelected)
@@ -1951,25 +2152,11 @@ public partial class ViewportControl : UserControl
 
                     if (!string.IsNullOrEmpty(m.Details))
                     {
-                        var border = new Border
-                        {
-                            Background = textBgBrush,
-                            BorderBrush = strokeBrush,
-                            BorderThickness = new Thickness(m.IsSelected ? 1.5 : 1),
-                            CornerRadius = new CornerRadius(3),
-                            Padding = new Thickness(5, 3, 5, 3),
-                            Child = new TextBlock
-                            {
-                                Text = m.Details,
-                                Foreground = strokeBrush,
-                                FontSize = 10,
-                                FontWeight = m.IsSelected ? FontWeights.Bold : FontWeights.Normal,
-                                LineHeight = 14
-                            }
-                        };
-                        Canvas.SetLeft(border, left + width + 8);
-                        Canvas.SetTop(border, top);
-                        MeasurementCanvas.Children.Add(border);
+                        RenderRoiBadge(m, p1, p2, strokeBrush, textBgBrush);
+                    }
+                    else
+                    {
+                        m.LastTextScreenRect = Rect.Empty;
                     }
                 }
             }
@@ -2007,25 +2194,11 @@ public partial class ViewportControl : UserControl
 
                     if (!string.IsNullOrEmpty(m.Details))
                     {
-                        var border = new Border
-                        {
-                            Background = textBgBrush,
-                            BorderBrush = strokeBrush,
-                            BorderThickness = new Thickness(m.IsSelected ? 1.5 : 1),
-                            CornerRadius = new CornerRadius(3),
-                            Padding = new Thickness(5, 3, 5, 3),
-                            Child = new TextBlock
-                            {
-                                Text = m.Details,
-                                Foreground = strokeBrush,
-                                FontSize = 10,
-                                FontWeight = m.IsSelected ? FontWeights.Bold : FontWeights.Normal,
-                                LineHeight = 14
-                            }
-                        };
-                        Canvas.SetLeft(border, left + width + 8);
-                        Canvas.SetTop(border, top);
-                        MeasurementCanvas.Children.Add(border);
+                        RenderRoiBadge(m, p1, p2, strokeBrush, textBgBrush);
+                    }
+                    else
+                    {
+                        m.LastTextScreenRect = Rect.Empty;
                     }
                 }
             }

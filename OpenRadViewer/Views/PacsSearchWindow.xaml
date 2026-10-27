@@ -5,8 +5,8 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
         Title="PACS Archive Search &amp; Retrieve (DICOM Query &amp; Retrieve)" 
-        Height="780" Width="1180"
-        MinHeight="550" MinWidth="850"
+        Height="800" Width="1440"
+        MinHeight="550" MinWidth="1100"
         WindowStartupLocation="CenterOwner"
         Background="#181818" Foreground="#E0E0E0">
 
@@ -193,14 +193,14 @@
         </Grid.RowDefinitions>
 
         <!-- 1. TOP SEARCH & FILTER BAR -->
-        <Border Grid.Row="0" Background="#181818" BorderBrush="#252525" BorderThickness="0,0,0,1" Padding="12,10">
+        <Border Grid.Row="0" Background="#181818" BorderBrush="#252525" BorderThickness="0,0,0,1" Padding="10,8">
             <WrapPanel Orientation="Horizontal" VerticalAlignment="Center">
                 
                 <!-- Server Location Selection -->
-                <StackPanel Orientation="Horizontal" Margin="0,0,16,6">
+                <StackPanel Orientation="Horizontal" Margin="0,0,12,0" VerticalAlignment="Center">
                     <TextBlock Text="PACS Location:" Foreground="#AAAAAA" VerticalAlignment="Center" Margin="0,0,6,0" FontSize="11.5" />
-                    <ComboBox x:Name="CmbServerLocation" Width="140" SelectionChanged="OnServerLocationChanged" />
-                    <Button x:Name="BtnSetDefaultLocation" Style="{StaticResource DarkButton}" Margin="4,0,0,0" Padding="6,3" 
+                    <ComboBox x:Name="CmbServerLocation" Width="135" SelectionChanged="OnServerLocationChanged" />
+                    <Button x:Name="BtnSetDefaultLocation" Style="{StaticResource DarkButton}" Margin="4,0,0,0" Padding="5,3" 
                             Click="OnSetDefaultLocationClicked" ToolTip="Setează această locație ca implicită la deschidere">
                         <StackPanel Orientation="Horizontal">
                             <Path x:Name="IconDefaultStar" Stroke="#F5AF28" StrokeThickness="1.2" Fill="Transparent" 
@@ -212,9 +212,9 @@
                 </StackPanel>
 
                 <!-- Modality Filter (Multi-Select) -->
-                <StackPanel Orientation="Horizontal" Margin="0,0,16,6">
+                <StackPanel Orientation="Horizontal" Margin="0,0,12,0" VerticalAlignment="Center">
                     <TextBlock Text="Modality:" Foreground="#AAAAAA" VerticalAlignment="Center" Margin="0,0,6,0" FontSize="11.5" />
-                    <Grid MinWidth="95" MaxWidth="220">
+                    <Grid MinWidth="90" MaxWidth="200">
                         <ToggleButton x:Name="BtnModalityDropDown"
                                       Template="{StaticResource ComboBoxToggleButtonTemplate}"
                                       Background="#252525"
@@ -262,9 +262,9 @@
                 </StackPanel>
 
                 <!-- Date Filter Presets -->
-                <StackPanel Orientation="Horizontal" Margin="0,0,16,6">
+                <StackPanel Orientation="Horizontal" Margin="0,0,12,0" VerticalAlignment="Center">
                     <TextBlock Text="Date Range:" Foreground="#AAAAAA" VerticalAlignment="Center" Margin="0,0,6,0" FontSize="11.5" />
-                    <ComboBox x:Name="CmbDatePreset" Width="120" SelectionChanged="OnDatePresetChanged">
+                    <ComboBox x:Name="CmbDatePreset" Width="110" SelectionChanged="OnDatePresetChanged">
                         <ComboBoxItem Content="Any time" IsSelected="True" />
                         <ComboBoxItem Content="Today" />
                         <ComboBoxItem Content="Yesterday" />
@@ -276,29 +276,29 @@
                 </StackPanel>
 
                 <!-- Custom Date Range (Visible when Custom... is selected) -->
-                <StackPanel x:Name="PnlCustomDate" Orientation="Horizontal" Margin="0,0,16,6" Visibility="Collapsed">
+                <StackPanel x:Name="PnlCustomDate" Orientation="Horizontal" Margin="0,0,12,0" VerticalAlignment="Center" Visibility="Collapsed">
                     <TextBlock Text="From:" Foreground="#AAAAAA" VerticalAlignment="Center" Margin="0,0,4,0" FontSize="11" />
-                    <DatePicker x:Name="DpFrom" Width="105" Margin="0,0,6,0" SelectedDateChanged="OnCustomDateChanged" />
+                    <DatePicker x:Name="DpFrom" Width="100" Margin="0,0,5,0" SelectedDateChanged="OnCustomDateChanged" />
                     <TextBlock Text="To:" Foreground="#AAAAAA" VerticalAlignment="Center" Margin="0,0,4,0" FontSize="11" />
-                    <DatePicker x:Name="DpTo" Width="105" SelectedDateChanged="OnCustomDateChanged" />
+                    <DatePicker x:Name="DpTo" Width="100" SelectedDateChanged="OnCustomDateChanged" />
                 </StackPanel>
 
                 <!-- Patient / Text Search Box -->
-                <StackPanel Orientation="Horizontal" Margin="0,0,12,6">
+                <StackPanel Orientation="Horizontal" Margin="0,0,10,0" VerticalAlignment="Center">
                     <TextBlock Text="Search:" Foreground="#AAAAAA" VerticalAlignment="Center" Margin="0,0,6,0" FontSize="11.5" />
-                    <TextBox x:Name="TxtSearchQuery" Width="180" ToolTip="Enter Patient Name, Patient ID, or Accession Number" KeyDown="OnSearchKeyDown" />
+                    <TextBox x:Name="TxtSearchQuery" Width="160" ToolTip="Enter Patient Name, Patient ID, or Accession Number" KeyDown="OnSearchKeyDown" />
                 </StackPanel>
 
                 <!-- Action Buttons: Search, Stop & Reset -->
-                <StackPanel Orientation="Horizontal" Margin="0,0,12,6">
-                    <Button x:Name="BtnSearch" Style="{StaticResource GoldButton}" Content="🔍 Search PACS" Padding="12,5" Margin="0,0,6,0" Click="OnSearchClicked" />
-                    <Button x:Name="BtnStopSearch" Style="{StaticResource DarkButton}" Content="⏹ Stop" Padding="10,5" Margin="0,0,6,0" Click="OnStopSearchClicked" 
+                <StackPanel Orientation="Horizontal" Margin="0,0,10,0" VerticalAlignment="Center">
+                    <Button x:Name="BtnSearch" Style="{StaticResource GoldButton}" Content="🔍 Search PACS" Padding="10,5" Margin="0,0,5,0" Click="OnSearchClicked" />
+                    <Button x:Name="BtnStopSearch" Style="{StaticResource DarkButton}" Content="⏹ Stop" Padding="8,5" Margin="0,0,5,0" Click="OnStopSearchClicked" 
                             Visibility="Collapsed" Background="#8A2323" BorderBrush="#FF5252" Foreground="#FFFFFF" FontWeight="SemiBold" ToolTip="Oprește căutarea în curs (sau tasta Escape)" />
                     <Button Style="{StaticResource DarkButton}" Content="Reset" Padding="8,5" Click="OnResetFiltersClicked" />
                 </StackPanel>
 
                 <!-- PACS Configuration Button -->
-                <Button Style="{StaticResource DarkButton}" Content="⚙ Settings..." Margin="8,0,0,6" Click="OnOpenConfigClicked" ToolTip="Configure PACS servers and local C-STORE listener" />
+                <Button Style="{StaticResource DarkButton}" Content="⚙ Settings..." Margin="4,0,0,0" VerticalAlignment="Center" Click="OnOpenConfigClicked" ToolTip="Configure PACS servers and local C-STORE listener" />
             </WrapPanel>
         </Border>
 

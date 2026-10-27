@@ -34,6 +34,18 @@ public class MeasurementItem
     public double MinHu { get; set; }
     public double MaxHu { get; set; }
 
+    /// <summary>
+    /// Custom offset of the statistics text badge in image coordinate space (pixels).
+    /// If null, default placement adjacent to the ROI bounding box is used.
+    /// </summary>
+    public Point? TextOffset { get; set; }
+
+    /// <summary>
+    /// Screen-space bounding rectangle of the statistics text badge for hit-testing and dragging.
+    /// </summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public Rect LastTextScreenRect { get; set; }
+
     public double CalculateLengthMm(double spacingX, double spacingY)
     {
         if (Points.Count < 2) return 0.0;
