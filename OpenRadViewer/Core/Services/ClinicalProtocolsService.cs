@@ -363,6 +363,176 @@ Nu se constata arii de consolidare periferica cu aspect de infarct constituit pu
 Absenta revarsatelor lichidiene pleuro-pericardice.
 Arbore traheo-bronsic permeabil."
         });
+
+        _protocols.Add(new ClinicalProtocol
+        {
+            Id = "CT_COLOANA_CERVICALA",
+            Title = "CT Coloană Cervicală",
+            Category = "CT",
+            BodyRegion = "Coloană Cervicală",
+            DefaultContrast = "Nu",
+            Content =
+@"COLOANA CERVICALA:
+Buna aliniere a corpilor vertebrali cervicali in plan sagital, lordoza fiziologica pastrata / discreta tendinta la rectitudine.
+Fara anomalii ale jonctiunii cranio-vertebrale sau atlanto-axiale. Artroza atlanto-odontoida.
+Corpi vertebrali cervicali cu inaltime pastrata, contur regulat, fara tasari recente sau traiecte de fractura decelabile CT.
+Structura osoasa trabeculara cu densitate in limite normale.
+Osteofite marginale antero-laterale si posterioare etajate, mai evidente la nivelul segmentului C4-C7.
+Modificari degenerative de tip uncartroza si artroza interapofizara etajata.
+Pensari ale spatiilor discale intervertebrale la nivel: 
+Mici hernii intraspongioase decelabile la nivelul platourilor vertebrale.
+Protruzii / deborduri discale: 
+Fara stenoze semnificative de canal rahidian osos cervical.
+Gauri de conjugare libere bilateral.
+Partile moi paravertebrale cervicale cu aspect CT in limite normale.
+
+CONCLUZII:
+Modificari spondilodiscartrozice cervicale etajate, fara leziuni post-traumatice acute."
+        });
+
+        _protocols.Add(new ClinicalProtocol
+        {
+            Id = "CT_COLOANA_TORACALA",
+            Title = "CT Coloană Toracală",
+            Category = "CT",
+            BodyRegion = "Coloană Toracală",
+            DefaultContrast = "Nu",
+            Content =
+@"COLOANA TORACALA:
+Cifoza toracala fiziologica in limite normale / discret accentuata, fara anomalii de aliniament sau devieri in plan coronal.
+Corpi vertebrali toracali cu inaltime pastrata, fara leziuni traumatice acute, tasari sau fracturi decelabile CT.
+Osteofite marginale antero-laterale etajate, cu tendinta la formare de punti osoase in segmentul toracal mijlociu si inferior.
+Artroza costo-vertebrala si interapofizara etajata.
+Hernii intraspongioase la nivelul platourilor vertebrale toracale.
+Pensari ale spatiilor discale intervertebrale la nivel: 
+Deborduri discale: 
+Canal spinal osos toracal cu diametre in limite normale.
+Gauri de conjugare cu calibru pastrat bilateral.
+Parti moi paravertebrale toracale fara modificari patologice decelabile CT.
+
+CONCLUZII:
+Modificari spondilodiscartrozice toracale etajate, fara leziuni post-traumatice acute decelabile CT."
+        });
+
+        _protocols.Add(new ClinicalProtocol
+        {
+            Id = "CT_COLOANA_LOMBARA",
+            Title = "CT Coloană Lombară",
+            Category = "CT",
+            BodyRegion = "Coloană Lombară",
+            DefaultContrast = "Nu",
+            Content =
+@"COLOANA LOMBARA:
+Lordoza lombara fiziologica pastrata / tendinta la rectitudine a coloanei vertebrale lombare.
+Aliniament vertebral posterior pastrat, fara spondilolisteza decelabila CT.
+Corpi vertebrali lombari cu inaltime pastrata, contur regulat al platourilor vertebrale, fara tasari sau fracturi osoase acute.
+Structura osoasa cu mineralizare in limite normale / demineralizare difuza de tip osteopenic.
+Osteofite marginale antero-laterale etajate, mai evidente la nivelul segmentelor L4-L5 si L5-S1, cu tendinta la formare de punti osoase; mici osteofite marginale posterioare.
+Hernii intraspongioase la nivelul platourilor vertebrale.
+Modificari degenerative de tip artroza interapofizara, mai accentuata lombar inferior.
+Pensari ale spatiilor discale intervertebrale, mai exprimate la nivel L4-L5 si L5-S1, asociind fenomen de vid discal si scleroza subcondrala a platourilor adiacente.
+Deborduri discale / protruzii la nivel: 
+Canal rahidian osos lombar cu calibru normal, fara stenoze osoase constitutionale sau dobandite.
+Gauri de conjugare libere bilateral.
+Partile moi paravertebrale lombare cu aspect CT in limite normale.
+
+CONCLUZII:
+Modificari spondilodiscartrozice lombare etajate, mai evidente L4-S1, fara leziuni traumatice acute decelabile CT."
+        });
+
+        _protocols.Add(new ClinicalProtocol
+        {
+            Id = "CT_GENUNCHI",
+            Title = "CT Genunchi",
+            Category = "CT",
+            BodyRegion = "Genunchi",
+            DefaultContrast = "Nu",
+            Content =
+@"CT GENUNCHI:
+Raporturi articulare femuro-tibiale si femuro-patelare pastrate, fara deplasari sau luxatii osoase.
+Contururi si suprafete articulare regulate, fara solutii de continuitate corticala sau traiecte de fractura decelabile CT.
+Spatii articulare femuro-tibiale simetrice / discreta pensare in compartimentul femuro-tibial intern.
+Spine tibiale cu morfologie pastrata / discret efilate, cu minima scleroza subcondrala adiacenta.
+Minime osteofite marginale femuro-tibiale si retropatelare.
+Patela centrata in trohleea femurala, in pozitie normala in plan sagital si axial, fara semne de subluxatie.
+Structura osoasa cu mineralizare pastrata / discreta demineralizare de tip osteopenic.
+Fara imagini de geode subcondrale sau corpi liberi intraarticulari radioopaci.
+Tendoanele cvadricipital si patelar cu traiect si grosime in limite normale decelabile CT nativ.
+Pachete vasculare poplitee cu calibru normal; absenta calcificarilor parietale patologice.
+Parti moi periarticulare fara anomalii densitometrice decelabile.
+
+CONCLUZII:
+Fara leziuni osoase traumatice acute decelabile CT la nivelul articulatiei genunchiului."
+        });
+
+        _protocols.Add(new ClinicalProtocol
+        {
+            Id = "CT_GLEZNA",
+            Title = "CT Gleznă",
+            Category = "CT",
+            BodyRegion = "Gleznă & Picior",
+            DefaultContrast = "Nu",
+            Content =
+@"CT GLEZNA:
+Raporturi osoase normale in articulatia tibio-tarsiana (talocrurala), tibio-fibulare distale si subtalare.
+Morfologie si densitate osoasa in limite normale la nivelul extremitatilor distale tibiala si peroniera, talusului, calcaneului si oaselor tarsiene vizibile.
+Corticale osoase cu grosime si contur pastrate, fara traiecte de fractura recente, infundari ale platoului tibial sau tasari trabeculare decelabile CT.
+Spatiu articular tibio-talar cu latime pastrata, fara pensare sau calcificari intraarticulare.
+Fara osteofite marginale sau scleroza subcondrala la nivelul maleolelor tibiala si peroniera.
+Sindesmoza tibio-peroniera distala cu spatiu conservat, fara diastazis osos.
+Sustentaculum tali si procesul anterior al calcaneului cu aspect CT normal.
+Tendonul achilean si tendoanele peroniere cu grosime si traiect in limite normale CT nativ.
+Grasimea periarticulara si partile moi adiacente fara colectii fluide sau tumefactii evidente.
+
+CONCLUZII:
+Examen CT glezna fara modificari traumatice osoase acute (fara traiecte de fractura sau luxatii)."
+        });
+
+        _protocols.Add(new ClinicalProtocol
+        {
+            Id = "CT_COT",
+            Title = "CT Cot",
+            Category = "CT",
+            BodyRegion = "Cot",
+            DefaultContrast = "Nu",
+            Content =
+@"CT COT:
+Raporturi articulare normale in articulatiile humero-ulnara, humero-radiala si radio-ulnara proximala, fara deplasari sau luxatii.
+Contururi osoase nete, regulate la nivelul epifizei distale humerale (capitulum, trohlee), olecranului, procesului coronoid si capului/cupusoarei radiale.
+Fara solutii de continuitate osoasa, tasari corticale sau traiecte de fractura decelabile CT nativ.
+Spatii articulare humero-radiale si humero-ulnare cu dimensiuni pastrate, fara ingustari sau modificari osteofitice marginale.
+Fara corpi liberi intraarticulari calcificati.
+Fosa olecraniana, coronoida si radiala libere.
+Linie radiocapitulara si linie humerala anterioara in limite normale.
+Tendoanele bicepsului distal si tricepsului cu raporturi anatomice pastrate.
+Tesuturi moi periarticulare cu densitate normala, fara revarsat sau tumefactie evidenta.
+
+CONCLUZII:
+Articulatie a cotului cu aspect CT in limite normale, fara leziuni osoase traumatice recente decelabile."
+        });
+
+        _protocols.Add(new ClinicalProtocol
+        {
+            Id = "CT_GAT",
+            Title = "CT Gât (Structuri Cervicale + Contrast)",
+            Category = "CT",
+            BodyRegion = "Gât / Structuri Cervicale",
+            DefaultContrast = "Da",
+            Content =
+@"CT GAT (STRUCTURILE CERVICALE):
+Examinarea a fost efectuata cu administrare de substanta de contrast non-ionica intravenos, de la nivelul bazei craniului pana la nivelul aperturii toracice superioare.
+Rinofaringe, orofaringe si hipofaringe cu morfologie si simetrie pastrate, fara ingrosari mucoase patologice sau mase expansive intraluminale. Spatiul parafaringian si retrofaringian cu densitati adipoase omogene, fara colectii sau mase infiltrative.
+Laringe (epiglota, corzi vocale, spatiu paraglotic si subglotic) cu aspect CT normal, fara deformari sau prize de contrast asimetrice. Cartilaje laringiene cu calcificari normale pentru varsta, fara osteolize.
+Glande parotide si submandibulare simetrice, cu dimensiuni normale, contur net si densitate/contrastare parenchimatoasa omogena, fara procese proliferative focale sau calculi ductali radioopaci.
+Glanda tiroida cu pozitie normala, lobi tiroidieni simetrici, cu densitate si iodocaptare omogena, fara leziuni nodulare suspecte decelabile CT.
+Ax vascular cervical (artere carotide comune, carotide interne si externe, vene jugulare interne) permeabil bilateral, cu opacifiere optima, calibru pastrat si traiect normal, fara stenoze semnificative sau tromboze vasculare.
+Fara adenopatii cervicale decelabile CT; limfonoduli cu ax scurt infracentimetric vizibili in statiile ganglionare cervicale bilateral (jugulo-carotidiene si spinale), cu morfologie ovalara si centru adipos pastrat.
+Structuri osoase cuprinse in volumul scanat (baza craniului, mandibula, coloana cervicala) fara leziuni osteolitice sau osteoblastice suspecte.
+Fara colectii fluide sau formatiuni chistice la nivelul partilor moi cervicale.
+
+CONCLUZII:
+Aspect CT in limite normale la nivelul structurilor gatului si viscerocraniului inferior, fara mase expansive, procese inflamatorii sau adenopatii patologice."
+        });
     }
 
     private static string[]? _cachedNotesLines;
@@ -625,11 +795,11 @@ Arbore traheo-bronsic permeabil."
         if (trimmedText.StartsWith("ABDOMINO-PELVIN", StringComparison.OrdinalIgnoreCase))
             return _protocols.FirstOrDefault(p => p.Id == "CT_ABDOMINOPELVIN") ?? currentProtocol ?? _protocols[0];
         if (trimmedText.StartsWith("COLOANA LOMBARA", StringComparison.OrdinalIgnoreCase) || trimmedText.StartsWith("COLOANĂ LOMBARĂ", StringComparison.OrdinalIgnoreCase))
-            return _protocols.FirstOrDefault(p => p.Id == (isCt ? "CT_ABDOMINOPELVIN" : "IRM_LOMBAR")) ?? currentProtocol ?? _protocols[0];
+            return _protocols.FirstOrDefault(p => p.Id == (isCt ? "CT_COLOANA_LOMBARA" : "IRM_LOMBAR")) ?? currentProtocol ?? _protocols[0];
         if (trimmedText.StartsWith("COLOANA CERVICALA", StringComparison.OrdinalIgnoreCase) || trimmedText.StartsWith("COLOANĂ CERVICALĂ", StringComparison.OrdinalIgnoreCase))
-            return _protocols.FirstOrDefault(p => p.Id == (isCt ? "CT_CRANIO" : "IRM_CERVICAL")) ?? currentProtocol ?? _protocols[0];
+            return _protocols.FirstOrDefault(p => p.Id == (isCt ? "CT_COLOANA_CERVICALA" : "IRM_CERVICAL")) ?? currentProtocol ?? _protocols[0];
         if (trimmedText.StartsWith("COLOANA TORACALA", StringComparison.OrdinalIgnoreCase) || trimmedText.StartsWith("COLOANĂ TORACALĂ", StringComparison.OrdinalIgnoreCase))
-            return _protocols.FirstOrDefault(p => p.Id == (isCt ? "CT_TORACE" : "IRM_TORACAL")) ?? currentProtocol ?? _protocols[0];
+            return _protocols.FirstOrDefault(p => p.Id == (isCt ? "CT_COLOANA_TORACALA" : "IRM_TORACAL")) ?? currentProtocol ?? _protocols[0];
         if (trimmedText.StartsWith("CRANIOCEREBRAL", StringComparison.OrdinalIgnoreCase))
             return _protocols.FirstOrDefault(p => p.Id == (isCt ? "CT_CRANIO" : "IRM_CRANIO")) ?? currentProtocol ?? _protocols[0];
         if (trimmedText.StartsWith("CRANIO-CEREBRAL", StringComparison.OrdinalIgnoreCase))
@@ -638,8 +808,16 @@ Arbore traheo-bronsic permeabil."
             return _protocols.FirstOrDefault(p => p.Id == "CT_TORACE") ?? currentProtocol ?? _protocols[0];
         if (trimmedText.StartsWith("TEP", StringComparison.OrdinalIgnoreCase))
             return _protocols.FirstOrDefault(p => p.Id == "CT_TEP") ?? currentProtocol ?? _protocols[0];
+        if (trimmedText.StartsWith("CT GENUNCHI", StringComparison.OrdinalIgnoreCase))
+            return _protocols.FirstOrDefault(p => p.Id == "CT_GENUNCHI") ?? currentProtocol ?? _protocols[0];
         if (trimmedText.StartsWith("GENUNCHI", StringComparison.OrdinalIgnoreCase))
-            return _protocols.FirstOrDefault(p => p.Id == "IRM_GENUNCHI") ?? currentProtocol ?? _protocols[0];
+            return _protocols.FirstOrDefault(p => p.Id == (isCt ? "CT_GENUNCHI" : "IRM_GENUNCHI")) ?? currentProtocol ?? _protocols[0];
+        if (trimmedText.StartsWith("CT GLEZNA", StringComparison.OrdinalIgnoreCase) || trimmedText.StartsWith("CT GLEZNĂ", StringComparison.OrdinalIgnoreCase) || trimmedText.StartsWith("GLEZNA", StringComparison.OrdinalIgnoreCase) || trimmedText.StartsWith("GLEZNĂ", StringComparison.OrdinalIgnoreCase))
+            return _protocols.FirstOrDefault(p => p.Id == "CT_GLEZNA") ?? currentProtocol ?? _protocols[0];
+        if (trimmedText.StartsWith("CT COT", StringComparison.OrdinalIgnoreCase) || trimmedText.StartsWith("COT", StringComparison.OrdinalIgnoreCase))
+            return _protocols.FirstOrDefault(p => p.Id == "CT_COT") ?? currentProtocol ?? _protocols[0];
+        if (trimmedText.StartsWith("CT GAT", StringComparison.OrdinalIgnoreCase) || trimmedText.StartsWith("CT GÂT", StringComparison.OrdinalIgnoreCase) || trimmedText.StartsWith("GAT", StringComparison.OrdinalIgnoreCase) || trimmedText.StartsWith("GÂT", StringComparison.OrdinalIgnoreCase))
+            return _protocols.FirstOrDefault(p => p.Id == "CT_GAT") ?? currentProtocol ?? _protocols[0];
         if (trimmedText.StartsWith("HIPOFIZA", StringComparison.OrdinalIgnoreCase) || trimmedText.StartsWith("HIPOFIZĂ", StringComparison.OrdinalIgnoreCase))
             return _protocols.FirstOrDefault(p => p.Id == "IRM_HIPOFIZA") ?? currentProtocol ?? _protocols[0];
         if (trimmedText.StartsWith("MRCP", StringComparison.OrdinalIgnoreCase))
@@ -724,6 +902,23 @@ Arbore traheo-bronsic permeabil."
                 return _protocols.FirstOrDefault(p => p.Id == "IRM_TORACAL") ?? currentProtocol ?? _protocols[0];
             if (combined.Contains("genunchi") || combined.Contains("knee"))
                 return _protocols.FirstOrDefault(p => p.Id == "IRM_GENUNCHI") ?? currentProtocol ?? _protocols[0];
+        }
+        else
+        {
+            if (combined.Contains("lombar") || combined.Contains("l-spine") || combined.Contains("lspine"))
+                return _protocols.FirstOrDefault(p => p.Id == "CT_COLOANA_LOMBARA") ?? currentProtocol ?? _protocols[0];
+            if (combined.Contains("cervical") || combined.Contains("c-spine") || combined.Contains("cspine"))
+                return _protocols.FirstOrDefault(p => p.Id == "CT_COLOANA_CERVICALA") ?? currentProtocol ?? _protocols[0];
+            if (combined.Contains("toracal") || combined.Contains("dorsal") || combined.Contains("t-spine") || combined.Contains("tspine"))
+                return _protocols.FirstOrDefault(p => p.Id == "CT_COLOANA_TORACALA") ?? currentProtocol ?? _protocols[0];
+            if (combined.Contains("genunchi") || combined.Contains("knee"))
+                return _protocols.FirstOrDefault(p => p.Id == "CT_GENUNCHI") ?? currentProtocol ?? _protocols[0];
+            if (combined.Contains("glezn") || combined.Contains("ankle") || combined.Contains("picior"))
+                return _protocols.FirstOrDefault(p => p.Id == "CT_GLEZNA") ?? currentProtocol ?? _protocols[0];
+            if (combined.Contains("cot") || combined.Contains("elbow"))
+                return _protocols.FirstOrDefault(p => p.Id == "CT_COT") ?? currentProtocol ?? _protocols[0];
+            if (combined.Contains("gat") || combined.Contains("gât") || combined.Contains("neck") || combined.Contains("faring") || combined.Contains("laring") || combined.Contains("tiroid"))
+                return _protocols.FirstOrDefault(p => p.Id == "CT_GAT") ?? currentProtocol ?? _protocols[0];
         }
 
         if (isCt)
@@ -834,17 +1029,20 @@ Arbore traheo-bronsic permeabil."
     {
         return protocolId switch
         {
-            "IRM_LOMBAR" => new[] { "lombar", "l1-l2", "l2-l3", "l3-l4", "l4-l5", "l5-s1", "con medular", "spondilodiscartroza lombara", "pfirrmann", "modic", "intraspongioase", "interapofizara", "disco-radicular", "protruzie discala", "hernie de disc" },
-            "IRM_CERVICAL" => new[] { "cervical", "c3-c4", "c4-c5", "c5-c6", "c6-c7", "unco-vertebral", "atlanto-odontoid", "cordon medular", "bulbo-medular", "rahidian cervical" },
-            "IRM_TORACAL" => new[] { "toracal", "dorsal", "cordon medular toracal", "canal spinal toracal", "t11", "t12", "t8", "t3-t10" },
-            "IRM_GENUNCHI" => new[] { "genunchi", "menisc", "patel", "incrucisat", "colateral", "condromalacie", "baker", "gastrocnemio", "femuro-tibial", "suprapatelar", "insall-salvati", "wiberg" },
+            "IRM_LOMBAR" or "CT_COLOANA_LOMBARA" => new[] { "lombar", "l1-l2", "l2-l3", "l3-l4", "l4-l5", "l5-s1", "con medular", "spondilodiscartroza", "pfirrmann", "modic", "intraspongioase", "interapofizara", "disco-radicular", "protruzie discala", "hernie de disc" },
+            "IRM_CERVICAL" or "CT_COLOANA_CERVICALA" => new[] { "cervical", "c3-c4", "c4-c5", "c5-c6", "c6-c7", "unco-vertebral", "uncartroza", "atlanto-odontoid", "cordon medular", "bulbo-medular", "rahidian cervical" },
+            "IRM_TORACAL" or "CT_COLOANA_TORACALA" => new[] { "toracal", "dorsal", "cordon medular toracal", "canal spinal toracal", "t11", "t12", "t8", "t3-t10", "costo-vertebral" },
+            "IRM_GENUNCHI" or "CT_GENUNCHI" => new[] { "genunchi", "menisc", "patel", "incrucisat", "colateral", "condromalacie", "baker", "gastrocnemio", "femuro-tibial", "suprapatelar", "insall-salvati", "wiberg", "gonartroza" },
+            "CT_GLEZNA" => new[] { "glezn", "talus", "calcane", "tibio-tarsian", "maleol", "achilean", "peronier", "sindesmoza" },
+            "CT_COT" => new[] { "cot", "olecran", "coronoid", "cupusoara", "radiocapitular", "humero-radial", "humero-ulnar" },
+            "CT_GAT" => new[] { "gat", "gât", "faring", "laring", "parotid", "submandibular", "tiroid", "carotidian", "jugular", "cervical" },
             "IRM_CRANIO" or "CT_CRANIO" => new[] { "emisfere cerebrale", "fosa posterioara", "trunchi cerebral", "ventricul", "hipocamp", "demielinizant", "flair", "leucoaraioza", "cisternele", "liniei mediene", "sinus" },
             "IRM_HIPOFIZA" => new[] { "hipofiz", "selar", "chiasma", "tija pituitara", "adenohipofiz", "cavernos" },
             "IRM_BAZIN" => new[] { "coxo-femural", "sacro-iliac", "cap femural", "acetabul", "coxartroz" },
             "CT_TORACE" or "CT_TEP" => new[] { "pulmonar", "mediastin", "pleur", "bronsiectaz", "emfizem", "geam mat", "traheo-bronsic", "subpleural", "artera pulmonara" },
             "IRM_ABDOMEN" or "IRM_HEPATIC" or "IRM_MRCP" or "CT_ABDOMINOPELVIN" => new[] { "ficat", "colecist", "biliar", "pancreas", "splin", "rinichi", "suprarenal", "porta", "coledoc", "abdomin", "apendic", "cec" },
             "IRM_PELVIS" => new[] { "uter", "ovar", "endometru", "miometru", "prostat", "vezica urinara", "douglas", "rect" },
-            _ => new[] { "irm", "normal", "modificari" }
+            _ => new[] { "irm", "ct", "normal", "modificari" }
         };
     }
 

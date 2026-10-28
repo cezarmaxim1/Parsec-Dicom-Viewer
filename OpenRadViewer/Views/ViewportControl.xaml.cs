@@ -53,6 +53,7 @@ public partial class ViewportControl : UserControl
         InitializeComponent();
 
         Loaded += OnLoaded;
+        Unloaded += OnUnloaded;
         SizeChanged += OnSizeChanged;
         DataContextChanged += OnDataContextChanged;
 
@@ -193,6 +194,13 @@ public partial class ViewportControl : UserControl
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
+        var mainVm = GetMainViewModel();
+        if (mainVm != null)
+        {
+            mainVm.PropertyChanged -= OnMainViewModelPropertyChanged;
+            mainVm.PropertyChanged += OnMainViewModelPropertyChanged;
+        }
+
         if (ViewModel?.NeedsAutoFit == true)
         {
             AutoFitToViewport(forceResetZoom: true);
@@ -203,6 +211,23 @@ public partial class ViewportControl : UserControl
         }
         UpdateRuler();
         RedrawMeasurements();
+    }
+
+    private void OnUnloaded(object sender, RoutedEventArgs e)
+    {
+        var mainVm = GetMainViewModel();
+        if (mainVm != null)
+        {
+            mainVm.PropertyChanged -= OnMainViewModelPropertyChanged;
+        }
+    }
+
+    private void OnMainViewModelPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(MainViewModel.MeasurementsCurrentSliceOnly))
+        {
+            Dispatcher.InvokeAsync(RedrawMeasurements);
+        }
     }
 
     private void OnSizeChanged(object sender, SizeChangedEventArgs e)
@@ -761,10 +786,22 @@ public partial class ViewportControl : UserControl
             }
         }
 
-        // 4. Interactive Selection & Moving of existing measurements ALWAYS checked next
+        // Determine button action
+        MouseToolAction buttonAction = e.ChangedButton switch
+        {
+            MouseButton.Left => mainVm.LeftTool,
+            MouseButton.Right => mainVm.RightTool,
+            MouseButton.Middle => mainVm.MiddleTool,
+            MouseButton.XButton1 => mainVm.MouseConfig.GetActionFor(MouseInputTrigger.XButton1Drag),
+            MouseButton.XButton2 => mainVm.MouseConfig.GetActionFor(MouseInputTrigger.XButton2Drag),
+            _ => MouseToolAction.None
+        };
+
+        // 4. Interactive Selection & Moving of existing measurements (when not holding an active drawing tool)
         if (e.ChangedButton == MouseButton.Left)
         {
-            var hit = FindMeasurementAt(_lastMousePos);
+            bool isDrawingTool = IsMeasurementTool(buttonAction) || buttonAction == MouseToolAction.VertebraLabel;
+            var hit = !isDrawingTool ? FindMeasurementAt(_lastMousePos) : null;
             if (hit != null)
             {
                 foreach (var m in vm.Measurements) m.IsSelected = false;
@@ -805,15 +842,6 @@ public partial class ViewportControl : UserControl
         }
 
         // 5. Drawing new measurement (if button's assigned action is a measurement tool)
-        MouseToolAction buttonAction = e.ChangedButton switch
-        {
-            MouseButton.Left => mainVm.LeftTool,
-            MouseButton.Right => mainVm.RightTool,
-            MouseButton.Middle => mainVm.MiddleTool,
-            MouseButton.XButton1 => mainVm.MouseConfig.GetActionFor(MouseInputTrigger.XButton1Drag),
-            MouseButton.XButton2 => mainVm.MouseConfig.GetActionFor(MouseInputTrigger.XButton2Drag),
-            _ => MouseToolAction.None
-        };
 
         if (buttonAction == MouseToolAction.VertebraLabel)
         {
@@ -1006,69 +1034,10 @@ public partial class ViewportControl : UserControl
             return;
         }
 
-        // MPR Crosshair Cursor Updates while hovering (not dragging)
-        if (!_isDragging && vm.IsMprViewport && vm.MprLines.Count >= 2 && (mainVm?.ShowMprAxes ?? true))
-        {
-            Point s1A = ImageToScreenCoords(vm.MprLines[0].StartPoint);
-            Point s1B = ImageToScreenCoords(vm.MprLines[0].EndPoint);
-            Point s2A = ImageToScreenCoords(vm.MprLines[1].StartPoint);
-            Point s2B = ImageToScreenCoords(vm.MprLines[1].EndPoint);
-
-            // A. Check rotation handles (Circular arrow or Hand cursor)
-            for (int i = 0; i < vm.MprLines.Count; i++)
-            {
-                var mLine = vm.MprLines[i];
-                var (h1, h2) = GetZoomAdaptiveHandles(mLine);
-
-                if ((currentPos - h1).Length <= 12.0 || (currentPos - h2).Length <= 12.0)
-                {
-                    Cursor = Cursors.Hand;
-                    return;
-                }
-            }
-
-            // B. Center intersection
-            Point? inter = GetLineIntersection(s1A, s1B, s2A, s2B);
-            if (inter != null && (currentPos - inter.Value).Length <= 14)
-            {
-                Cursor = Cursors.SizeAll;
-                return;
-            }
-
-            // C. Line body translation
-            double dist1 = DistanceToSegment(currentPos, s1A, s1B);
-            double dist2 = DistanceToSegment(currentPos, s2A, s2B);
-
-            if (dist1 <= 8.0)
-            {
-                bool isHoriz = Math.Abs(s1B.Y - s1A.Y) < Math.Abs(s1B.X - s1A.X);
-                Cursor = isHoriz ? Cursors.SizeNS : Cursors.SizeWE;
-                return;
-            }
-            else if (dist2 <= 8.0)
-            {
-                bool isHoriz = Math.Abs(s2B.Y - s2A.Y) < Math.Abs(s2B.X - s2A.X);
-                Cursor = isHoriz ? Cursors.SizeNS : Cursors.SizeWE;
-                return;
-            }
-            else
-            {
-                Cursor = Cursors.Arrow;
-            }
-        }
-
+        // MPR Crosshair / Hover Cursor Updates while hovering (not dragging)
         if (!_isDragging)
         {
-            if (FindMeasurementTextAt(currentPos) != null)
-            {
-                Cursor = Cursors.SizeAll;
-                return;
-            }
-            if (_selectedMeasurement != null && HitTestHandles(_selectedMeasurement, currentPos) >= 0)
-            {
-                Cursor = Cursors.Cross;
-                return;
-            }
+            UpdateHoverCursor(currentPos);
             return;
         }
 
@@ -1295,135 +1264,222 @@ public partial class ViewportControl : UserControl
 
     private void OnMouseUp(object sender, MouseButtonEventArgs e)
     {
-        if (_mprDragTarget != MprDragTarget.None)
+        try
         {
-            _mprDragTarget = MprDragTarget.None;
-            _draggedMprLine = null;
-            _isDragging = false;
-            ReleaseMouseCapture();
-            e.Handled = true;
-            return;
-        }
-
-        if (_isDraggingVertebra)
-        {
-            _isDraggingVertebra = false;
-            _draggedVertebra = null;
-            _isDragging = false;
-            ReleaseMouseCapture();
-            RedrawMeasurements();
-            e.Handled = true;
-            return;
-        }
-
-        if (_isDragging)
-        {
-            _isDragging = false;
-            ReleaseMouseCapture();
-
-            if (_isDraggingMeasurementText)
+            if (_mprDragTarget != MprDragTarget.None)
             {
-                _isDraggingMeasurementText = false;
+                _mprDragTarget = MprDragTarget.None;
+                _draggedMprLine = null;
+                _isDragging = false;
+                ReleaseMouseCapture();
+                e.Handled = true;
+                return;
+            }
+
+            if (_isDraggingVertebra)
+            {
+                _isDraggingVertebra = false;
+                _draggedVertebra = null;
+                _isDragging = false;
+                ReleaseMouseCapture();
                 RedrawMeasurements();
                 e.Handled = true;
                 return;
             }
 
-            if (_isResizingHandle)
+            if (_isDragging)
             {
-                _isResizingHandle = false;
-                _activeHandleIndex = -1;
-                RedrawMeasurements();
-                e.Handled = true;
-                return;
-            }
+                _isDragging = false;
+                ReleaseMouseCapture();
 
-            if (_isMovingMeasurement)
-            {
-                _isMovingMeasurement = false;
-                RedrawMeasurements();
-                e.Handled = true;
-                return;
-            }
-
-            if (_activeMeasurement != null)
-            {
-                if (_activeMeasurement.Type == MeasurementType.AiCrop)
+                if (_isDraggingMeasurementText)
                 {
-                    var finishedAi = _activeMeasurement;
-                    _activeMeasurement = null;
-                    RedrawMeasurements();
-                    e.Handled = true;
-
-                    if (finishedAi.Points.Count >= 2)
-                    {
-                        Point p1 = finishedAi.Points[0];
-                        Point p2 = finishedAi.Points[1];
-                        double minX = Math.Min(p1.X, p2.X);
-                        double minY = Math.Min(p1.Y, p2.Y);
-                        double w = Math.Abs(p2.X - p1.X);
-                        double h = Math.Abs(p2.Y - p1.Y);
-
-                        if (w >= 4 && h >= 4)
-                        {
-                            TriggerAiConsultation(new Rect(minX, minY, w, h));
-                        }
-                    }
-                    return;
-                }
-
-                if (_activeMeasurement.Type != MeasurementType.Angle && _activeMeasurement.Type != MeasurementType.InsallSalvati)
-                {
-                    var vm = ViewModel;
-                    if (vm?.CurrentSlice != null)
-                    {
-                        if (_activeMeasurement.Type == MeasurementType.Ellipse)
-                        {
-                            _activeMeasurement.ComputeEllipseStatistics(vm.CurrentSlice);
-                        }
-                        else if (_activeMeasurement.Type == MeasurementType.Rectangle)
-                        {
-                            _activeMeasurement.ComputeRectangleStatistics(vm.CurrentSlice);
-                        }
-                        else if (_activeMeasurement.Type == MeasurementType.Length)
-                        {
-                            double lenMm = _activeMeasurement.CalculateLengthMm(vm.CurrentSlice.PixelSpacingX, vm.CurrentSlice.PixelSpacingY);
-                            _activeMeasurement.Details = $"{lenMm:0.0} mm";
-                        }
-
-                        _activeMeasurement.IsSelected = true;
-                        vm.Measurements.Add(_activeMeasurement);
-                        _selectedMeasurement = _activeMeasurement;
-                        GetMainViewModel()?.NotifyMeasurementSelected(_activeMeasurement);
-                    }
-                    _activeMeasurement = null;
+                    _isDraggingMeasurementText = false;
                     RedrawMeasurements();
                     e.Handled = true;
                     return;
                 }
-            }
 
-            var mainVm = GetMainViewModel();
-            var currentVm = ViewModel;
-            if (mainVm != null)
-            {
-                mainVm.Clear3DCursor();
-                if (currentVm != null && !_hasActuallyDragged)
+                if (_isResizingHandle)
                 {
-                    if (e.ChangedButton == MouseButton.XButton1)
+                    _isResizingHandle = false;
+                    _activeHandleIndex = -1;
+                    RedrawMeasurements();
+                    e.Handled = true;
+                    return;
+                }
+
+                if (_isMovingMeasurement)
+                {
+                    _isMovingMeasurement = false;
+                    RedrawMeasurements();
+                    e.Handled = true;
+                    return;
+                }
+
+                if (_activeMeasurement != null)
+                {
+                    if (_activeMeasurement.Type == MeasurementType.AiCrop)
                     {
-                        var clickAction = mainVm.MouseConfig.GetActionFor(MouseInputTrigger.XButton1Click);
-                        ExecuteMouseAction(clickAction, 0, 0, currentVm);
+                        var finishedAi = _activeMeasurement;
+                        _activeMeasurement = null;
+                        RedrawMeasurements();
+                        e.Handled = true;
+
+                        if (finishedAi.Points.Count >= 2)
+                        {
+                            Point p1 = finishedAi.Points[0];
+                            Point p2 = finishedAi.Points[1];
+                            double minX = Math.Min(p1.X, p2.X);
+                            double minY = Math.Min(p1.Y, p2.Y);
+                            double w = Math.Abs(p2.X - p1.X);
+                            double h = Math.Abs(p2.Y - p1.Y);
+
+                            if (w >= 4 && h >= 4)
+                            {
+                                TriggerAiConsultation(new Rect(minX, minY, w, h));
+                            }
+                        }
+                        return;
                     }
-                    else if (e.ChangedButton == MouseButton.XButton2)
+
+                    if (_activeMeasurement.Type != MeasurementType.Angle && _activeMeasurement.Type != MeasurementType.InsallSalvati)
                     {
-                        var clickAction = mainVm.MouseConfig.GetActionFor(MouseInputTrigger.XButton2Click);
-                        ExecuteMouseAction(clickAction, 0, 0, currentVm);
+                        var vm = ViewModel;
+                        if (vm?.CurrentSlice != null)
+                        {
+                            if (_activeMeasurement.Type == MeasurementType.Ellipse)
+                            {
+                                _activeMeasurement.ComputeEllipseStatistics(vm.CurrentSlice);
+                            }
+                            else if (_activeMeasurement.Type == MeasurementType.Rectangle)
+                            {
+                                _activeMeasurement.ComputeRectangleStatistics(vm.CurrentSlice);
+                            }
+                            else if (_activeMeasurement.Type == MeasurementType.Length)
+                            {
+                                double lenMm = _activeMeasurement.CalculateLengthMm(vm.CurrentSlice.PixelSpacingX, vm.CurrentSlice.PixelSpacingY);
+                                _activeMeasurement.Details = $"{lenMm:0.0} mm";
+                            }
+
+                            _activeMeasurement.IsSelected = true;
+                            vm.Measurements.Add(_activeMeasurement);
+                            _selectedMeasurement = _activeMeasurement;
+                            GetMainViewModel()?.NotifyMeasurementSelected(_activeMeasurement);
+                        }
+                        _activeMeasurement = null;
+                        RedrawMeasurements();
+                        e.Handled = true;
+                        return;
+                    }
+                }
+
+                var mainVm = GetMainViewModel();
+                var currentVm = ViewModel;
+                if (mainVm != null)
+                {
+                    mainVm.Clear3DCursor();
+                    if (currentVm != null && !_hasActuallyDragged)
+                    {
+                        if (e.ChangedButton == MouseButton.XButton1)
+                        {
+                            var clickAction = mainVm.MouseConfig.GetActionFor(MouseInputTrigger.XButton1Click);
+                            ExecuteMouseAction(clickAction, 0, 0, currentVm);
+                        }
+                        else if (e.ChangedButton == MouseButton.XButton2)
+                        {
+                            var clickAction = mainVm.MouseConfig.GetActionFor(MouseInputTrigger.XButton2Click);
+                            ExecuteMouseAction(clickAction, 0, 0, currentVm);
+                        }
                     }
                 }
             }
+            e.Handled = true;
         }
-        e.Handled = true;
+        finally
+        {
+            UpdateHoverCursor(e.GetPosition(this));
+        }
+    }
+
+    private void UpdateHoverCursor(Point currentPos)
+    {
+        if (_isDragging) return;
+
+        var vm = ViewModel;
+        var mainVm = GetMainViewModel();
+        if (vm == null || mainVm == null)
+        {
+            Cursor = Cursors.Arrow;
+            return;
+        }
+
+        // MPR Crosshair Cursor Updates while hovering (not dragging)
+        if (vm.IsMprViewport && vm.MprLines.Count >= 2 && (mainVm?.ShowMprAxes ?? true))
+        {
+            Point s1A = ImageToScreenCoords(vm.MprLines[0].StartPoint);
+            Point s1B = ImageToScreenCoords(vm.MprLines[0].EndPoint);
+            Point s2A = ImageToScreenCoords(vm.MprLines[1].StartPoint);
+            Point s2B = ImageToScreenCoords(vm.MprLines[1].EndPoint);
+
+            for (int i = 0; i < vm.MprLines.Count; i++)
+            {
+                var mLine = vm.MprLines[i];
+                var (h1, h2) = GetZoomAdaptiveHandles(mLine);
+
+                if ((currentPos - h1).Length <= 12.0 || (currentPos - h2).Length <= 12.0)
+                {
+                    Cursor = Cursors.Hand;
+                    return;
+                }
+            }
+
+            Point? inter = GetLineIntersection(s1A, s1B, s2A, s2B);
+            if (inter != null && (currentPos - inter.Value).Length <= 14)
+            {
+                Cursor = Cursors.SizeAll;
+                return;
+            }
+
+            double dist1 = DistanceToSegment(currentPos, s1A, s1B);
+            double dist2 = DistanceToSegment(currentPos, s2A, s2B);
+
+            if (dist1 <= 8.0)
+            {
+                bool isHoriz = Math.Abs(s1B.Y - s1A.Y) < Math.Abs(s1B.X - s1A.X);
+                Cursor = isHoriz ? Cursors.SizeNS : Cursors.SizeWE;
+                return;
+            }
+            else if (dist2 <= 8.0)
+            {
+                bool isHoriz = Math.Abs(s2B.Y - s2A.Y) < Math.Abs(s2B.X - s2A.X);
+                Cursor = isHoriz ? Cursors.SizeNS : Cursors.SizeWE;
+                return;
+            }
+        }
+
+        if (FindMeasurementTextAt(currentPos) != null)
+        {
+            Cursor = Cursors.SizeAll;
+            return;
+        }
+
+        if (_selectedMeasurement != null && HitTestHandles(_selectedMeasurement, currentPos) >= 0)
+        {
+            Cursor = Cursors.Cross;
+            return;
+        }
+
+        Cursor = Cursors.Arrow;
+    }
+
+    protected override void OnMouseLeave(MouseEventArgs e)
+    {
+        base.OnMouseLeave(e);
+        if (!_isDragging)
+        {
+            Cursor = Cursors.Arrow;
+        }
     }
 
     private void OnMouseWheel(object sender, MouseWheelEventArgs e)
@@ -1446,6 +1502,10 @@ public partial class ViewportControl : UserControl
 
         var action = mainVm.MouseConfig.GetActionFor(trigger);
         int steps = e.Delta > 0 ? 1 : -1;
+        if (mainVm.InvertScrolling)
+        {
+            steps = -steps;
+        }
 
         switch (action)
         {
@@ -1465,11 +1525,13 @@ public partial class ViewportControl : UserControl
                 break;
 
             case MouseToolAction.NextImage:
-                vm.NextImage();
+                if (steps > 0) vm.NextImage();
+                else vm.PreviousImage();
                 break;
 
             case MouseToolAction.PreviousImage:
-                vm.PreviousImage();
+                if (steps > 0) vm.PreviousImage();
+                else vm.NextImage();
                 break;
         }
 
@@ -1533,11 +1595,13 @@ public partial class ViewportControl : UserControl
     private MeasurementItem? FindMeasurementAt(Point screenPt)
     {
         var vm = ViewModel;
-        if (vm == null) return null;
+        var mainVm = GetMainViewModel();
+        if (vm == null || !vm.ShowAnnotations) return null;
 
         for (int i = vm.Measurements.Count - 1; i >= 0; i--)
         {
             var m = vm.Measurements[i];
+            if (mainVm?.MeasurementsCurrentSliceOnly == true && m.SliceIndex != vm.CurrentSliceIndex) continue;
             if (m.Points.Count < 2) continue;
 
             if (m.Type == MeasurementType.Ellipse)
@@ -1598,6 +1662,7 @@ public partial class ViewportControl : UserControl
     private MeasurementItem? FindMeasurementTextAt(Point screenPt)
     {
         var vm = ViewModel;
+        var mainVm = GetMainViewModel();
         if (vm == null || !vm.ShowAnnotations) return null;
 
         var allItems = new List<MeasurementItem>(vm.Measurements);
@@ -1606,6 +1671,7 @@ public partial class ViewportControl : UserControl
         for (int i = allItems.Count - 1; i >= 0; i--)
         {
             var m = allItems[i];
+            if (mainVm?.MeasurementsCurrentSliceOnly == true && m != _activeMeasurement && m.SliceIndex != vm.CurrentSliceIndex) continue;
             if (string.IsNullOrEmpty(m.Details) || m.LastTextScreenRect.IsEmpty) continue;
 
             // Expand hit area slightly (4px margin) for comfortable clicking and dragging
@@ -1647,6 +1713,9 @@ public partial class ViewportControl : UserControl
 
     private int HitTestHandles(MeasurementItem m, Point screenPt)
     {
+        var vm = ViewModel;
+        var mainVm = GetMainViewModel();
+        if (mainVm?.MeasurementsCurrentSliceOnly == true && m != _activeMeasurement && m.SliceIndex != vm?.CurrentSliceIndex) return -1;
         if (m.Points.Count < 2) return -1;
 
         if (m.Type is MeasurementType.Ellipse or MeasurementType.Rectangle)

@@ -454,6 +454,8 @@ public partial class MainViewModel : ObservableObject
     {
         _settingsPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "mousesettings.json");
         MouseConfig = MouseSettings.LoadFromFile(_settingsPath);
+        _measurementsCurrentSliceOnly = MouseConfig.MeasurementsCurrentSliceOnly;
+        _invertScrolling = MouseConfig.InvertScrolling;
 
         var cfgLeft = MouseConfig.GetActionFor(MouseInputTrigger.LeftDrag);
         if (cfgLeft != MouseToolAction.None) LeftTool = cfgLeft;
@@ -768,7 +770,28 @@ public partial class MainViewModel : ObservableObject
     }
 
     [ObservableProperty]
-    private bool _measurementsCurrentSliceOnly = false;
+    private bool _measurementsCurrentSliceOnly = true;
+
+    partial void OnMeasurementsCurrentSliceOnlyChanged(bool value)
+    {
+        if (MouseConfig != null)
+        {
+            MouseConfig.MeasurementsCurrentSliceOnly = value;
+            try { MouseConfig.SaveToFile(_settingsPath); } catch { }
+        }
+    }
+
+    [ObservableProperty]
+    private bool _invertScrolling = false;
+
+    partial void OnInvertScrollingChanged(bool value)
+    {
+        if (MouseConfig != null)
+        {
+            MouseConfig.InvertScrolling = value;
+            try { MouseConfig.SaveToFile(_settingsPath); } catch { }
+        }
+    }
 
     private readonly HashSet<string> _smartLayoutAppliedStudies = new();
 

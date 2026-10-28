@@ -180,6 +180,8 @@
                     <MenuItem Header="AI Lesion Crop Tool" Click="OnToolAiLesionCrop" />
                     <MenuItem Header="AI Configuration &amp; Style Settings..." Click="OnOpenAiSettings" />
                 </MenuItem>
+                <Separator Background="#333333" />
+                <MenuItem Header="Invert Scrolling" IsCheckable="True" IsChecked="{Binding InvertScrolling, Mode=TwoWay}" ToolTip="Inverts mouse wheel slice scrolling direction" />
             </MenuItem>
 
             <MenuItem Header="_View">
@@ -607,6 +609,8 @@
                                 <Separator Background="#333333" />
                                 <MenuItem Header="+ Add Table..." Click="OnAddCustomTable" FontWeight="SemiBold" Foreground="#64D2B4" />
                             </MenuItem>
+                            <Separator Background="#333333" />
+                            <MenuItem Header="Invert Scrolling" IsCheckable="True" IsChecked="{Binding InvertScrolling, Mode=TwoWay}" ToolTip="Inverts mouse wheel slice scrolling direction" />
                         </ContextMenu>
                     </Button.ContextMenu>
                 </Button>

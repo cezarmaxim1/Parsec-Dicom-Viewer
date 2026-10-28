@@ -70,6 +70,8 @@ public class MouseBindingRule
 public class MouseSettings
 {
     public List<MouseBindingRule> Bindings { get; set; } = new();
+    public bool MeasurementsCurrentSliceOnly { get; set; } = true;
+    public bool InvertScrolling { get; set; } = false;
 
     public static MouseSettings CreateDefault()
     {
