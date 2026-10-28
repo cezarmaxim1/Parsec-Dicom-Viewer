@@ -1856,6 +1856,81 @@ public partial class ViewportControl : UserControl
         MeasurementCanvas.Children.Add(border);
     }
 
+    private void RenderMeasurementTextBadge(
+        MeasurementItem m,
+        Point anchorScreenPt,
+        double defaultOffsetX,
+        double defaultOffsetY,
+        Brush strokeBrush,
+        Brush textBgBrush,
+        bool isBold = false)
+    {
+        if (string.IsNullOrEmpty(m.Details))
+        {
+            m.LastTextScreenRect = Rect.Empty;
+            return;
+        }
+
+        var vm = ViewModel;
+        double zoom = vm?.Zoom ?? 1.0;
+        double textX = anchorScreenPt.X + defaultOffsetX;
+        double textY = anchorScreenPt.Y + defaultOffsetY;
+
+        bool hasCustomOffset = false;
+        if (m.TextOffset != null)
+        {
+            textX += m.TextOffset.Value.X * zoom;
+            textY += m.TextOffset.Value.Y * zoom;
+            if (Math.Abs(m.TextOffset.Value.X) > 4 || Math.Abs(m.TextOffset.Value.Y) > 4)
+            {
+                hasCustomOffset = true;
+            }
+        }
+
+        var border = new Border
+        {
+            Background = textBgBrush,
+            BorderBrush = strokeBrush,
+            BorderThickness = new Thickness(m.IsSelected ? 1.2 : 0.8),
+            CornerRadius = new CornerRadius(3),
+            Padding = new Thickness(5, 2, 5, 2),
+            Cursor = Cursors.SizeAll,
+            Child = new TextBlock
+            {
+                Text = m.Details,
+                Foreground = strokeBrush,
+                FontSize = 11,
+                FontWeight = (m.IsSelected || isBold) ? FontWeights.Bold : FontWeights.SemiBold
+            }
+        };
+
+        border.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+        double badgeW = border.DesiredSize.Width;
+        double badgeH = border.DesiredSize.Height;
+        m.LastTextScreenRect = new Rect(textX, textY, badgeW, badgeH);
+
+        if (hasCustomOffset)
+        {
+            Point badgeCenter = new Point(textX + badgeW / 2.0, textY + badgeH / 2.0);
+            var leaderLine = new Line
+            {
+                X1 = anchorScreenPt.X,
+                Y1 = anchorScreenPt.Y,
+                X2 = badgeCenter.X,
+                Y2 = badgeCenter.Y,
+                Stroke = strokeBrush,
+                StrokeThickness = 0.9,
+                StrokeDashArray = new DoubleCollection { 3, 2 },
+                Opacity = 0.65
+            };
+            MeasurementCanvas.Children.Add(leaderLine);
+        }
+
+        Canvas.SetLeft(border, textX);
+        Canvas.SetTop(border, textY);
+        MeasurementCanvas.Children.Add(border);
+    }
+
     public void RedrawMeasurements()
     {
         MeasurementCanvas.Children.Clear();
@@ -1980,22 +2055,8 @@ public partial class ViewportControl : UserControl
 
                 if (!string.IsNullOrEmpty(m.Details))
                 {
-                    var tb = new TextBlock
-                    {
-                        Text = m.Details,
-                        Foreground = strokeBrush,
-                        Background = textBgBrush,
-                        Padding = new Thickness(4, 2, 4, 2),
-                        FontSize = 11,
-                        FontWeight = FontWeights.SemiBold
-                    };
-                    double lx = (p1.X + p2.X) / 2.0 + 6;
-                    double ly = (p1.Y + p2.Y) / 2.0 + 6;
-                    Canvas.SetLeft(tb, lx);
-                    Canvas.SetTop(tb, ly);
-                    MeasurementCanvas.Children.Add(tb);
-                    tb.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
-                    m.LastTextScreenRect = new Rect(lx, ly, tb.DesiredSize.Width, tb.DesiredSize.Height);
+                    Point midPoint = new Point((p1.X + p2.X) / 2.0, (p1.Y + p2.Y) / 2.0);
+                    RenderMeasurementTextBadge(m, midPoint, 6, 6, strokeBrush, textBgBrush);
                 }
                 else
                 {
@@ -2061,22 +2122,7 @@ public partial class ViewportControl : UserControl
 
                 if (!string.IsNullOrEmpty(m.Details))
                 {
-                    var tb = new TextBlock
-                    {
-                        Text = m.Details,
-                        Foreground = strokeBrush,
-                        Background = textBgBrush,
-                        Padding = new Thickness(4, 2, 4, 2),
-                        FontSize = 11,
-                        FontWeight = FontWeights.SemiBold
-                    };
-                    double ax = vertex.X + 8;
-                    double ay = vertex.Y + 8;
-                    Canvas.SetLeft(tb, ax);
-                    Canvas.SetTop(tb, ay);
-                    MeasurementCanvas.Children.Add(tb);
-                    tb.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
-                    m.LastTextScreenRect = new Rect(ax, ay, tb.DesiredSize.Width, tb.DesiredSize.Height);
+                    RenderMeasurementTextBadge(m, vertex, 8, 8, strokeBrush, textBgBrush);
                 }
                 else
                 {
@@ -2112,22 +2158,7 @@ public partial class ViewportControl : UserControl
 
                 if (!string.IsNullOrEmpty(m.Details))
                 {
-                    var tb = new TextBlock
-                    {
-                        Text = m.Details,
-                        Foreground = isBrush,
-                        Background = textBgBrush,
-                        Padding = new Thickness(4, 2, 4, 2),
-                        FontSize = 11,
-                        FontWeight = FontWeights.Bold
-                    };
-                    double ix = vertex.X + 8;
-                    double iy = vertex.Y - 14;
-                    Canvas.SetLeft(tb, ix);
-                    Canvas.SetTop(tb, iy);
-                    MeasurementCanvas.Children.Add(tb);
-                    tb.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
-                    m.LastTextScreenRect = new Rect(ix, iy, tb.DesiredSize.Width, tb.DesiredSize.Height);
+                    RenderMeasurementTextBadge(m, vertex, 8, -14, isBrush, textBgBrush, isBold: true);
                 }
                 else
                 {

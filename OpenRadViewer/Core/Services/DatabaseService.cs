@@ -249,6 +249,8 @@ public class DatabaseService
         var previous = all.FirstOrDefault(r => r.StudyInstanceUid == record.StudyInstanceUid);
         if (previous != null && !string.IsNullOrWhiteSpace(previous.PatientComments))
             record.PatientComments = previous.PatientComments;
+        string? userNote = GetLocalNote(record.StudyInstanceUid);
+        if (userNote != null) record.PatientComments = userNote;
         all.RemoveAll(r => r.StudyInstanceUid == record.StudyInstanceUid);
         all.Insert(0, record);
         SaveRecords(all);
@@ -258,10 +260,13 @@ public class DatabaseService
 
     /// <summary>
     /// Stores PACS clinical notes on an existing local record. Returns true if the record was updated.
+    /// A user-edited local note (see <see cref="SetLocalNote"/>) always takes precedence over PACS notes.
     /// </summary>
     public static bool UpdatePatientComments(string studyUid, string? comments)
     {
         if (string.IsNullOrWhiteSpace(studyUid)) return false;
+        string? localOverride = GetLocalNote(studyUid);
+        if (localOverride != null) comments = localOverride;
         lock (_fileLock)
         {
             var all = LoadRecords();
@@ -271,6 +276,73 @@ public class DatabaseService
             rec.PatientComments = value;
             SaveRecords(all);
             return true;
+        }
+    }
+
+    // ---------------- Local (user-edited) notes, never sent to PACS ----------------
+    private static readonly string LocalNotesFile = Path.Combine(DbDirectory, "local_notes.json");
+    private static readonly object _notesLock = new();
+    private static Dictionary<string, string>? _localNotes;
+
+    private static Dictionary<string, string> EnsureLocalNotesLoaded()
+    {
+        if (_localNotes != null) return _localNotes;
+        var dict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        try
+        {
+            if (File.Exists(LocalNotesFile))
+            {
+                var loaded = JsonSerializer.Deserialize<Dictionary<string, string>>(File.ReadAllText(LocalNotesFile));
+                if (loaded != null)
+                    foreach (var kv in loaded) dict[kv.Key] = kv.Value ?? string.Empty;
+            }
+        }
+        catch { }
+        _localNotes = dict;
+        return dict;
+    }
+
+    /// <summary>Returns the user-edited local note for a study, or null if none was set.</summary>
+    public static string? GetLocalNote(string studyUid)
+    {
+        if (string.IsNullOrWhiteSpace(studyUid)) return null;
+        lock (_notesLock)
+        {
+            return EnsureLocalNotesLoaded().TryGetValue(studyUid.Trim().TrimEnd('\0'), out var v) ? v : null;
+        }
+    }
+
+    /// <summary>
+    /// Saves a user-edited local note (empty/whitespace removes the override, reverting to PACS notes).
+    /// Also updates the local database record if the study is stored locally.
+    /// </summary>
+    public static void SetLocalNote(string studyUid, string? text, string? fallbackPacsNotes = null)
+    {
+        if (string.IsNullOrWhiteSpace(studyUid)) return;
+        string key = studyUid.Trim().TrimEnd('\0');
+        string value = text?.Trim() ?? string.Empty;
+        lock (_notesLock)
+        {
+            var dict = EnsureLocalNotesLoaded();
+            if (string.IsNullOrEmpty(value)) dict.Remove(key);
+            else dict[key] = value;
+            try
+            {
+                GetDatabaseFolder();
+                File.WriteAllText(LocalNotesFile, JsonSerializer.Serialize(dict, new JsonSerializerOptions { WriteIndented = true }));
+            }
+            catch { }
+        }
+
+        lock (_fileLock)
+        {
+            var all = LoadRecords();
+            var rec = all.FirstOrDefault(r => string.Equals(r.StudyInstanceUid, key, StringComparison.OrdinalIgnoreCase));
+            if (rec != null)
+            {
+                rec.PatientComments = string.IsNullOrEmpty(value) ? (fallbackPacsNotes?.Trim() ?? string.Empty) : value;
+                SaveRecords(all);
+            }
         }
     }
 

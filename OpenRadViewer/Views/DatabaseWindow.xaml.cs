@@ -419,6 +419,18 @@ public partial class DatabaseWindow : Window
 
     private bool _isSendingToPacs;
 
+    private void OnEditNotes(object sender, RoutedEventArgs e)
+    {
+        if (GridStudies.SelectedItem is not DatabaseRecordModel record) return;
+        var dlg = new NotesEditDialog(record.PatientName?.Replace("^", " ") ?? string.Empty, record.PatientComments) { Owner = this };
+        if (dlg.ShowDialog() != true) return;
+
+        string text = dlg.NotesText;
+        DatabaseService.SetLocalNote(record.StudyInstanceUid, text);
+        record.PatientComments = text;
+        GridStudies.Items.Refresh();
+    }
+
     private void OnToggleReviewed(object sender, RoutedEventArgs e)
     {
         var selected = GridStudies.SelectedItems.OfType<DatabaseRecordModel>().ToList();

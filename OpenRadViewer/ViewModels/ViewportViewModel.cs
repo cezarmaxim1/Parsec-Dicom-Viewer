@@ -714,8 +714,33 @@ public partial class ViewportViewModel : ObservableObject
         ImageRendered?.Invoke(this);
     }
 
+    public bool IsCloseButtonVisible
+    {
+        get
+        {
+            if (CurrentSeries != null) return true;
+            if (System.Windows.Application.Current?.MainWindow?.DataContext is MainViewModel mainVm)
+            {
+                if (mainVm.IsMaximizedPanel) return false;
+                return (mainVm.GridRows * mainVm.GridColumns) > 1;
+            }
+            return false;
+        }
+    }
+
+    public void NotifyCloseButtonVisibilityChanged()
+    {
+        OnPropertyChanged(nameof(IsCloseButtonVisible));
+    }
+
+    partial void OnCurrentSeriesChanged(SeriesModel? value)
+    {
+        OnPropertyChanged(nameof(IsCloseButtonVisible));
+    }
+
     public void NotifyOverlayChanges()
     {
+        OnPropertyChanged(nameof(IsCloseButtonVisible));
         OnPropertyChanged(nameof(CurrentSlice));
         OnPropertyChanged(nameof(TotalSlices));
         OnPropertyChanged(nameof(PatientName));

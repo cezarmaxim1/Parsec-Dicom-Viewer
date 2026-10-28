@@ -267,6 +267,7 @@
                     <MenuItem Header="Add to current study" Click="OnAddStudyToCurrentStudy" />
                     <MenuItem Header="Send to PACS..." Click="OnSendToPacsClick" FontWeight="SemiBold" Foreground="#F5AF28" />
                     <MenuItem Header="Reviewed (Space)" Click="OnToggleReviewed" />
+                    <MenuItem Header="Edit Notes..." Click="OnEditNotes" Foreground="#F5AF28" />
                     <Separator />
                     <MenuItem Header="Delete from Database (Del)" Click="OnDeleteStudy" Foreground="#FF5252" />
                     <MenuItem Header="Clear Entire Database..." Click="OnClearAllDatabase" Foreground="#EF5350" />

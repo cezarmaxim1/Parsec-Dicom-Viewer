@@ -332,6 +332,7 @@
                         <MenuItem Header="Open in Viewer" Click="OnDownloadAndOpenClicked" FontWeight="Bold" />
                         <MenuItem Header="Add to current study" Click="OnAddStudyToCurrentStudyClicked" />
                         <MenuItem Header="Toggle Reviewed (Space)" Click="OnToggleReviewedContextMenu" />
+                        <MenuItem Header="Edit Notes..." Click="OnEditNotesClicked" Foreground="#F5AF28" />
                         <Separator Background="#333333" />
                         <MenuItem Header="Import into Local Database" Click="OnImportToDatabaseClicked" />
                         <MenuItem Header="Find all studies for this patient" Click="OnFindAllPatientStudiesClicked" />

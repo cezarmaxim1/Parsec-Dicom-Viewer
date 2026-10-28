@@ -129,6 +129,9 @@ public class PacsStudyResult : System.ComponentModel.INotifyPropertyChanged
 
     public bool HasPatientComments => !string.IsNullOrWhiteSpace(_patientComments);
 
+    /// <summary>Notes exactly as received from PACS (before applying a user-edited local override).</summary>
+    public string PacsComments { get; set; } = string.Empty;
+
     private string _readingPhysician = string.Empty;
     public string ReadingPhysician
     {

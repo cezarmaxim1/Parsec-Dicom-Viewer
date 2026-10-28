@@ -734,6 +734,10 @@ public partial class MainViewModel : ObservableObject
                 DisplayedViewports.Add(Viewports[i]);
             }
         }
+        foreach (var vp in Viewports)
+        {
+            vp.NotifyCloseButtonVisibilityChanged();
+        }
     }
 
     public void SetGridLayout(int rows, int cols)

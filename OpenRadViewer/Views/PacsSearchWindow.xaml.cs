@@ -1078,6 +1078,7 @@ public partial class PacsSearchWindow : Window
                                 if (fresh.SeriesCount > 0 && existing.SeriesCount != fresh.SeriesCount) existing.SeriesCount = fresh.SeriesCount;
                                 if (!string.IsNullOrWhiteSpace(fresh.Modality) && existing.Modality != fresh.Modality) existing.Modality = fresh.Modality;
                                 if (!string.IsNullOrWhiteSpace(fresh.StudyDescription) && existing.StudyDescription != fresh.StudyDescription) existing.StudyDescription = fresh.StudyDescription;
+                                existing.PacsComments = fresh.PacsComments;
                                 if (existing.PatientComments != fresh.PatientComments) existing.PatientComments = fresh.PatientComments;
                                 if (!string.IsNullOrWhiteSpace(fresh.ReadingPhysician) && existing.ReadingPhysician != fresh.ReadingPhysician) existing.ReadingPhysician = fresh.ReadingPhysician;
                                 if (!string.IsNullOrWhiteSpace(fresh.PerformingPhysician) && existing.PerformingPhysician != fresh.PerformingPhysician) existing.PerformingPhysician = fresh.PerformingPhysician;
@@ -1633,6 +1634,17 @@ public partial class PacsSearchWindow : Window
         {
             PbTransfer.Visibility = Visibility.Collapsed;
         }
+    }
+
+    private void OnEditNotesClicked(object sender, RoutedEventArgs e)
+    {
+        if (GridStudies.SelectedItem is not PacsStudyResult study) return;
+        var dlg = new NotesEditDialog(study.DisplayPatientName, study.PatientComments) { Owner = this };
+        if (dlg.ShowDialog() != true) return;
+
+        string text = dlg.NotesText;
+        DatabaseService.SetLocalNote(study.StudyInstanceUid, text, study.PacsComments);
+        study.PatientComments = string.IsNullOrEmpty(text) ? study.PacsComments : text;
     }
 
     private static void EnrichStudyFromLocalDatabase(PacsStudyResult r)

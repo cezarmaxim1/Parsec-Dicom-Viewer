@@ -93,7 +93,7 @@
 
             <!-- Top-Right Overlay & Close Series Button -->
             <StackPanel HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,6,8,0">
-                <!-- Discrete Orange Close (X) Button (Transparent, minimal, visible when series is loaded) -->
+                <!-- Discrete Orange Close (X) Button (Visible when series is loaded or when multiple viewport panels are open) -->
                 <Button x:Name="BtnCloseViewport"
                         Click="OnCloseViewportClicked"
                         HorizontalAlignment="Right"
@@ -101,7 +101,7 @@
                         Width="16" Height="16"
                         Cursor="Hand"
                         ToolTip="Close Series / Panel (Esc)"
-                        Visibility="{Binding CurrentSeries, Converter={StaticResource NotNullToVisibilityConverter}}">
+                        Visibility="{Binding IsCloseButtonVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
                     <Button.Template>
                         <ControlTemplate TargetType="Button">
                             <Grid Background="Transparent">
