@@ -1,0 +1,14 @@
+<UserControl x:Class="OpenRadViewer.Views.ToolBindingIndicator"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             IsHitTestVisible="False"
+             SnapsToDevicePixels="True">
+    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
+        <!-- Left Mouse Button Indicator (Orange / Golden Amber) -->
+        <Ellipse x:Name="DotLeft" Width="5.5" Height="5.5" Fill="#F5AF28" Stroke="#101010" StrokeThickness="0.8" Margin="0.5,0" Visibility="Collapsed" ToolTip="Left Mouse Button" />
+        <!-- Right Mouse Button Indicator (Cyan / Blue) -->
+        <Ellipse x:Name="DotRight" Width="5.5" Height="5.5" Fill="#40C0FF" Stroke="#101010" StrokeThickness="0.8" Margin="0.5,0" Visibility="Collapsed" ToolTip="Right Mouse Button" />
+        <!-- Middle / Hold Wheel Indicator (Green) -->
+        <Ellipse x:Name="DotMiddle" Width="5.5" Height="5.5" Fill="#80E880" Stroke="#101010" StrokeThickness="0.8" Margin="0.5,0" Visibility="Collapsed" ToolTip="Hold Wheel (Middle Button)" />
+    </StackPanel>
+</UserControl>
