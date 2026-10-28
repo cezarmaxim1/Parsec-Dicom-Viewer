@@ -366,6 +366,7 @@ public class PacsService
                 request.Dataset.AddOrUpdate(DicomTag.AccessionNumber, string.IsNullOrWhiteSpace(filter.AccessionNumber) ? string.Empty : filter.AccessionNumber.Trim());
                 request.Dataset.AddOrUpdate(DicomTag.StudyDescription, string.IsNullOrWhiteSpace(filter.StudyDescription) ? string.Empty : $"*{filter.StudyDescription.Trim()}*");
                 request.Dataset.AddOrUpdate(TagStudyComments, string.Empty);
+                request.Dataset.AddOrUpdate(DicomTag.PatientComments, string.Empty);
                 request.Dataset.AddOrUpdate(DicomTag.StudyInstanceUID, string.Empty);
                 request.Dataset.AddOrUpdate(DicomTag.StudyTime, string.Empty);
                 request.Dataset.AddOrUpdate(DicomTag.NameOfPhysiciansReadingStudy, string.Empty);
@@ -432,6 +433,13 @@ public class PacsService
                         bool isDicomReviewed = studyComments.Equals("REVIEWED", StringComparison.OrdinalIgnoreCase) ||
                                                studyComments.Contains("REVIEWED", StringComparison.OrdinalIgnoreCase);
 
+                        // Clinical notes (ParsecPACS patient_comments): prefer PatientComments, fall back to StudyComments.
+                        string patientComments = CleanClinicalComment(SafeGetString(ds, DicomTag.PatientComments));
+                        if (string.IsNullOrWhiteSpace(patientComments))
+                        {
+                            patientComments = CleanClinicalComment(studyComments);
+                        }
+
                         var item = new PacsStudyResult
                         {
                             StudyInstanceUid = studyUid,
@@ -444,6 +452,7 @@ public class PacsService
                             StudyTime = ds.GetSingleValueOrDefault(DicomTag.StudyTime, string.Empty),
                             Modality = modality,
                             StudyDescription = ds.GetSingleValueOrDefault(DicomTag.StudyDescription, string.Empty),
+                            PatientComments = patientComments,
                             ReadingPhysician = GetCleanPersonName(ds, DicomTag.NameOfPhysiciansReadingStudy),
                             PerformingPhysician = GetCleanPersonName(ds, DicomTag.PerformingPhysicianName),
                             ReferringPhysician = GetCleanPersonName(ds, DicomTag.ReferringPhysicianName),
@@ -512,6 +521,29 @@ public class PacsService
                 return string.Empty;
             }
         }
+    }
+
+    private static string SafeGetString(DicomDataset ds, DicomTag tag)
+    {
+        if (!ds.Contains(tag)) return string.Empty;
+        try { return ds.GetString(tag) ?? string.Empty; }
+        catch
+        {
+            try { return ds.GetSingleValueOrDefault(tag, string.Empty); }
+            catch { return string.Empty; }
+        }
+    }
+
+    /// <summary>
+    /// Normalizes a clinical note received from PACS: strips the legacy "REVIEWED" status marker
+    /// (also transported in StudyComments), collapses whitespace/newlines and trims separators.
+    /// </summary>
+    internal static string CleanClinicalComment(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw)) return string.Empty;
+        string s = System.Text.RegularExpressions.Regex.Replace(raw, @"\bREVIEWED\b", " ", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        s = System.Text.RegularExpressions.Regex.Replace(s, @"\s+", " ");
+        return s.Trim(' ', '|', ';', ',', '-', '\\', '/', ':', '\0');
     }
 
     public async Task<List<PacsSeriesResult>> QuerySeriesAsync(PacsServerConfig server, string studyInstanceUid, CancellationToken ct = default)

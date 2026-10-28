@@ -318,6 +318,22 @@
                 </DataGridTemplateColumn>
 
                 <DataGridTextColumn Header="Study description" Binding="{Binding StudyDescription}" Width="*" MinWidth="180" />
+                <DataGridTextColumn Header="Notes" Binding="{Binding PatientComments}" Width="170">
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Foreground" Value="#F5AF28" />
+                            <Setter Property="FontStyle" Value="Italic" />
+                            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+                            <Setter Property="VerticalAlignment" Value="Center" />
+                            <Setter Property="ToolTip" Value="{Binding PatientComments}" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding PatientComments}" Value="">
+                                    <Setter Property="ToolTip" Value="{x:Null}" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
                 <DataGridTextColumn Header="Reading physician" Binding="{Binding ReadingPhysician}" Width="135" />
                 <DataGridTextColumn Header="Performing physician" Binding="{Binding PerformingPhysician}" Width="135" />
                 <DataGridTextColumn Header="Referring physician" Binding="{Binding ReferringPhysician}" Width="135" />

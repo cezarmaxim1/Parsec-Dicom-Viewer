@@ -389,6 +389,25 @@
                     </DataGridTemplateColumn>
 
                     <DataGridTextColumn Header="Study Description" Binding="{Binding StudyDescription}" Width="210" />
+
+                    <!-- Clinical notes from ParsecPACS (PatientComments / StudyComments) -->
+                    <DataGridTextColumn Header="Notes" Binding="{Binding PatientComments}" Width="190">
+                        <DataGridTextColumn.ElementStyle>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Foreground" Value="#F5AF28" />
+                                <Setter Property="FontStyle" Value="Italic" />
+                                <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+                                <Setter Property="VerticalAlignment" Value="Center" />
+                                <Setter Property="HorizontalAlignment" Value="Left" />
+                                <Setter Property="ToolTip" Value="{Binding PatientComments}" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding HasPatientComments}" Value="False">
+                                        <Setter Property="ToolTip" Value="{x:Null}" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </DataGridTextColumn.ElementStyle>
+                    </DataGridTextColumn>
                     <DataGridTextColumn Header="Reading Physician" Binding="{Binding ReadingPhysician}" Width="140" />
                     <DataGridTextColumn Header="Performing Physician" Binding="{Binding PerformingPhysician}" Width="140" />
                     <DataGridTextColumn Header="Referring Physician" Binding="{Binding ReferringPhysician}" Width="140" />

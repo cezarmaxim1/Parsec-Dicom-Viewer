@@ -40,6 +40,8 @@ public class DatabaseRecordModel
     public string PerformingPhysician { get; set; } = string.Empty;
     public string ReferringPhysician { get; set; } = string.Empty;
     public string AccessionNumber { get; set; } = string.Empty;
+    /// <summary>Clinical notes synced from the PACS server (ParsecPACS patient_comments).</summary>
+    public string PatientComments { get; set; } = string.Empty;
     public bool MetadataBackfilled { get; set; }
     public string FolderPath { get; set; } = string.Empty;
     public bool IsReviewed { get; set; }
@@ -244,11 +246,32 @@ public class DatabaseService
         };
 
         var all = LoadRecords();
+        var previous = all.FirstOrDefault(r => r.StudyInstanceUid == record.StudyInstanceUid);
+        if (previous != null && !string.IsNullOrWhiteSpace(previous.PatientComments))
+            record.PatientComments = previous.PatientComments;
         all.RemoveAll(r => r.StudyInstanceUid == record.StudyInstanceUid);
         all.Insert(0, record);
         SaveRecords(all);
 
         return record;
+    }
+
+    /// <summary>
+    /// Stores PACS clinical notes on an existing local record. Returns true if the record was updated.
+    /// </summary>
+    public static bool UpdatePatientComments(string studyUid, string? comments)
+    {
+        if (string.IsNullOrWhiteSpace(studyUid)) return false;
+        lock (_fileLock)
+        {
+            var all = LoadRecords();
+            var rec = all.FirstOrDefault(r => string.Equals(r.StudyInstanceUid, studyUid, StringComparison.OrdinalIgnoreCase));
+            string value = comments?.Trim() ?? string.Empty;
+            if (rec == null || string.Equals(rec.PatientComments ?? string.Empty, value, StringComparison.Ordinal)) return false;
+            rec.PatientComments = value;
+            SaveRecords(all);
+            return true;
+        }
     }
 
     public static void DeleteRecord(DatabaseRecordModel record)

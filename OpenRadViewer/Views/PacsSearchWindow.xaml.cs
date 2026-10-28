@@ -1078,6 +1078,7 @@ public partial class PacsSearchWindow : Window
                                 if (fresh.SeriesCount > 0 && existing.SeriesCount != fresh.SeriesCount) existing.SeriesCount = fresh.SeriesCount;
                                 if (!string.IsNullOrWhiteSpace(fresh.Modality) && existing.Modality != fresh.Modality) existing.Modality = fresh.Modality;
                                 if (!string.IsNullOrWhiteSpace(fresh.StudyDescription) && existing.StudyDescription != fresh.StudyDescription) existing.StudyDescription = fresh.StudyDescription;
+                                if (existing.PatientComments != fresh.PatientComments) existing.PatientComments = fresh.PatientComments;
                                 if (!string.IsNullOrWhiteSpace(fresh.ReadingPhysician) && existing.ReadingPhysician != fresh.ReadingPhysician) existing.ReadingPhysician = fresh.ReadingPhysician;
                                 if (!string.IsNullOrWhiteSpace(fresh.PerformingPhysician) && existing.PerformingPhysician != fresh.PerformingPhysician) existing.PerformingPhysician = fresh.PerformingPhysician;
                                 if (!string.IsNullOrWhiteSpace(fresh.ReferringPhysician) && existing.ReferringPhysician != fresh.ReferringPhysician) existing.ReferringPhysician = fresh.ReferringPhysician;
@@ -1398,6 +1399,8 @@ public partial class PacsSearchWindow : Window
                                 primaryStudy.AccessionNumber = study.AccessionNumber;
 
                             DatabaseService.ImportStudy(primaryStudy, study.DisplayPatientName, study.PatientId, study.BirthDate);
+                            if (!string.IsNullOrWhiteSpace(study.PatientComments))
+                                DatabaseService.UpdatePatientComments(study.StudyInstanceUid, study.PatientComments);
                             Dispatcher.Invoke(() => study.IsInLocalDatabase = true);
                             Interlocked.Increment(ref imported);
                         }
@@ -1648,6 +1651,15 @@ public partial class PacsSearchWindow : Window
                     r.ReferringPhysician = local.ReferringPhysician;
                 if (string.IsNullOrWhiteSpace(r.AccessionNumber) && !string.IsNullOrWhiteSpace(local.AccessionNumber))
                     r.AccessionNumber = local.AccessionNumber;
+
+                // PACS is the source of truth for clinical notes: mirror them into the local database record.
+                if (!string.IsNullOrWhiteSpace(r.PatientComments) &&
+                    !string.Equals(local.PatientComments, r.PatientComments, StringComparison.Ordinal))
+                {
+                    string uid = r.StudyInstanceUid;
+                    string notes = r.PatientComments;
+                    Task.Run(() => DatabaseService.UpdatePatientComments(uid, notes));
+                }
             }
             else
             {

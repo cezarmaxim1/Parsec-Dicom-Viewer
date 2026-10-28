@@ -116,6 +116,19 @@ public class PacsStudyResult : System.ComponentModel.INotifyPropertyChanged
         set { if (_studyDescription != value) { _studyDescription = value; OnPropertyChanged(); } }
     }
 
+    /// <summary>
+    /// Clinical notes attached to the study on the PACS server (ParsecPACS patient_comments),
+    /// received via C-FIND in PatientComments (0010,4000) or StudyComments (0032,4000).
+    /// </summary>
+    private string _patientComments = string.Empty;
+    public string PatientComments
+    {
+        get => _patientComments;
+        set { value ??= string.Empty; if (_patientComments != value) { _patientComments = value; OnPropertyChanged(); OnPropertyChanged(nameof(HasPatientComments)); } }
+    }
+
+    public bool HasPatientComments => !string.IsNullOrWhiteSpace(_patientComments);
+
     private string _readingPhysician = string.Empty;
     public string ReadingPhysician
     {
@@ -235,7 +248,8 @@ public class PacsSearchFilter
             bool readMatch = !string.IsNullOrEmpty(study.ReadingPhysician) && study.ReadingPhysician.IndexOf(q, StringComparison.OrdinalIgnoreCase) >= 0;
             bool perfMatch = !string.IsNullOrEmpty(study.PerformingPhysician) && study.PerformingPhysician.IndexOf(q, StringComparison.OrdinalIgnoreCase) >= 0;
             bool refMatch = !string.IsNullOrEmpty(study.ReferringPhysician) && study.ReferringPhysician.IndexOf(q, StringComparison.OrdinalIgnoreCase) >= 0;
-            if (!nameMatch && !idMatch && !accMatch && !descMatch && !readMatch && !perfMatch && !refMatch)
+            bool notesMatch = !string.IsNullOrEmpty(study.PatientComments) && study.PatientComments.IndexOf(q, StringComparison.OrdinalIgnoreCase) >= 0;
+            if (!nameMatch && !idMatch && !accMatch && !descMatch && !readMatch && !perfMatch && !refMatch && !notesMatch)
             {
                 return false;
             }
