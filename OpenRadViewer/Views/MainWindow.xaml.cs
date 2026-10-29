@@ -1921,24 +1921,10 @@ public partial class MainWindow : Window
                 ? demo.ExamDate
                 : DateTime.Now.ToString("dd.MM.yyyy");
 
-            var proto = ViewModel.SelectedClinicalProtocol;
-            string examName;
-            if (proto != null && !string.IsNullOrWhiteSpace(proto.Title))
-            {
-                examName = proto.Title.StartsWith("URG ", StringComparison.OrdinalIgnoreCase)
-                    ? proto.Title.Substring(4).Trim()
-                    : proto.Title.Trim();
-            }
-            else if (!string.IsNullOrWhiteSpace(demo.ExamZone))
-            {
-                examName = demo.ExamZone.ToUpperInvariant();
-            }
-            else
-            {
-                examName = "CT";
-            }
+            string examName = Core.Services.ClinicalProtocolsService.ResolveExaminationName(
+                reportBodyText, ViewModel.SelectedClinicalProtocol, demo.ExamZone);
 
-            string contrast = (demo.Contrast?.Trim().ToUpperInvariant() == "DA") ? "DA" : "NU";
+            string contrast = (demo.Contrast?.Trim().ToUpperInvariant() == "DA" || examName.Contains("ANGIO-CT")) ? "DA" : "NU";
 
             double dlpVal = study?.GetOrResolveTotalDlp() ?? 0.0;
             string dlpStr = dlpVal > 0.0 ? (dlpVal % 1 == 0 ? $"{dlpVal:0}" : $"{dlpVal:0.##}") : "";

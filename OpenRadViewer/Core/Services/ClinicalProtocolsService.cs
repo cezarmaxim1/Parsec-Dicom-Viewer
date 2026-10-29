@@ -953,7 +953,11 @@ Examen CT politraumă complet fără leziuni traumatice acute neurocraniene, vis
         if (!string.IsNullOrWhiteSpace(region))
         {
             string upperRegion = region.ToUpperInvariant();
-            if (upperRegion.StartsWith(category, StringComparison.OrdinalIgnoreCase))
+            if (upperRegion.Contains("TEP"))
+            {
+                examZone = "ANGIO-CT TORACE";
+            }
+            else if (upperRegion.StartsWith(category, StringComparison.OrdinalIgnoreCase))
             {
                 examZone = upperRegion;
             }
@@ -968,6 +972,10 @@ Examen CT politraumă complet fără leziuni traumatice acute neurocraniene, vis
         }
 
         string contrast = protocol?.DefaultContrast ?? "Nu";
+        if (examZone.Contains("ANGIO-CT") || examZone.Contains("TEP"))
+        {
+            contrast = "Da";
+        }
 
         // Check if study/series indicates contrast administration
         if (study != null && study.Series.Any(s =>
@@ -980,6 +988,199 @@ Examen CT politraumă complet fără leziuni traumatice acute neurocraniene, vis
         }
 
         return (lastName, firstName, cnp, age, examZone, contrast, examDate, category);
+    }
+
+    /// <summary>
+    /// Resolves the examination name(s) (e.g. for "EXAMEN REALIZAT:").
+    /// If multiple examinations are inserted in the report text, returns all of them joined by ". "
+    /// (e.g. "CT CRANIO-CEREBRAL. CT TORACE").
+    /// Automatically converts CT TEP / TEP to "ANGIO-CT TORACE".
+    /// </summary>
+    public static string ResolveExaminationName(string reportText, ClinicalProtocol? selectedProtocol, string? fallbackExamZone = null)
+    {
+        var detectedList = new List<string>();
+
+        if (!string.IsNullOrWhiteSpace(reportText))
+        {
+            var lines = reportText.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.RemoveEmptyEntries);
+            foreach (var rawLine in lines)
+            {
+                string line = rawLine.Trim();
+                if (string.IsNullOrEmpty(line)) continue;
+
+                // Match known section headers / protocol indicators at start of lines
+                string? exam = null;
+
+                if (line.StartsWith("CRANIO-CEREBRAL:", StringComparison.OrdinalIgnoreCase) ||
+                    line.StartsWith("CRANIOCEREBRAL:", StringComparison.OrdinalIgnoreCase) ||
+                    line.StartsWith("CT CRANIO-CEREBRAL", StringComparison.OrdinalIgnoreCase) ||
+                    line.StartsWith("CT CRANIOCEREBRAL", StringComparison.OrdinalIgnoreCase))
+                {
+                    exam = "CT CRANIO-CEREBRAL";
+                }
+                else if (line.StartsWith("TEP:", StringComparison.OrdinalIgnoreCase) ||
+                         line.StartsWith("TEP (", StringComparison.OrdinalIgnoreCase) ||
+                         line.StartsWith("ANGIO-CT TEP", StringComparison.OrdinalIgnoreCase) ||
+                         line.StartsWith("CT TEP", StringComparison.OrdinalIgnoreCase))
+                {
+                    exam = "ANGIO-CT TORACE";
+                }
+                else if (line.StartsWith("TORACE:", StringComparison.OrdinalIgnoreCase) ||
+                         line.StartsWith("CT TORACE", StringComparison.OrdinalIgnoreCase))
+                {
+                    exam = "CT TORACE";
+                }
+                else if (line.StartsWith("ABDOMINO-PELVIN:", StringComparison.OrdinalIgnoreCase) ||
+                         line.StartsWith("ABDOMINOPELVIN:", StringComparison.OrdinalIgnoreCase) ||
+                         line.StartsWith("CT ABDOMINO-PELVIN", StringComparison.OrdinalIgnoreCase) ||
+                         line.StartsWith("ABDOMEN-PELVIS:", StringComparison.OrdinalIgnoreCase) ||
+                         line.StartsWith("ABDOMEN SI PELVIS:", StringComparison.OrdinalIgnoreCase))
+                {
+                    exam = "CT ABDOMINO-PELVIN";
+                }
+                else if (line.StartsWith("COLOANA CERVICALA:", StringComparison.OrdinalIgnoreCase) ||
+                         line.StartsWith("CT COLOANA CERVICALA", StringComparison.OrdinalIgnoreCase))
+                {
+                    exam = "CT COLOANA CERVICALA";
+                }
+                else if (line.StartsWith("COLOANA TORACALA:", StringComparison.OrdinalIgnoreCase) ||
+                         line.StartsWith("COLOANA DORSALA:", StringComparison.OrdinalIgnoreCase) ||
+                         line.StartsWith("CT COLOANA TORACALA", StringComparison.OrdinalIgnoreCase) ||
+                         line.StartsWith("CT COLOANA DORSALA", StringComparison.OrdinalIgnoreCase))
+                {
+                    exam = "CT COLOANA TORACALA";
+                }
+                else if (line.StartsWith("COLOANA LOMBARA:", StringComparison.OrdinalIgnoreCase) ||
+                         line.StartsWith("CT COLOANA LOMBARA", StringComparison.OrdinalIgnoreCase))
+                {
+                    exam = "CT COLOANA LOMBARA";
+                }
+                else if (line.StartsWith("CT UMAR", StringComparison.OrdinalIgnoreCase) ||
+                         line.StartsWith("CT UMĂR", StringComparison.OrdinalIgnoreCase) ||
+                         line.StartsWith("UMAR:", StringComparison.OrdinalIgnoreCase) ||
+                         line.StartsWith("UMĂR:", StringComparison.OrdinalIgnoreCase))
+                {
+                    exam = "CT UMAR";
+                }
+                else if (line.StartsWith("CT COT", StringComparison.OrdinalIgnoreCase) ||
+                         line.StartsWith("COT:", StringComparison.OrdinalIgnoreCase))
+                {
+                    exam = "CT COT";
+                }
+                else if (line.StartsWith("CT PUMN", StringComparison.OrdinalIgnoreCase) ||
+                         line.StartsWith("PUMN:", StringComparison.OrdinalIgnoreCase))
+                {
+                    exam = "CT PUMN";
+                }
+                else if (line.StartsWith("CT BAZIN", StringComparison.OrdinalIgnoreCase) ||
+                         line.StartsWith("BAZIN:", StringComparison.OrdinalIgnoreCase))
+                {
+                    exam = "CT BAZIN";
+                }
+                else if (line.StartsWith("CT GENUNCHI", StringComparison.OrdinalIgnoreCase) ||
+                         line.StartsWith("GENUNCHI:", StringComparison.OrdinalIgnoreCase))
+                {
+                    exam = "CT GENUNCHI";
+                }
+                else if (line.StartsWith("CT COAPSA", StringComparison.OrdinalIgnoreCase) ||
+                         line.StartsWith("CT COAPSĂ", StringComparison.OrdinalIgnoreCase) ||
+                         line.StartsWith("COAPSA:", StringComparison.OrdinalIgnoreCase) ||
+                         line.StartsWith("COAPSĂ:", StringComparison.OrdinalIgnoreCase))
+                {
+                    exam = "CT COAPSA";
+                }
+                else if (line.StartsWith("CT GAMBA", StringComparison.OrdinalIgnoreCase) ||
+                         line.StartsWith("CT GAMBĂ", StringComparison.OrdinalIgnoreCase) ||
+                         line.StartsWith("GAMBA:", StringComparison.OrdinalIgnoreCase) ||
+                         line.StartsWith("GAMBĂ:", StringComparison.OrdinalIgnoreCase))
+                {
+                    exam = "CT GAMBA";
+                }
+                else if (line.StartsWith("CT GLEZNA", StringComparison.OrdinalIgnoreCase) ||
+                         line.StartsWith("CT GLEZNĂ", StringComparison.OrdinalIgnoreCase) ||
+                         line.StartsWith("GLEZNA:", StringComparison.OrdinalIgnoreCase) ||
+                         line.StartsWith("GLEZNĂ:", StringComparison.OrdinalIgnoreCase))
+                {
+                    exam = "CT GLEZNA";
+                }
+                else if (line.StartsWith("CT ANTEPICIOR", StringComparison.OrdinalIgnoreCase) ||
+                         line.StartsWith("ANTEPICIOR:", StringComparison.OrdinalIgnoreCase))
+                {
+                    exam = "CT ANTEPICIOR";
+                }
+                else if (line.StartsWith("CT GAT", StringComparison.OrdinalIgnoreCase) ||
+                         line.StartsWith("CT GÂT", StringComparison.OrdinalIgnoreCase) ||
+                         line.StartsWith("GAT:", StringComparison.OrdinalIgnoreCase) ||
+                         line.StartsWith("GÂT:", StringComparison.OrdinalIgnoreCase))
+                {
+                    exam = "CT GAT";
+                }
+
+                if (exam != null && !detectedList.Contains(exam))
+                {
+                    detectedList.Add(exam);
+                }
+            }
+        }
+
+        // Handle combined templates if user explicitly chose TAP or TRAUMA COMPLET
+        if (selectedProtocol != null)
+        {
+            if (selectedProtocol.Id == "URG_CT_TAP")
+            {
+                // If only Torace and Abdomino-Pelvin detected, represent as CT TAP
+                if (detectedList.Count == 2 && detectedList.Contains("CT TORACE") && detectedList.Contains("CT ABDOMINO-PELVIN"))
+                {
+                    return "CT TAP";
+                }
+                else if (detectedList.Contains("CT TORACE") && detectedList.Contains("CT ABDOMINO-PELVIN"))
+                {
+                    int torIdx = detectedList.IndexOf("CT TORACE");
+                    detectedList.Remove("CT TORACE");
+                    int abdIdx = detectedList.IndexOf("CT ABDOMINO-PELVIN");
+                    if (abdIdx >= 0) detectedList.RemoveAt(abdIdx);
+                    detectedList.Insert(Math.Min(torIdx, detectedList.Count), "CT TAP");
+                }
+            }
+            else if (selectedProtocol.Id == "URG_CT_TRAUMA_COMPLET")
+            {
+                if (detectedList.Count >= 3 && detectedList.Contains("CT CRANIO-CEREBRAL") && detectedList.Contains("CT TORACE"))
+                {
+                    return "CT TRAUMA COMPLET";
+                }
+            }
+        }
+
+        if (detectedList.Count > 0)
+        {
+            return string.Join(". ", detectedList);
+        }
+
+        // Fallback to selected protocol
+        if (selectedProtocol != null && !string.IsNullOrWhiteSpace(selectedProtocol.Title))
+        {
+            string title = selectedProtocol.Title.StartsWith("URG ", StringComparison.OrdinalIgnoreCase)
+                ? selectedProtocol.Title.Substring(4).Trim()
+                : selectedProtocol.Title.Trim();
+
+            if (title.IndexOf("TEP", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return "ANGIO-CT TORACE";
+            }
+            return title.ToUpperInvariant();
+        }
+
+        // Fallback to exam zone from DICOM / demographics
+        if (!string.IsNullOrWhiteSpace(fallbackExamZone))
+        {
+            if (fallbackExamZone.IndexOf("TEP", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return "ANGIO-CT TORACE";
+            }
+            return fallbackExamZone.ToUpperInvariant();
+        }
+
+        return "CT";
     }
 
     /// <summary>
@@ -1030,11 +1231,13 @@ Examen CT politraumă complet fără leziuni traumatice acute neurocraniene, vis
         }
 
         var demo = GetPatientDemographics(patient, study, series, effectiveProtocol);
+        string resolvedZone = ResolveExaminationName(cleanBody, effectiveProtocol, demo.ExamZone);
+        string contrast = (demo.Contrast == "Da" || resolvedZone.Contains("ANGIO-CT")) ? "Da" : demo.Contrast;
 
         var sb = new StringBuilder();
         sb.AppendLine($"Nume: {demo.LastName}\tCNP: {demo.Cnp}");
         sb.AppendLine($"Prenume: {demo.FirstName}\tVârsta: {demo.Age}");
-        sb.AppendLine($"Zona examinată: {demo.ExamZone}\tContrast: {demo.Contrast}");
+        sb.AppendLine($"Zona examinată: {resolvedZone}\tContrast: {contrast}");
         if (demo.Category == "CT")
         {
             double dlpVal = study?.GetOrResolveTotalDlp() ?? 0.0;
