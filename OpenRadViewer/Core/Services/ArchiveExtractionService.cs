@@ -56,17 +56,36 @@ public static class ArchiveExtractionService
             {
                 string ext = Path.GetExtension(archivePath).ToLowerInvariant();
 
-                // 1. Try fast native .NET ZipFile for .zip
+                // 1. Try fast native .NET ZipArchive for .zip with entry-by-entry progress
                 if (ext == ".zip")
                 {
                     try
                     {
-                        ZipFile.ExtractToDirectory(archivePath, targetDir, overwriteFiles: true);
-                        return;
+                        using var zip = ZipFile.OpenRead(archivePath);
+                        var validEntries = zip.Entries.Where(e => !string.IsNullOrEmpty(e.Name)).ToList();
+                        int totalZip = validEntries.Count;
+                        int currZip = 0;
+
+                        foreach (var entry in validEntries)
+                        {
+                            if (ct.IsCancellationRequested) break;
+                            string destPath = Path.Combine(targetDir, entry.FullName);
+                            string? dirName = Path.GetDirectoryName(destPath);
+                            if (!string.IsNullOrEmpty(dirName)) Directory.CreateDirectory(dirName);
+                            entry.ExtractToFile(destPath, overwrite: true);
+                            currZip++;
+
+                            if (progress != null && (currZip % 5 == 0 || currZip == totalZip))
+                            {
+                                progress.Report((currZip, totalZip, $"Dezarhivare {Path.GetFileName(archivePath)} ({currZip}/{totalZip})..."));
+                            }
+                        }
+
+                        if (currZip > 0) return;
                     }
                     catch (Exception zipEx)
                     {
-                        Debug.WriteLine($"[ArchiveExtractionService] Native ZipFile failed, falling back to SharpCompress: {zipEx.Message}");
+                        Debug.WriteLine($"[ArchiveExtractionService] Native ZipArchive failed, falling back to SharpCompress: {zipEx.Message}");
                     }
                 }
 
@@ -95,9 +114,9 @@ public static class ArchiveExtractionService
                     }
 
                     current++;
-                    if (progress != null && (current % 10 == 0 || current == total))
+                    if (progress != null && (current % 5 == 0 || current == total))
                     {
-                        progress.Report((current, total, $"Extracting: {Path.GetFileName(entry.Key ?? "")}"));
+                        progress.Report((current, total, $"Dezarhivare {Path.GetFileName(archivePath)} ({current}/{total})..."));
                     }
                 }
             }, ct);

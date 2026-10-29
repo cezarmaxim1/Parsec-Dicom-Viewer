@@ -1890,6 +1890,122 @@ public partial class MainWindow : Window
         }
     }
 
+    private void OnSaveAsUrgDocx(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            string reportBodyText = ProtocolsTextBox?.Text ?? string.Empty;
+
+            var (patient, study, curSeries) = ViewModel.GetCurrentPatientContext();
+            string rawPatientName = !string.IsNullOrWhiteSpace(patient?.Name)
+                ? patient.Name
+                : (curSeries?.PatientName ?? "");
+
+            string cleanPatientName = rawPatientName.Replace("^", " ").Replace("_", " ");
+            foreach (char c in System.IO.Path.GetInvalidFileNameChars())
+            {
+                cleanPatientName = cleanPatientName.Replace(c.ToString(), "");
+            }
+            cleanPatientName = System.Text.RegularExpressions.Regex.Replace(cleanPatientName, @"\s+", " ").Trim();
+            if (string.IsNullOrWhiteSpace(cleanPatientName)) cleanPatientName = "PACIENT";
+            cleanPatientName = cleanPatientName.ToUpperInvariant();
+
+            var demo = Core.Services.ClinicalProtocolsService.GetPatientDemographics(
+                patient, study, curSeries, ViewModel.SelectedClinicalProtocol);
+
+            string patientFullName = $"{demo.LastName} {demo.FirstName}".Trim().ToUpperInvariant();
+            if (string.IsNullOrWhiteSpace(patientFullName)) patientFullName = cleanPatientName;
+
+            string cnp = demo.Cnp?.Trim() ?? string.Empty;
+            string examDateStr = !string.IsNullOrWhiteSpace(demo.ExamDate)
+                ? demo.ExamDate
+                : DateTime.Now.ToString("dd.MM.yyyy");
+
+            var proto = ViewModel.SelectedClinicalProtocol;
+            string examName;
+            if (proto != null && !string.IsNullOrWhiteSpace(proto.Title))
+            {
+                examName = proto.Title.StartsWith("URG ", StringComparison.OrdinalIgnoreCase)
+                    ? proto.Title.Substring(4).Trim()
+                    : proto.Title.Trim();
+            }
+            else if (!string.IsNullOrWhiteSpace(demo.ExamZone))
+            {
+                examName = demo.ExamZone.ToUpperInvariant();
+            }
+            else
+            {
+                examName = "CT";
+            }
+
+            string contrast = (demo.Contrast?.Trim().ToUpperInvariant() == "DA") ? "DA" : "NU";
+
+            double dlpVal = study?.GetOrResolveTotalDlp() ?? 0.0;
+            string dlpStr = dlpVal > 0.0 ? (dlpVal % 1 == 0 ? $"{dlpVal:0}" : $"{dlpVal:0.##}") : "";
+
+            string accession = study?.AccessionNumber ?? curSeries?.StudyInstanceUid ?? "";
+
+            var dlgMeta = new UrgReportMetadataDialog(
+                patientFullName,
+                cnp,
+                examDateStr,
+                examName,
+                contrast,
+                dlpStr,
+                accession)
+            {
+                Owner = this
+            };
+
+            bool? dialogRes = dlgMeta.ShowDialog();
+            if (dialogRes != true)
+            {
+                return;
+            }
+
+            string nr = dlgMeta.IsSkipped ? "" : dlgMeta.Nr;
+            string clinica = dlgMeta.IsSkipped ? "" : dlgMeta.Clinica;
+            string doctor = dlgMeta.IsSkipped ? "" : dlgMeta.Doctor;
+            string fo = dlgMeta.IsSkipped ? "" : dlgMeta.Fo;
+            string diagnostic = dlgMeta.IsSkipped ? "" : dlgMeta.Diagnostic;
+
+            var sfd = new Microsoft.Win32.SaveFileDialog
+            {
+                Title = "Salvează Buletin CT Urgență Word (.docx)",
+                Filter = "Word Document (*.docx)|*.docx|All Files (*.*)|*.*",
+                FileName = $"URG CM {cleanPatientName}.docx",
+                DefaultExt = ".docx"
+            };
+
+            if (sfd.ShowDialog(this) == true)
+            {
+                string cleanBody = Core.Services.ClinicalProtocolsService.StripHeaderAndFooter(reportBodyText);
+                if (string.IsNullOrWhiteSpace(cleanBody)) cleanBody = reportBodyText;
+
+                Core.Services.DocxExportService.SaveTextToUrgDocx(
+                    cleanBody,
+                    sfd.FileName,
+                    patientFullName,
+                    cnp,
+                    examDateStr,
+                    clinica,
+                    doctor,
+                    fo,
+                    diagnostic,
+                    examName,
+                    contrast,
+                    dlpStr,
+                    nr);
+
+                ViewModel.ProtocolsStatusMessage = $"URG Report saved: {System.IO.Path.GetFileName(sfd.FileName)} ({DateTime.Now:HH:mm:ss})";
+            }
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, $"Error saving URG Word document: {ex.Message}", "Save Error", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
     private void OnOpenVoiceSettings(object sender, RoutedEventArgs e)
     {
         var win = new VoiceSettingsDialog

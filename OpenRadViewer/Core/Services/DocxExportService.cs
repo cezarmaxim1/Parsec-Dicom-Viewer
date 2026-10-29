@@ -410,4 +410,210 @@ public static class DocxExportService
 
         return (line, string.Empty, 5000);
     }
+
+    /// <summary>
+    /// Exports emergency CT report into a Microsoft Word document (.docx)
+    /// cloning the official hospital emergency template (antet_ct_urgente.docx)
+    /// with the exact hospital header (Sf. Spiridon), footer, metadata lines,
+    /// report body text (spaced by 1 empty line before and after), and doctor signatures table.
+    /// </summary>
+    public static void SaveTextToUrgDocx(
+        string bodyText,
+        string targetFilePath,
+        string patientName,
+        string cnp,
+        string examDate,
+        string examName,
+        string contrast,
+        string dlp,
+        string nr = "",
+        string clinica = "",
+        string doctor = "",
+        string fo = "",
+        string diagnostic = "")
+    {
+        if (File.Exists(targetFilePath))
+        {
+            File.Delete(targetFilePath);
+        }
+
+        bool hasTemplate = TryCopyUrgHeaderTemplateDocx(targetFilePath);
+        if (!hasTemplate)
+        {
+            // If template not found, fallback to standard Docx export
+            SaveTextToDocx(bodyText, targetFilePath, $"Raport URG {patientName}");
+            return;
+        }
+
+        using var zip = ZipFile.Open(targetFilePath, ZipArchiveMode.Update);
+        var existingDocEntry = zip.GetEntry("word/document.xml");
+        if (existingDocEntry == null) return;
+
+        string origXml;
+        using (var sr = new StreamReader(existingDocEntry.Open(), Encoding.UTF8))
+        {
+            origXml = sr.ReadToEnd();
+        }
+
+        int bodyIdx = origXml.IndexOf("<w:body>", StringComparison.Ordinal);
+        string docPrefix = bodyIdx >= 0 
+            ? origXml.Substring(0, bodyIdx + "<w:body>".Length)
+            : @"<?xml version=""1.0"" encoding=""UTF-8"" standalone=""yes""?><w:document xmlns:r=""http://schemas.openxmlformats.org/officeDocument/2006/relationships"" xmlns:w=""http://schemas.openxmlformats.org/wordprocessingml/2006/main""><w:body>";
+
+        // Extract doctor signatures table <w:tbl>...</w:tbl>
+        string tblXml = "";
+        int tblStart = origXml.IndexOf("<w:tbl", StringComparison.Ordinal);
+        int tblEnd = origXml.IndexOf("</w:tbl>", StringComparison.Ordinal);
+        if (tblStart >= 0 && tblEnd > tblStart)
+        {
+            tblXml = origXml.Substring(tblStart, (tblEnd + "</w:tbl>".Length) - tblStart);
+        }
+
+        // Extract section properties <w:sectPr>...</w:sectPr>
+        string sectPrXml = "";
+        int sectIdx = origXml.LastIndexOf("<w:sectPr", StringComparison.Ordinal);
+        int sectEndIdx = origXml.LastIndexOf("</w:sectPr>", StringComparison.Ordinal);
+        if (sectIdx >= 0 && sectEndIdx > sectIdx)
+        {
+            sectPrXml = origXml.Substring(sectIdx, (sectEndIdx + "</w:sectPr>".Length) - sectIdx);
+        }
+
+        existingDocEntry.Delete();
+
+        var newDocEntry = zip.CreateEntry("word/document.xml", CompressionLevel.Fastest);
+        using (var writer = new StreamWriter(newDocEntry.Open(), Encoding.UTF8))
+        {
+            var sb = new StringBuilder();
+            sb.Append(docPrefix);
+
+            // Title: BULETIN DE EXAMINARE COMPUTER-TOMOGRAFICĂ
+            sb.Append(@"<w:p><w:pPr><w:jc w:val=""center""/><w:rPr><w:b/><w:sz w:val=""26""/><w:szCs w:val=""26""/><w:lang w:val=""ro-RO""/></w:rPr></w:pPr><w:r><w:rPr><w:b/><w:sz w:val=""26""/><w:szCs w:val=""26""/><w:lang w:val=""ro-RO""/></w:rPr><w:t>BULETIN DE EXAMINARE COMPUTER-TOMOGRAFICĂ</w:t></w:r></w:p>");
+
+            // Registration & Date: URG Nr. {nr} Din {examDate}
+            string nrPart = string.IsNullOrWhiteSpace(nr) ? " " : $" {SecurityElement.Escape(nr)} ";
+            sb.Append($@"<w:p><w:pPr><w:rPr><w:b w:val=""0""/><w:lang w:val=""ro-RO""/></w:rPr></w:pPr><w:r><w:rPr><w:b w:val=""0""/><w:lang w:val=""ro-RO""/></w:rPr><w:t>URG Nr.{nrPart}Din {SecurityElement.Escape(examDate)}</w:t></w:r></w:p>");
+
+            // Empty line
+            sb.Append(@"<w:p><w:pPr><w:jc w:val=""both""/></w:pPr></w:p>");
+
+            // PACIENT & CNP
+            sb.Append($@"<w:p><w:pPr><w:jc w:val=""both""/><w:rPr><w:bCs/></w:rPr></w:pPr><w:r><w:rPr><w:b/></w:rPr><w:t>PACIENT: </w:t></w:r><w:r><w:t>{SecurityElement.Escape(patientName.ToUpperInvariant())}</w:t></w:r><w:r><w:tab/><w:tab/><w:tab/><w:tab/><w:tab/></w:r><w:r><w:rPr><w:b/></w:rPr><w:t>CNP: </w:t></w:r><w:r><w:t>{SecurityElement.Escape(cnp)}</w:t></w:r></w:p>");
+
+            // CLINICA/DR & FO
+            string clinVal = string.IsNullOrWhiteSpace(clinica) ? "UPU" : clinica;
+            string clinDrText = !string.IsNullOrWhiteSpace(doctor) ? $"{clinVal} /DR. {doctor.ToUpperInvariant()}" : $"{clinVal} /DR.";
+            sb.Append($@"<w:p><w:pPr><w:jc w:val=""both""/><w:rPr><w:bCs/></w:rPr></w:pPr><w:r><w:rPr><w:b/></w:rPr><w:t>CLINICA/DR: </w:t></w:r><w:r><w:t>{SecurityElement.Escape(clinDrText)}</w:t></w:r><w:r><w:tab/><w:tab/><w:tab/><w:tab/><w:tab/></w:r><w:r><w:rPr><w:b/></w:rPr><w:t>FO: </w:t></w:r><w:r><w:t>{SecurityElement.Escape(fo)}</w:t></w:r></w:p>");
+
+            // DIAGNOSTIC DE TRIMITERE
+            sb.Append($@"<w:p><w:pPr><w:jc w:val=""both""/><w:rPr><w:bCs/></w:rPr></w:pPr><w:r><w:rPr><w:b/></w:rPr><w:t>DIAGNOSTIC DE TRIMITERE: </w:t></w:r><w:r><w:t>{SecurityElement.Escape(diagnostic)}</w:t></w:r></w:p>");
+
+            // EXAMEN REALIZAT
+            sb.Append($@"<w:p><w:pPr><w:jc w:val=""both""/><w:rPr><w:bCs/></w:rPr></w:pPr><w:r><w:rPr><w:b/></w:rPr><w:t>EXAMEN REALIZAT: </w:t></w:r><w:r><w:t>{SecurityElement.Escape(examName)}</w:t></w:r></w:p>");
+
+            // SUBSTANTA DE CONTRAST & DLP
+            string dlpValue = string.IsNullOrWhiteSpace(dlp) ? "" : $"{SecurityElement.Escape(dlp)} ";
+            sb.Append($@"<w:p><w:pPr><w:jc w:val=""both""/><w:rPr><w:bCs/></w:rPr></w:pPr><w:r><w:rPr><w:b/></w:rPr><w:t>SUBSTANTA DE CONTRAST: </w:t></w:r><w:r><w:t>{SecurityElement.Escape(contrast)}</w:t></w:r><w:r><w:tab/><w:tab/><w:tab/><w:tab/></w:r><w:r><w:rPr><w:b/></w:rPr><w:t>DLP: </w:t></w:r><w:r><w:t>{dlpValue}mGy*cm</w:t></w:r></w:p>");
+
+            // UN RAND SPATIU INAINTE DE TEXT
+            sb.Append(@"<w:p><w:pPr><w:jc w:val=""both""/></w:pPr></w:p>");
+
+            // TEXT / INTERPRETARE RAPORT
+            AppendUrgBodyParagraphs(sb, bodyText);
+
+            // UN RAND SPATIU DUPA TEXT
+            sb.Append(@"<w:p><w:pPr><w:jc w:val=""both""/></w:pPr></w:p>");
+
+            // TABELUL DE SEMNATURI AL DOCTORILOR
+            if (!string.IsNullOrWhiteSpace(tblXml))
+            {
+                sb.Append(tblXml);
+            }
+
+            // POST-TABLE BLANK LINE
+            sb.Append(@"<w:p><w:pPr><w:jc w:val=""both""/></w:pPr></w:p>");
+
+            // SECTPR (header & footer references)
+            if (!string.IsNullOrWhiteSpace(sectPrXml))
+            {
+                sb.Append(sectPrXml);
+            }
+
+            sb.Append(@"</w:body></w:document>");
+            writer.Write(sb.ToString());
+        }
+    }
+
+    private static bool TryCopyUrgHeaderTemplateDocx(string targetFilePath)
+    {
+        try
+        {
+            string appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+            string baseDir = AppDomain.CurrentDomain.BaseDirectory;
+
+            string[] priorityCandidates = new[]
+            {
+                Path.Combine(baseDir, "Assets", "antet_ct_urgente.docx"),
+                Path.Combine(appData, "Parsec", "Assets", "antet_ct_urgente.docx"),
+                Path.Combine(appData, "Parsec", "antet_ct_urgente.docx"),
+                @"F:\Desktop\antet ct urgente.docx"
+            };
+
+            foreach (var candidate in priorityCandidates)
+            {
+                if (File.Exists(candidate))
+                {
+                    File.Copy(candidate, targetFilePath, overwrite: true);
+                    return true;
+                }
+            }
+
+            var resInfo = System.Windows.Application.GetResourceStream(new Uri("pack://application:,,,/Assets/antet_ct_urgente.docx"));
+            if (resInfo?.Stream != null)
+            {
+                using var srcStream = resInfo.Stream;
+                using var dstStream = File.Create(targetFilePath);
+                srcStream.CopyTo(dstStream);
+                return true;
+            }
+        }
+        catch { }
+
+        return false;
+    }
+
+    private static void AppendUrgBodyParagraphs(StringBuilder sb, string? text)
+    {
+        const string rPrBase = @"<w:rPr><w:rFonts w:ascii=""Times New Roman"" w:hAnsi=""Times New Roman"" w:cs=""Times New Roman""/><w:sz w:val=""24""/><w:szCs w:val=""24""/><w:lang w:val=""ro-RO"" w:eastAsia=""ro-RO"" w:bidi=""ar-SA""/></w:rPr>";
+        const string rPrBold = @"<w:rPr><w:rFonts w:ascii=""Times New Roman"" w:hAnsi=""Times New Roman"" w:cs=""Times New Roman""/><w:b/><w:sz w:val=""24""/><w:szCs w:val=""24""/><w:lang w:val=""ro-RO"" w:eastAsia=""ro-RO"" w:bidi=""ar-SA""/></w:rPr>";
+
+        string[] lines = (text ?? string.Empty).Replace("\r\n", "\n").Split('\n');
+
+        foreach (var rawLine in lines)
+        {
+            string line = rawLine.TrimEnd();
+            if (string.IsNullOrWhiteSpace(line))
+            {
+                sb.Append($@"<w:p><w:pPr><w:jc w:val=""both""/><w:spacing w:before=""0"" w:after=""0"" w:line=""276"" w:lineRule=""auto""/></w:pPr><w:r>{rPrBase}</w:r></w:p>");
+                continue;
+            }
+
+            string trimmed = line.TrimStart();
+
+            // Detect section headers (e.g. CRANIO-CEREBRAL:, TORACE:, TEP:, ABDOMINO-PELVIN:, CONCLUZII:, etc.)
+            bool isHeader = trimmed.StartsWith("CRANIO", StringComparison.OrdinalIgnoreCase) ||
+                            trimmed.StartsWith("TORACE", StringComparison.OrdinalIgnoreCase) ||
+                            trimmed.StartsWith("TEP", StringComparison.OrdinalIgnoreCase) ||
+                            trimmed.StartsWith("ABDOMIN", StringComparison.OrdinalIgnoreCase) ||
+                            trimmed.StartsWith("PELVIS", StringComparison.OrdinalIgnoreCase) ||
+                            trimmed.StartsWith("TRAUMA", StringComparison.OrdinalIgnoreCase) ||
+                            trimmed.StartsWith("COLOANA", StringComparison.OrdinalIgnoreCase) ||
+                            trimmed.StartsWith("CONCLUZII", StringComparison.OrdinalIgnoreCase) ||
+                            (trimmed.EndsWith(":") && trimmed == trimmed.ToUpperInvariant() && trimmed.Length <= 45);
+
+            string rPr = isHeader ? rPrBold : rPrBase;
+            string escaped = SecurityElement.Escape(line);
+
+            sb.Append($@"<w:p><w:pPr><w:jc w:val=""both""/><w:spacing w:before=""0"" w:after=""0"" w:line=""276"" w:lineRule=""auto""/></w:pPr><w:r>{rPr}<w:t xml:space=""preserve"">{escaped}</w:t></w:r></w:p>");
+        }
+    }
 }

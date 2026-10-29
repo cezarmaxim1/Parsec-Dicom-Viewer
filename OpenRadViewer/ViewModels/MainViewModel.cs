@@ -1469,7 +1469,17 @@ public partial class MainViewModel : ObservableObject
             {
                 StatusMessage = $"Dezarhivare {Path.GetFileName(p)}...";
                 IsLoading = true;
-                string? outDir = await ArchiveExtractionService.ExtractArchiveAsync(p);
+                ProgressPercent = 0;
+                var extractProgress = new Progress<(int current, int total, string message)>(info =>
+                {
+                    if (info.total > 0)
+                    {
+                        ProgressPercent = (int)Math.Round(((double)info.current / info.total) * 100.0);
+                    }
+                    StatusMessage = info.message;
+                });
+                string? outDir = await ArchiveExtractionService.ExtractArchiveAsync(p, extractProgress);
+                ProgressPercent = 100;
                 if (!string.IsNullOrEmpty(outDir))
                 {
                     extractedPaths.Add(outDir);

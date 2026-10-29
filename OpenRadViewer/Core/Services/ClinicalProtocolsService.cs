@@ -19,6 +19,8 @@ public class ClinicalProtocol
     public string Content { get; set; } = string.Empty;
     public string DefaultContrast { get; set; } = "Nu";
 
+    public bool IsEmergency => Id.StartsWith("URG_", StringComparison.OrdinalIgnoreCase);
+
     public override string ToString() => $"[{Category}] {Title}";
 }
 
@@ -533,9 +535,373 @@ Fara colectii fluide sau formatiuni chistice la nivelul partilor moi cervicale.
 CONCLUZII:
 Aspect CT in limite normale la nivelul structurilor gatului si viscerocraniului inferior, fara mase expansive, procese inflamatorii sau adenopatii patologice."
         });
+
+        // ==================== ARTICULAR CT PROTOCOLS ====================
+        _protocols.Add(new ClinicalProtocol
+        {
+            Id = "CT_UMAR",
+            Title = "CT Umăr",
+            Category = "CT",
+            BodyRegion = "Umăr / Articulație Scapulo-Humerală",
+            DefaultContrast = "Nu",
+            Content =
+@"CT UMAR:
+Examinare CT a articulatiei scapulo-humerale efectuata nativ cu reconstructii multiplanare in plan axial, coronal si sagital, cu fereastra de os si de parti moi.
+Raporturi articulare scapulo-humerale si acromio-claviculare pastrate, congruenta articulara normala.
+Cap humeral cu morfologie si densitate osoasa in limite normale, contur cortical net, fara solutii de continuitate corticala sau modificari de densitate trabeculara sugestive pentru fracturi.
+Cavitate glenoida cu profunzime si contur osos pastrat, fara leziuni tip Bankart osos decelabile.
+Spatiul subacromial de calibru normal. Acromion de tip I/II.
+Fara calcificari grosiere periarticulare sau in proiectia insertiei tendoanelor coafei rotatorilor decelabile CT.
+Fara epanșament lichidian intraarticular sau in bursa subacromio-subdeltoidiana.
+Parti moi periarticulare cu aspect CT in limite normale.
+
+CONCLUZII:
+Articulatie scapulo-humerala cu aspect CT in limite normale, fara leziuni osoase traumatice recente decelabile."
+        });
+
+        _protocols.Add(new ClinicalProtocol
+        {
+            Id = "CT_PUMN",
+            Title = "CT Pumn",
+            Category = "CT",
+            BodyRegion = "Pumn / Oase Carpiene",
+            DefaultContrast = "Nu",
+            Content =
+@"CT PUMN:
+Examinare CT a articulatiei radio-carpiene si a oaselor carpului efectuata nativ, cu reconstructii multiplanare de inalta rezolutie in ferestre osoase si de parti moi.
+Raporturi articulare radio-carpiene, radio-ulnare distale si medio-carpiene pastrate.
+Oase carpiene (scafoid, semilunar, piramidal, pisiform, trapez, trapezoid, capitat, hamat) cu morfologie si densitate in limite normale, fara traiecte de fractura recente decelabile. In particular, osul scafoid nu prezinta solutii de continuitate osoasa sau anomalii de densitate corticala/trabeculara.
+Epifize distale radius si ulna cu contururi corticale nete, fara solutii de continuitate.
+Fara calcificari patologice in partile moi carpiene sau formatiuni expansive.
+
+CONCLUZII:
+Articulatie radio-carpiana si oase carpiene cu aspect CT in limite normale, fara leziuni osoase traumatice recente decelabile (fara fractura de scafoid)."
+        });
+
+        _protocols.Add(new ClinicalProtocol
+        {
+            Id = "CT_BAZIN",
+            Title = "CT Bazin",
+            Category = "CT",
+            BodyRegion = "Bazin / Articulații Coxo-Femurale",
+            DefaultContrast = "Nu",
+            Content =
+@"CT BAZIN:
+Examinare CT a centurii pelvine si a articulatiilor coxo-femurale efectuata nativ cu reconstructii multiplanare.
+Continuitatea inelului pelvin este pastrata, fara leziuni osoase de tip fractura la nivelul oaselor iliace, ischionului, pubisului sau sacrului. Simfiza pubiana si articulatiile sacro-iliace cu raporturi anatomice normale, simetrice, fara disjunctii.
+Articulatii coxo-femurale cu congruenta pastrata bilateral. Capete si coluri femurale cu forma si structura osoasa normale, contur sferic pastrat, fara fracturi sau zone de colaps cortical/osteonecroza.
+Acetabule cu profunzime si sprancene acetabulare intacte, spatii articulare coxo-femurale de calibru pastrat simetric.
+Fara acumulari fluide anormale intraarticulare sau colectii in partile moi periarticulare pelvine.
+
+CONCLUZII:
+Centura pelvina si articulatii coxo-femurale cu aspect CT in limite normale, fara traiecte de fractura sau disjunctii articulare decelabile."
+        });
+
+        _protocols.Add(new ClinicalProtocol
+        {
+            Id = "CT_COAPSA",
+            Title = "CT Coapsă",
+            Category = "CT",
+            BodyRegion = "Coapsă / Femur",
+            DefaultContrast = "Nu",
+            Content =
+@"CT COAPSA:
+Examinare CT a segmentului femural si partilor moi adiacente efectuata nativ, cu reconstructii multiplanare.
+Diafiza si metafizele femurale cu grosime si contur cortical normal, canal medular omogen, fara solutii de continuitate corticala, reactii periostale sau leziuni osteolitice/osteoblastice.
+Mase musculare ale compartimentelor coapsei (anterior, posterior, medial) cu densitate, morfologie si volum normale, simetrice, fara colectii fluide, hematoame intramusculare sau mase expansive.
+Fascia lata si tesutul celulo-adipos subcutanat cu densitate omogena.
+
+CONCLUZII:
+Aspect CT in limite normale la nivelul coapsei si osului femur, fara traiecte de fractura sau leziuni patologice in partile moi."
+        });
+
+        _protocols.Add(new ClinicalProtocol
+        {
+            Id = "CT_GAMBA",
+            Title = "CT Gambă",
+            Category = "CT",
+            BodyRegion = "Gambă / Tibie-Peroneu",
+            DefaultContrast = "Nu",
+            Content =
+@"CT GAMBA:
+Examinare CT a gambei efectuata nativ, cu reconstructii multiplanare in fereastra osoasa si de parti moi.
+Oase gambiere (tibie si fibula/peroneu) pe toata lungimea lor cu structura si densitate osoasa normale, contur cortical continuu si regulat, fara traiecte de fractura recente, deplasari osoase sau reactii periostale.
+Membrana interosoasa si spatiul tibio-fibular cu raporturi normale.
+Loje musculare gambiere cu densitate si simetrie pastrate, fara hematoame sau formatiuni expansive. Tesut adipos subcutanat omogen.
+
+CONCLUZII:
+Segment de gamba cu aspect CT in limite normale, fara leziuni de tip fractura tibio-peroniera sau anomalii de parti moi."
+        });
+
+        _protocols.Add(new ClinicalProtocol
+        {
+            Id = "CT_ANTEPICIOR",
+            Title = "CT Antepicior",
+            Category = "CT",
+            BodyRegion = "Antepicior / Oase Metatarsiene",
+            DefaultContrast = "Nu",
+            Content =
+@"CT ANTEPICIOR:
+Examinare CT a regiunii metatarsiene si falangiene efectuata nativ cu reconstructii de inalta rezolutie.
+Raporturi articulare tarso-metatarsiene (articulatia Lisfranc) si metatarso-falangiene normale, fara diastazis sau subluxatii.
+Oase metatarsiene I-V si falange cu morfologie, corticala si structura trabeculara normale, fara solutii de continuitate osoasa sau fracturi de stress/traumatice decelabile.
+Spatii articulare intermetatarsiene si interfalangiene pastrate.
+Fara corpi straini radioopaci, colectii sau tumefieri focale patologice in partile moi plantare si dorsale ale antepiciorului.
+
+CONCLUZII:
+Examinare CT antepicior in limite normale, fara traiecte de fractura sau leziuni de tip luxatie decelabile CT."
+        });
+
+        // ==================== PROTOCOALE NORMALE DE URGENTA (URG CT) ====================
+        // Plasate la finalul listei, ordonate, incepand toate cu prefixul 'URG CT '
+        _protocols.Add(new ClinicalProtocol
+        {
+            Id = "URG_CT_CRANIO",
+            Title = "URG CT CRANIO-CEREBRAL",
+            Category = "CT",
+            BodyRegion = "Cranio-Cerebral",
+            DefaultContrast = "Nu",
+            Content =
+@"CRANIO-CEREBRAL:
+Cisternele de la baza sunt libere.
+Trunchi cerebral, fosa posterioara, sistem ventricular, emisfere cerebrale cu aspect CT normal.
+Fara elemente de semiologie CT sugestive pentru hemoragie subarahnoidiana, hematoame intra- sau extranevraxiale sau accident vascular ischemic constituit.
+Structurile liniei mediene situate in planul de simetrie al capului.
+Calcificari in plexurile coroide si in glanda pineala.
+Sinusuri paranazale și celule mastoidiene normal aerate.
+
+CONCLUZII:
+Examen CT cranio-cerebral nativ in limite normale. Fara procese expansive intracraniene, leziuni vasculare ischemice/hemoragice acute sau fracturi craniene decelabile."
+        });
+
+        _protocols.Add(new ClinicalProtocol
+        {
+            Id = "URG_CT_TORACE",
+            Title = "URG CT TORACE",
+            Category = "CT",
+            BodyRegion = "Torace",
+            DefaultContrast = "Nu",
+            Content =
+@"TORACE:
+Parenchim pulmonar cu aspect CT în limite normale.
+Arbore traheo-bronșic permeabil.
+Absenta adenopatiilor mediastinale.
+Absența revărsatelor lichidiene pleuro-pericardice.
+Vase mediastinale permeabile, cu calibru normal.
+
+CONCLUZII:
+Examen CT toracic in limite normale, fara leziuni pleuro-parenchimatoase acute sau adenopatii mediastinale decelabile."
+        });
+
+        _protocols.Add(new ClinicalProtocol
+        {
+            Id = "URG_CT_TEP",
+            Title = "URG CT TEP",
+            Category = "CT",
+            BodyRegion = "Torace / TEP",
+            DefaultContrast = "Da",
+            Content =
+@"TEP:
+Trunchiul arterei pulmonare cu calibru de .. mm, arteră pulmonară dreaptă cu calibru de ... mm și stângă cu calibru de ... mm, fără defecte de umplere sugestive pentru trombembolism.
+Nu se constată defecte de umplere la nivelul ramurilor lobare, segmentare și subsegmentare pulmonar bilateral.
+Nu se constată arii de consolidare periferică cu aspect de infarct constituit pulmonar bilateral.
+Absența revărsatelor lichidiene pleuro-pericardice.
+Arbore traheo-bronsic permeabil.
+
+CONCLUZII:
+Angio-CT artere pulmonare fara imagini de defect de umplere endoluminal sugestive pentru trombembolism pulmonar (TEP)."
+        });
+
+        _protocols.Add(new ClinicalProtocol
+        {
+            Id = "URG_CT_ABDOMINOPELVIN",
+            Title = "URG CT ABDOMINO-PELVIN",
+            Category = "CT",
+            BodyRegion = "Abdomino-Pelvin",
+            DefaultContrast = "Da",
+            Content =
+@"ABDOMINO-PELVIN:
+Ficat cu dimensiuni in limite normale / crescute (diametru antero-posterior al lobului drept de  mm, al lobului stâng de  mm), structura omogena.
+Căi biliare intra- si extrahepatice nedilatate.
+Colecist destins, cu conținut lichidian, perete cu grosime normală, fără calculi radioopaci.
+Sistem port cu calibru normal, permeabil (venă portă cu diametru de mm, mezenterică superioară mm, splenica de mm).
+Pancreas, glande suprarenale cu aspect CT în limite normale.
+Splină cu dimensiuni de ~  mm (diametru maxim axial x grosime x lungime cranio-caudală), cu structură omogenă.
+Rinichi cu poziție, dimensiuni și morfologie normale, cu secreție și excreție simetrice, în limite normale de timp.
+Nu se constată adenopatii abdomino-pelvine.
+Nu se identifică lichid intraperitoneal.
+Colon cu pregătire digestivă, a fost destins prin administrare de contrast neutru (apă) prin clismă. În condițiile de examinare nu se constată modificări parietale, de calibru sau formațiuni expansive intraluminale.
+Stomac, anse intestinale destinse prin administrare de contrast neutru (apa), fara prize de contrast parietale patologice.
+Vezică urinară, vezicule seminale cu aspect CT în limite normale.
+Prostată cu dimensiuni de ~ (diametru antero-posterior x transversal x cranio-caudal), cu aspect CT normal.
+Vezica urinara, cu aspect CT normal.
+Uter cu dimensiuni de ~  mm (diametru longitudinal x diametre transversale), cu aspect normal. Endometru cu grosimea de  mm. Ovar drept cu dimensiuni de ~  (diametru antero-posterior x transversal x cranio-caudal) și stâng cu dimensiuni de  ~  (diametru antero-posterior x transversal x cranio-caudal), cu aspect CT normal.
+Modificari degenerativ-artrozice la nivelul coloanei vertebrale cuprinse in volumul scanat, manifestate prin osteofite antero-marginale, cu formare de punti osteofitice, fenomene de vid discal, pensarea spatiilor.
+Baze pulmonare cu aspect în limite normale.
+
+CONCLUZII:
+Examen CT abdomino-pelvin fara anomalii organice evolutive sau leziuni focale cu caracter cert patologic decelabile in prezent."
+        });
+
+        _protocols.Add(new ClinicalProtocol
+        {
+            Id = "URG_CT_TAP",
+            Title = "URG CT TAP",
+            Category = "CT",
+            BodyRegion = "Toraco-Abdomino-Pelvin",
+            DefaultContrast = "Da",
+            Content =
+@"TORACE:
+Parenchim pulmonar cu aspect CT în limite normale.
+Arbore traheo-bronșic permeabil.
+Absenta adenopatiilor mediastinale.
+Absența revărsatelor lichidiene pleuro-pericardice.
+Vase mediastinale permeabile, cu calibru normal.
+
+ABDOMINO-PELVIN:
+Ficat cu dimensiuni in limite normale / crescute (diametru antero-posterior al lobului drept de  mm, al lobului stâng de  mm), structura omogena.
+Căi biliare intra- si extrahepatice nedilatate.
+Colecist destins, cu conținut lichidian, perete cu grosime normală, fără calculi radioopaci.
+Sistem port cu calibru normal, permeabil (venă portă cu diametru de mm, mezenterică superioară mm, splenica de mm).
+Pancreas, glande suprarenale cu aspect CT în limite normale.
+Splină cu dimensiuni de ~  mm (diametru maxim axial x grosime x lungime cranio-caudală), cu structură omogenă.
+Rinichi cu poziție, dimensiuni și morfologie normale, cu secreție și excreție simetrice, în limite normale de timp.
+Nu se constată adenopatii abdomino-pelvine.
+Nu se identifică lichid intraperitoneal.
+Colon cu pregătire digestivă, a fost destins prin administrare de contrast neutru (apă) prin clismă. În condițiile de examinare nu se constată modificări parietale, de calibru sau formațiuni expansive intraluminale.
+Stomac, anse intestinale destinse prin administrare de contrast neutru (apa), fara prize de contrast parietale patologice.
+Vezică urinară, vezicule seminale cu aspect CT în limite normale.
+Prostată cu dimensiuni de ~ (diametru antero-posterior x transversal x cranio-caudal), cu aspect CT normal.
+Vezica urinara, cu aspect CT normal.
+Uter cu dimensiuni de ~  mm (diametru longitudinal x diametre transversale), cu aspect normal. Endometru cu grosimea de  mm. Ovar drept cu dimensiuni de ~  (diametru antero-posterior x transversal x cranio-caudal) și stâng cu dimensiuni de  ~  (diametru antero-posterior x transversal x cranio-caudal), cu aspect CT normal.
+Modificari degenerativ-artrozice la nivelul coloanei vertebrale cuprinse in volumul scanat, manifestate prin osteofite antero-marginale, cu formare de punti osteofitice, fenomene de vid discal, pensarea spatiilor.
+Baze pulmonare cu aspect în limite normale.
+
+CONCLUZII:
+Examen CT toraco-abdomino-pelvin fara leziuni pleuro-pulmonare acute, formatiuni expansive sau leziuni focale organice abdominale/pelvine decelabile la data examinarii."
+        });
+
+        _protocols.Add(new ClinicalProtocol
+        {
+            Id = "URG_CT_TRAUMA_CRANIO",
+            Title = "URG CT TRAUMA CRANIO-CEREBRAL",
+            Category = "CT",
+            BodyRegion = "Trauma Cranio-Cerebral",
+            DefaultContrast = "Nu",
+            Content =
+@"CRANIO-CEREBRAL:
+Cisternele de la baza sunt libere.
+Trunchi cerebral, fosa posterioara, sistem ventricular, emisfere cerebrale cu aspect CT normal.
+Fara elemente de semiologie CT sugestive pentru hemoragie subarahnoidiana, hematoame intra- sau extranevraxiale, accident vascular ischemic.
+Structurile liniei mediene situate in planul de simetrie al capului.
+Nu se deceleaza traiecte de fractura la nivelul neuro- si viscerocraniului.
+
+CONCLUZII:
+Examen CT cranio-cerebral fara leziuni traumatice acute decelabile (fara hematoame intra/extranevraxiale, HSA sau fracturi craniene)."
+        });
+
+        _protocols.Add(new ClinicalProtocol
+        {
+            Id = "URG_CT_TRAUMA_COLOANA_CERVICALA",
+            Title = "URG CT TRAUMA COLOANA CERVICALA",
+            Category = "CT",
+            BodyRegion = "Trauma Coloană Cervicală",
+            DefaultContrast = "Nu",
+            Content =
+@"COLOANA CERVICALA:
+Nu se constata traiecte de fractura la nivelul vertebrelor cervicale.
+Congruenta articulatiilor atlanto-occipitale, atlanto-axiale si interapofizare la nivel cervical.
+Aliniament vertebral cervical pastrat, fara tasari vertebrale recente sau deplasari in plan sagital.
+
+CONCLUZII:
+Examen CT coloana cervicala fara leziuni traumatice osoase sau luxatii/subluxatii articulare recente."
+        });
+
+        _protocols.Add(new ClinicalProtocol
+        {
+            Id = "URG_CT_TRAUMA_TORACE",
+            Title = "URG CT TRAUMA TORACE",
+            Category = "CT",
+            BodyRegion = "Trauma Torace",
+            DefaultContrast = "Nu",
+            Content =
+@"TORACE:
+Nu se constata traiecte de fractura la nivelul vertebrelor toracale.
+Nu se constata traiecte de fractura la nivelul arcurilor costale sau la nivelul sternului.
+Absenta pneumotoraxului si a pneumomediastinului.
+Absenta epansamentelor pleuro-pericardice.
+Absenta adenopatiilor mediastinale.
+Parenchim pulmonar fara contuzii sau focare de condensare post-traumatica decelabile CT.
+
+CONCLUZII:
+Examen CT toracic fara leziuni traumatice osoase (fracturi costale/vertebrale), hemotorax sau pneumotorax."
+        });
+
+        _protocols.Add(new ClinicalProtocol
+        {
+            Id = "URG_CT_TRAUMA_ABDOMINOPELVIN",
+            Title = "URG CT TRAUMA ABDOMINO-PELVIN",
+            Category = "CT",
+            BodyRegion = "Trauma Abdomino-Pelvin",
+            DefaultContrast = "Nu",
+            Content =
+@"ABDOMINO-PELVIN:
+Nu se constata traiecte de fractura la nivelul vertebrelor lombare si la nivelul bazinului.
+Nu se identifică lichid intraperitoneal. Absenta pneumoperitoneului.
+Ficat cu dimensiuni normale / usor crescute (diametrul antero-posterior al lobului hepatic drept ~  mm, lob hepatic stang ~  mm), cu structura omogena, fara leziuni focale sau laceratii.
+Sistem venos port permeabil, nedilatat.
+Colecist cu continut lichidian, fara calculi radioopaci. Caile biliare intra si extrahepatice nedilatate.
+Pancreas, splina, rinichi si glande suprarenale cu aspect CT normal, fara modificari traumatice decelabile.
+Absenta adenopatiilor abdominale.
+Vezica urinara cu aspect CT in limite normale.
+
+CONCLUZII:
+Examen CT abdomino-pelvin fara leziuni traumatice de viscere parenchimatoase sau cavitare, fara revarsat lichidian liber intraperitoneal sau fracturi la nivelul bazinului/coloanei lombare."
+        });
+
+        _protocols.Add(new ClinicalProtocol
+        {
+            Id = "URG_CT_TRAUMA_COMPLET",
+            Title = "URG CT TRAUMA COMPLET",
+            Category = "CT",
+            BodyRegion = "Traumă Completă (CC + Coloană + TAP)",
+            DefaultContrast = "Da",
+            Content =
+@"CRANIO-CEREBRAL:
+Cisternele de la baza sunt libere.
+Trunchi cerebral, fosa posterioara, sistem ventricular, emisfere cerebrale cu aspect CT normal.
+Fara elemente de semiologie CT sugestive pentru hemoragie subarahnoidiana, hematoame intra- sau extranevraxiale, accident vascular ischemic.
+Structurile liniei mediene situate in planul de simetrie al capului.
+Nu se deceleaza traiecte de fractura la nivelul neuro- si viscerocraniului.
+
+COLOANA CERVICALA:
+Nu se constata traiecte de fractura la nivelul vertebrelor cervicale.
+Congruenta articulatiilor atlanto-occipitale, atlanto-axiale si interapofizare la nivel cervical.
+
+TORACE:
+Nu se constata traiecte de fractura la nivelul vertebrelor toracale.
+Nu se constata traiecte de fractura la nivelul arcurilor costale sau la nivelul sternului.
+Absenta pneumotoraxului si a pneumomediastinului.
+Absenta epansamentelor pleuro-pericardice.
+Absenta adenopatiilor mediastinale.
+
+ABDOMINO-PELVIN:
+Nu se constata traiecte de fractura la nivelul vertebrelor lombare si la nivelul bazinului.
+Nu se identifică lichid intraperitoneal. Absenta pneumoperitoneului.
+Ficat cu dimensiuni normale / crescute (diametrul antero-posterior al lobului hepatic drept ~  mm, lob hepatic stang ~  mm), cu structura omogena, fara leziuni focale.
+Sistem venos port permeabil, nedilatat.
+Colecist cu continut lichidian, fara calculi radioopaci. Caile biliare intra si extrahepatice nedilatate.
+Pancreas, splina, rinichi si glande suprarenale cu aspect CT normal.
+Absenta adenopatiilor abdominale.
+Vezica urinara cu aspect CT in limite normale.
+
+CONCLUZII:
+Examen CT politraumă complet fără leziuni traumatice acute neurocraniene, viscerocraniene, vertebro-medulare, toraco-pulmonare sau abdomino-pelvine decelabile la data examinării."
+        });
     }
 
-    private static string[]? _cachedNotesLines;
+    private static string[]? _cachedClassicNotesLines;
+    private static string[]? _cachedUrgNotesLines;
     private static readonly object _notesLock = new();
 
     public static (string LastName, string FirstName, string Cnp, string Age, string ExamZone, string Contrast, string ExamDate, string Category) GetPatientDemographics(
@@ -755,6 +1121,12 @@ Aspect CT in limite normale la nivelul structurilor gatului si viscerocraniului 
 
         string dictLower = (dictatedText ?? string.Empty).ToLowerInvariant();
 
+        // If current protocol is an emergency protocol (URG), respect user selection 100%
+        if (currentProtocol != null && currentProtocol.Id.StartsWith("URG_", StringComparison.OrdinalIgnoreCase))
+        {
+            return currentProtocol;
+        }
+
         // If current protocol is already set, matches the scan modality, and matches the organ, preserve it!
         if (currentProtocol != null)
         {
@@ -791,7 +1163,28 @@ Aspect CT in limite normale la nivelul structurilor gatului si viscerocraniului 
 
         string trimmedText = (dictatedText ?? string.Empty).TrimStart();
 
+        // 0. Check explicit URG protocol match (if text starts with URG or emergency title)
+        if (trimmedText.StartsWith("URG", StringComparison.OrdinalIgnoreCase))
+        {
+            var matchUrg = _protocols.FirstOrDefault(p => p.Id.StartsWith("URG_") && 
+                (trimmedText.StartsWith(p.Title, StringComparison.OrdinalIgnoreCase) ||
+                 trimmedText.StartsWith(p.Title.Replace("URG ", ""), StringComparison.OrdinalIgnoreCase)));
+            if (matchUrg != null) return matchUrg;
+        }
+
         // 0. Check explicit protocol header at the start of the report text (highest priority for formatted reports)
+        if (trimmedText.StartsWith("CT UMAR", StringComparison.OrdinalIgnoreCase) || trimmedText.StartsWith("CT UMĂR", StringComparison.OrdinalIgnoreCase) || trimmedText.StartsWith("UMAR", StringComparison.OrdinalIgnoreCase) || trimmedText.StartsWith("UMĂR", StringComparison.OrdinalIgnoreCase))
+            return _protocols.FirstOrDefault(p => p.Id == "CT_UMAR") ?? currentProtocol ?? _protocols[0];
+        if (trimmedText.StartsWith("CT PUMN", StringComparison.OrdinalIgnoreCase) || trimmedText.StartsWith("PUMN", StringComparison.OrdinalIgnoreCase))
+            return _protocols.FirstOrDefault(p => p.Id == "CT_PUMN") ?? currentProtocol ?? _protocols[0];
+        if (trimmedText.StartsWith("CT BAZIN", StringComparison.OrdinalIgnoreCase))
+            return _protocols.FirstOrDefault(p => p.Id == "CT_BAZIN") ?? currentProtocol ?? _protocols[0];
+        if (trimmedText.StartsWith("CT COAPSA", StringComparison.OrdinalIgnoreCase) || trimmedText.StartsWith("CT COAPSĂ", StringComparison.OrdinalIgnoreCase) || trimmedText.StartsWith("COAPSA", StringComparison.OrdinalIgnoreCase) || trimmedText.StartsWith("COAPSĂ", StringComparison.OrdinalIgnoreCase))
+            return _protocols.FirstOrDefault(p => p.Id == "CT_COAPSA") ?? currentProtocol ?? _protocols[0];
+        if (trimmedText.StartsWith("CT GAMBA", StringComparison.OrdinalIgnoreCase) || trimmedText.StartsWith("CT GAMBĂ", StringComparison.OrdinalIgnoreCase) || trimmedText.StartsWith("GAMBA", StringComparison.OrdinalIgnoreCase) || trimmedText.StartsWith("GAMBĂ", StringComparison.OrdinalIgnoreCase))
+            return _protocols.FirstOrDefault(p => p.Id == "CT_GAMBA") ?? currentProtocol ?? _protocols[0];
+        if (trimmedText.StartsWith("CT ANTEPICIOR", StringComparison.OrdinalIgnoreCase) || trimmedText.StartsWith("ANTEPICIOR", StringComparison.OrdinalIgnoreCase))
+            return _protocols.FirstOrDefault(p => p.Id == "CT_ANTEPICIOR") ?? currentProtocol ?? _protocols[0];
         if (trimmedText.StartsWith("ABDOMINO-PELVIN", StringComparison.OrdinalIgnoreCase))
             return _protocols.FirstOrDefault(p => p.Id == "CT_ABDOMINOPELVIN") ?? currentProtocol ?? _protocols[0];
         if (trimmedText.StartsWith("COLOANA LOMBARA", StringComparison.OrdinalIgnoreCase) || trimmedText.StartsWith("COLOANĂ LOMBARĂ", StringComparison.OrdinalIgnoreCase))
@@ -931,13 +1324,16 @@ Aspect CT in limite normale la nivelul structurilor gatului si viscerocraniului 
 
     /// <summary>
     /// Fast (<5ms) in-memory semantic/keyword matcher that extracts the top 25 most relevant clinical sentences
-    /// from the doctor's reference notes (modele_rezultate.txt / notepad.txt) for the current organ and dictation.
+    /// from the doctor's reference notes for the current organ and dictation.
+    /// When an emergency protocol (URG) is selected, lines are queried strictly from the emergency files (URGENTE CT.txt and REZULTATELE MELE URGENTE CT .txt).
+    /// When a classic protocol is selected, lines are queried strictly from the classic files (modele_rezultate.txt / notepad.txt).
     /// </summary>
     public static string ExtractRelevantReferenceLines(string dictatedText, ClinicalProtocol? protocol, int maxLines = 25)
     {
         try
         {
-            var lines = GetCachedNotesLines();
+            bool isUrg = protocol?.Id?.StartsWith("URG_", StringComparison.OrdinalIgnoreCase) == true;
+            var lines = isUrg ? GetCachedUrgNotesLines() : GetCachedClassicNotesLines();
             if (lines == null || lines.Length == 0) return string.Empty;
 
             // Build anatomical region keywords from protocol
@@ -996,12 +1392,12 @@ Aspect CT in limite normale la nivelul structurilor gatului si viscerocraniului 
         }
     }
 
-    private static string[] GetCachedNotesLines()
+    private static string[] GetCachedClassicNotesLines()
     {
-        if (_cachedNotesLines != null) return _cachedNotesLines;
+        if (_cachedClassicNotesLines != null) return _cachedClassicNotesLines;
         lock (_notesLock)
         {
-            if (_cachedNotesLines != null) return _cachedNotesLines;
+            if (_cachedClassicNotesLines != null) return _cachedClassicNotesLines;
 
             string appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
             string[] candidatePaths = new[]
@@ -1015,13 +1411,56 @@ Aspect CT in limite normale la nivelul structurilor gatului si viscerocraniului 
             {
                 if (System.IO.File.Exists(path))
                 {
-                    _cachedNotesLines = System.IO.File.ReadAllLines(path, Encoding.UTF8);
-                    return _cachedNotesLines;
+                    _cachedClassicNotesLines = System.IO.File.ReadAllLines(path, Encoding.UTF8);
+                    return _cachedClassicNotesLines;
                 }
             }
 
-            _cachedNotesLines = Array.Empty<string>();
-            return _cachedNotesLines;
+            _cachedClassicNotesLines = Array.Empty<string>();
+            return _cachedClassicNotesLines;
+        }
+    }
+
+    private static string[] GetCachedUrgNotesLines()
+    {
+        if (_cachedUrgNotesLines != null) return _cachedUrgNotesLines;
+        lock (_notesLock)
+        {
+            if (_cachedUrgNotesLines != null) return _cachedUrgNotesLines;
+
+            string appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+            string baseAssets = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assets");
+            string refReports = System.IO.Path.Combine(appData, "Parsec", "ReferenceReports");
+
+            var linesList = new List<string>(4096);
+            string[] fileNames = new[] { "URGENTE CT.txt", "REZULTATELE MELE URGENTE CT .txt" };
+
+            foreach (var fn in fileNames)
+            {
+                string[] searchPaths = new[]
+                {
+                    System.IO.Path.Combine(refReports, fn),
+                    System.IO.Path.Combine(baseAssets, fn),
+                    System.IO.Path.Combine(@"f:\Desktop", fn)
+                };
+
+                foreach (var sp in searchPaths)
+                {
+                    if (System.IO.File.Exists(sp))
+                    {
+                        try
+                        {
+                            var fl = System.IO.File.ReadAllLines(sp, Encoding.UTF8);
+                            linesList.AddRange(fl);
+                            break;
+                        }
+                        catch { }
+                    }
+                }
+            }
+
+            _cachedUrgNotesLines = linesList.ToArray();
+            return _cachedUrgNotesLines;
         }
     }
 
@@ -1029,18 +1468,26 @@ Aspect CT in limite normale la nivelul structurilor gatului si viscerocraniului 
     {
         return protocolId switch
         {
+            "URG_CT_CRANIO" or "URG_CT_TRAUMA_CRANIO" or "IRM_CRANIO" or "CT_CRANIO" => new[] { "emisfere cerebrale", "fosa posterioara", "trunchi cerebral", "ventricul", "hipocamp", "demielinizant", "flair", "leucoaraioza", "cisternele", "liniei mediene", "sinus", "cranio-cerebral", "hsa", "subarahnoidiana", "hematom", "fractura", "neurocraniu", "viscerocraniu" },
+            "URG_CT_TORACE" or "URG_CT_TRAUMA_TORACE" or "CT_TORACE" => new[] { "pulmonar", "mediastin", "pleur", "bronsiectaz", "emfizem", "geam mat", "traheo-bronsic", "subpleural", "pneumotorax", "hemotorax", "costal", "stern", "arcurilor costale" },
+            "URG_CT_TEP" or "CT_TEP" => new[] { "tep", "artera pulmonara", "arterei pulmonare", "defect de umplere", "trombembolism", "ramurilor lobare", "segmentare", "subsegmentare", "infarct pulmonar" },
+            "URG_CT_ABDOMINOPELVIN" or "URG_CT_TRAUMA_ABDOMINOPELVIN" or "CT_ABDOMINOPELVIN" or "IRM_ABDOMEN" or "IRM_HEPATIC" or "IRM_MRCP" => new[] { "ficat", "colecist", "biliar", "pancreas", "splin", "rinichi", "suprarenal", "porta", "coledoc", "abdomin", "apendic", "cec", "pelvis", "vezica urinara", "uter", "ovar", "prostat", "intraperitoneal", "hemoperitoneu", "pneumoperitoneu" },
+            "URG_CT_TAP" => new[] { "pulmonar", "mediastin", "pleur", "ficat", "colecist", "pancreas", "splin", "rinichi", "suprarenal", "vezica", "abdomin", "pelvin" },
+            "URG_CT_TRAUMA_COLOANA_CERVICALA" or "CT_COLOANA_CERVICALA" or "IRM_CERVICAL" => new[] { "cervical", "vertebrelor cervicale", "c3-c4", "c4-c5", "c5-c6", "c6-c7", "atlanto-occipital", "atlanto-axial", "interapofizar", "odontoid", "fractura cervicala" },
+            "URG_CT_TRAUMA_COMPLET" => new[] { "cranio-cerebral", "fractura", "cisternele", "vertebrelor", "costale", "pneumotorax", "hemotorax", "ficat", "splina", "rinichi", "bazin", "intraperitoneal" },
             "IRM_LOMBAR" or "CT_COLOANA_LOMBARA" => new[] { "lombar", "l1-l2", "l2-l3", "l3-l4", "l4-l5", "l5-s1", "con medular", "spondilodiscartroza", "pfirrmann", "modic", "intraspongioase", "interapofizara", "disco-radicular", "protruzie discala", "hernie de disc" },
-            "IRM_CERVICAL" or "CT_COLOANA_CERVICALA" => new[] { "cervical", "c3-c4", "c4-c5", "c5-c6", "c6-c7", "unco-vertebral", "uncartroza", "atlanto-odontoid", "cordon medular", "bulbo-medular", "rahidian cervical" },
             "IRM_TORACAL" or "CT_COLOANA_TORACALA" => new[] { "toracal", "dorsal", "cordon medular toracal", "canal spinal toracal", "t11", "t12", "t8", "t3-t10", "costo-vertebral" },
             "IRM_GENUNCHI" or "CT_GENUNCHI" => new[] { "genunchi", "menisc", "patel", "incrucisat", "colateral", "condromalacie", "baker", "gastrocnemio", "femuro-tibial", "suprapatelar", "insall-salvati", "wiberg", "gonartroza" },
             "CT_GLEZNA" => new[] { "glezn", "talus", "calcane", "tibio-tarsian", "maleol", "achilean", "peronier", "sindesmoza" },
             "CT_COT" => new[] { "cot", "olecran", "coronoid", "cupusoara", "radiocapitular", "humero-radial", "humero-ulnar" },
             "CT_GAT" => new[] { "gat", "gât", "faring", "laring", "parotid", "submandibular", "tiroid", "carotidian", "jugular", "cervical" },
-            "IRM_CRANIO" or "CT_CRANIO" => new[] { "emisfere cerebrale", "fosa posterioara", "trunchi cerebral", "ventricul", "hipocamp", "demielinizant", "flair", "leucoaraioza", "cisternele", "liniei mediene", "sinus" },
+            "CT_UMAR" => new[] { "umar", "umăr", "scapulo-humeral", "acromion", "acromio-clavicular", "glenoida", "cap humeral", "coafa rotatorilor", "bursa subacromio" },
+            "CT_PUMN" => new[] { "pumn", "carp", "scafoid", "semilunar", "radio-carpian", "radio-ulnar", "metacarp", "piramidal", "trapezoid", "capitat" },
+            "CT_BAZIN" => new[] { "bazin", "inel pelvin", "coxo-femural", "sacro-iliac", "iliac", "ischion", "pubis", "simfiza pubiana", "acetabul", "cap femural", "col femural" },
+            "CT_COAPSA" => new[] { "coapsa", "coapsă", "femur", "femural", "diafiza femurala", "muscular coapsa", "fascia lata" },
+            "CT_GAMBA" => new[] { "gamba", "gambă", "tibie", "peroneu", "fibula", "diafiza tibiala", "maleola", "tibio-fibular" },
+            "CT_ANTEPICIOR" => new[] { "antepicior", "metatars", "tarso-metatarsian", "lisfranc", "falange", "antepiciorului", "cuneiform", "cuboid" },
             "IRM_HIPOFIZA" => new[] { "hipofiz", "selar", "chiasma", "tija pituitara", "adenohipofiz", "cavernos" },
-            "IRM_BAZIN" => new[] { "coxo-femural", "sacro-iliac", "cap femural", "acetabul", "coxartroz" },
-            "CT_TORACE" or "CT_TEP" => new[] { "pulmonar", "mediastin", "pleur", "bronsiectaz", "emfizem", "geam mat", "traheo-bronsic", "subpleural", "artera pulmonara" },
-            "IRM_ABDOMEN" or "IRM_HEPATIC" or "IRM_MRCP" or "CT_ABDOMINOPELVIN" => new[] { "ficat", "colecist", "biliar", "pancreas", "splin", "rinichi", "suprarenal", "porta", "coledoc", "abdomin", "apendic", "cec" },
             "IRM_PELVIS" => new[] { "uter", "ovar", "endometru", "miometru", "prostat", "vezica urinara", "douglas", "rect" },
             _ => new[] { "irm", "ct", "normal", "modificari" }
         };

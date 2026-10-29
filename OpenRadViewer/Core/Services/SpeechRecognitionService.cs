@@ -140,6 +140,25 @@ public class SpeechRecognitionService : IDisposable
                     File.Copy(assetNotes, targetNotes, true);
                 }
             }
+
+            string[] urgRefFiles = new[] { "URGENTE CT.txt", "REZULTATELE MELE URGENTE CT .txt" };
+            foreach (var urf in urgRefFiles)
+            {
+                string targetUrg = Path.Combine(_referenceReportsDir, urf);
+                if (!File.Exists(targetUrg))
+                {
+                    string assetUrg = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assets", urf);
+                    string desktopUrg = Path.Combine(@"f:\Desktop", urf);
+                    if (File.Exists(assetUrg))
+                    {
+                        File.Copy(assetUrg, targetUrg, true);
+                    }
+                    else if (File.Exists(desktopUrg))
+                    {
+                        File.Copy(desktopUrg, targetUrg, true);
+                    }
+                }
+            }
         }
         catch { }
 
@@ -483,7 +502,9 @@ public class SpeechRecognitionService : IDisposable
                 string fname = Path.GetFileName(file);
                 if (fname.StartsWith("vocabular", StringComparison.OrdinalIgnoreCase) ||
                     fname.StartsWith("modele_rezultate", StringComparison.OrdinalIgnoreCase) ||
-                    fname.StartsWith("notepad", StringComparison.OrdinalIgnoreCase))
+                    fname.StartsWith("notepad", StringComparison.OrdinalIgnoreCase) ||
+                    fname.StartsWith("URGENTE", StringComparison.OrdinalIgnoreCase) ||
+                    fname.StartsWith("REZULTATELE", StringComparison.OrdinalIgnoreCase))
                     continue;
                 string ext = Path.GetExtension(file).ToLowerInvariant();
                 if (ext == ".txt")

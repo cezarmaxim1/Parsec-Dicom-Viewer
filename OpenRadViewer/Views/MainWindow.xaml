@@ -1179,6 +1179,7 @@
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="Auto" />
                                     <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
                                     <ColumnDefinition Width="*" />
                                 </Grid.ColumnDefinitions>
 
@@ -1192,15 +1193,25 @@
                                     </StackPanel>
                                 </Button>
 
+                                <!-- Save as URG.docx Button -->
+                                <Button Grid.Column="1" Height="26" Padding="10,2" Margin="6,0,0,0" Click="OnSaveAsUrgDocx"
+                                        Background="#3D1A10" Foreground="#FFA726" BorderBrush="#C84B20"
+                                        ToolTip="Save medical report with official Hospital Emergency Header (antet ct urgente.docx)">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBlock Text="🚨" FontSize="11" Margin="0,0,5,0" VerticalAlignment="Center" />
+                                        <TextBlock Text="Save as URG.docx" FontSize="11" FontWeight="Bold" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Button>
+
                                 <!-- Clear Text Button -->
-                                <Button Grid.Column="1" Height="26" Padding="8,2" Margin="6,0,0,0" Click="OnClearProtocolsText"
+                                <Button Grid.Column="2" Height="26" Padding="8,2" Margin="6,0,0,0" Click="OnClearProtocolsText"
                                         Background="#222222" Foreground="#999999" BorderBrush="#383838"
                                         ToolTip="Clear all text in editor">
                                     <TextBlock Text="Clear" FontSize="11" VerticalAlignment="Center" />
                                 </Button>
 
                                 <!-- Status Message -->
-                                <TextBlock Grid.Column="2" Text="{Binding ProtocolsStatusMessage}"
+                                <TextBlock Grid.Column="3" Text="{Binding ProtocolsStatusMessage}"
                                            Foreground="#888888" FontSize="10.5" VerticalAlignment="Center"
                                            HorizontalAlignment="Right" Margin="8,0,0,0" TextTrimming="CharacterEllipsis" />
                             </Grid>
@@ -1224,7 +1235,8 @@
 
                 <!-- Progress indicator if loading -->
                 <ProgressBar Grid.Column="1" Width="140" Height="12" Margin="10,0"
-                             Value="{Binding ProgressPercent}" 
+                             Value="{Binding ProgressPercent}" Minimum="0" Maximum="100"
+                             Foreground="#F5AF28" Background="#262626" BorderBrush="#3D3D3D"
                              Visibility="{Binding IsLoading, Converter={StaticResource BooleanToVisibilityConverter}}" />
 
                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
