@@ -423,14 +423,14 @@ public static class DocxExportService
         string patientName,
         string cnp,
         string examDate,
+        string clinica,
+        string doctor,
+        string fo,
+        string diagnostic,
         string examName,
         string contrast,
         string dlp,
-        string nr = "",
-        string clinica = "",
-        string doctor = "",
-        string fo = "",
-        string diagnostic = "")
+        string nr = "")
     {
         if (File.Exists(targetFilePath))
         {
@@ -467,6 +467,8 @@ public static class DocxExportService
         if (tblStart >= 0 && tblEnd > tblStart)
         {
             tblXml = origXml.Substring(tblStart, (tblEnd + "</w:tbl>".Length) - tblStart);
+            // Ensure font size in signatures table is strictly 12pt (sz val=24)
+            tblXml = tblXml.Replace(@"w:val=""22""", @"w:val=""24""");
         }
 
         // Extract section properties <w:sectPr>...</w:sectPr>
@@ -486,51 +488,59 @@ public static class DocxExportService
             var sb = new StringBuilder();
             sb.Append(docPrefix);
 
-            // Title: BULETIN DE EXAMINARE COMPUTER-TOMOGRAFICĂ
-            sb.Append(@"<w:p><w:pPr><w:jc w:val=""center""/><w:rPr><w:b/><w:sz w:val=""26""/><w:szCs w:val=""26""/><w:lang w:val=""ro-RO""/></w:rPr></w:pPr><w:r><w:rPr><w:b/><w:sz w:val=""26""/><w:szCs w:val=""26""/><w:lang w:val=""ro-RO""/></w:rPr><w:t>BULETIN DE EXAMINARE COMPUTER-TOMOGRAFICĂ</w:t></w:r></w:p>");
+            const string rPr12 = @"<w:rPr><w:rFonts w:ascii=""Times New Roman"" w:hAnsi=""Times New Roman"" w:cs=""Times New Roman""/><w:sz w:val=""24""/><w:szCs w:val=""24""/><w:lang w:val=""ro-RO""/></w:rPr>";
+            const string rPr12Bold = @"<w:rPr><w:rFonts w:ascii=""Times New Roman"" w:hAnsi=""Times New Roman"" w:cs=""Times New Roman""/><w:b/><w:sz w:val=""24""/><w:szCs w:val=""24""/><w:lang w:val=""ro-RO""/></w:rPr>";
 
-            // Registration & Date: URG Nr. {nr} Din {examDate}
+            // Title: BULETIN DE EXAMINARE COMPUTER-TOMOGRAFICĂ (12pt, Bold, Centered)
+            sb.Append($@"<w:p><w:pPr><w:jc w:val=""center""/><w:rPr><w:rFonts w:ascii=""Times New Roman"" w:hAnsi=""Times New Roman"" w:cs=""Times New Roman""/><w:b/><w:sz w:val=""24""/><w:szCs w:val=""24""/><w:lang w:val=""ro-RO""/></w:rPr></w:pPr><w:r>{rPr12Bold}<w:t>BULETIN DE EXAMINARE COMPUTER-TOMOGRAFICĂ</w:t></w:r></w:p>");
+
+            // Registration & Date: URG Nr. {nr} Din {examDate} (12pt, Normal, No bold)
             string nrPart = string.IsNullOrWhiteSpace(nr) ? " " : $" {SecurityElement.Escape(nr)} ";
-            sb.Append($@"<w:p><w:pPr><w:rPr><w:b w:val=""0""/><w:lang w:val=""ro-RO""/></w:rPr></w:pPr><w:r><w:rPr><w:b w:val=""0""/><w:lang w:val=""ro-RO""/></w:rPr><w:t>URG Nr.{nrPart}Din {SecurityElement.Escape(examDate)}</w:t></w:r></w:p>");
+            sb.Append($@"<w:p><w:pPr><w:rPr><w:rFonts w:ascii=""Times New Roman"" w:hAnsi=""Times New Roman"" w:cs=""Times New Roman""/><w:sz w:val=""24""/><w:szCs w:val=""24""/><w:lang w:val=""ro-RO""/></w:rPr></w:pPr><w:r>{rPr12}<w:t xml:space=""preserve"">URG Nr.{nrPart}Din {SecurityElement.Escape(examDate)}</w:t></w:r></w:p>");
 
             // Empty line
-            sb.Append(@"<w:p><w:pPr><w:jc w:val=""both""/></w:pPr></w:p>");
+            sb.Append(@"<w:p><w:pPr><w:jc w:val=""both""/><w:rPr><w:sz w:val=""24""/><w:szCs w:val=""24""/></w:rPr></w:pPr></w:p>");
 
-            // PACIENT & CNP
-            sb.Append($@"<w:p><w:pPr><w:jc w:val=""both""/><w:rPr><w:bCs/></w:rPr></w:pPr><w:r><w:rPr><w:b/></w:rPr><w:t>PACIENT: </w:t></w:r><w:r><w:t>{SecurityElement.Escape(patientName.ToUpperInvariant())}</w:t></w:r><w:r><w:tab/><w:tab/><w:tab/><w:tab/><w:tab/></w:r><w:r><w:rPr><w:b/></w:rPr><w:t>CNP: </w:t></w:r><w:r><w:t>{SecurityElement.Escape(cnp)}</w:t></w:r></w:p>");
+            // PACIENT & CNP (12pt, Normal, No bold)
+            string cnpVal = string.IsNullOrWhiteSpace(cnp) ? "" : SecurityElement.Escape(cnp);
+            sb.Append($@"<w:p><w:pPr><w:jc w:val=""both""/><w:rPr><w:sz w:val=""24""/><w:szCs w:val=""24""/></w:rPr></w:pPr><w:r>{rPr12}<w:t xml:space=""preserve"">PACIENT: </w:t></w:r><w:r>{rPr12}<w:t>{SecurityElement.Escape(patientName.ToUpperInvariant())}</w:t></w:r><w:r>{rPr12}<w:tab/><w:tab/><w:tab/><w:tab/><w:tab/></w:r><w:r>{rPr12}<w:t xml:space=""preserve"">CNP: </w:t></w:r><w:r>{rPr12}<w:t>{cnpVal}</w:t></w:r></w:p>");
 
-            // CLINICA/DR & FO
+            // CLINICA/DR & FO (12pt, Normal, No bold)
             string clinVal = string.IsNullOrWhiteSpace(clinica) ? "UPU" : clinica;
-            string clinDrText = !string.IsNullOrWhiteSpace(doctor) ? $"{clinVal} /DR. {doctor.ToUpperInvariant()}" : $"{clinVal} /DR.";
-            sb.Append($@"<w:p><w:pPr><w:jc w:val=""both""/><w:rPr><w:bCs/></w:rPr></w:pPr><w:r><w:rPr><w:b/></w:rPr><w:t>CLINICA/DR: </w:t></w:r><w:r><w:t>{SecurityElement.Escape(clinDrText)}</w:t></w:r><w:r><w:tab/><w:tab/><w:tab/><w:tab/><w:tab/></w:r><w:r><w:rPr><w:b/></w:rPr><w:t>FO: </w:t></w:r><w:r><w:t>{SecurityElement.Escape(fo)}</w:t></w:r></w:p>");
+            string clinDrText = !string.IsNullOrWhiteSpace(doctor) ? $"{clinVal} /DR. {doctor.ToUpperInvariant()}" : $"{clinVal} /DR. ";
+            string foVal = string.IsNullOrWhiteSpace(fo) ? "" : SecurityElement.Escape(fo);
+            sb.Append($@"<w:p><w:pPr><w:jc w:val=""both""/><w:rPr><w:sz w:val=""24""/><w:szCs w:val=""24""/></w:rPr></w:pPr><w:r>{rPr12}<w:t xml:space=""preserve"">CLINICA/DR: </w:t></w:r><w:r>{rPr12}<w:t>{SecurityElement.Escape(clinDrText)}</w:t></w:r><w:r>{rPr12}<w:tab/><w:tab/><w:tab/><w:tab/><w:tab/></w:r><w:r>{rPr12}<w:t xml:space=""preserve"">FO: </w:t></w:r><w:r>{rPr12}<w:t>{foVal}</w:t></w:r></w:p>");
 
-            // DIAGNOSTIC DE TRIMITERE
-            sb.Append($@"<w:p><w:pPr><w:jc w:val=""both""/><w:rPr><w:bCs/></w:rPr></w:pPr><w:r><w:rPr><w:b/></w:rPr><w:t>DIAGNOSTIC DE TRIMITERE: </w:t></w:r><w:r><w:t>{SecurityElement.Escape(diagnostic)}</w:t></w:r></w:p>");
+            // DIAGNOSTIC DE TRIMITERE (12pt, Normal, No bold)
+            string diagVal = string.IsNullOrWhiteSpace(diagnostic) ? "" : SecurityElement.Escape(diagnostic);
+            sb.Append($@"<w:p><w:pPr><w:jc w:val=""both""/><w:rPr><w:sz w:val=""24""/><w:szCs w:val=""24""/></w:rPr></w:pPr><w:r>{rPr12}<w:t xml:space=""preserve"">DIAGNOSTIC DE TRIMITERE: </w:t></w:r><w:r>{rPr12}<w:t>{diagVal}</w:t></w:r></w:p>");
 
-            // EXAMEN REALIZAT
-            sb.Append($@"<w:p><w:pPr><w:jc w:val=""both""/><w:rPr><w:bCs/></w:rPr></w:pPr><w:r><w:rPr><w:b/></w:rPr><w:t>EXAMEN REALIZAT: </w:t></w:r><w:r><w:t>{SecurityElement.Escape(examName)}</w:t></w:r></w:p>");
+            // EXAMEN REALIZAT (12pt, Normal, No bold)
+            string examVal = string.IsNullOrWhiteSpace(examName) ? "" : SecurityElement.Escape(examName.ToUpperInvariant());
+            sb.Append($@"<w:p><w:pPr><w:jc w:val=""both""/><w:rPr><w:sz w:val=""24""/><w:szCs w:val=""24""/></w:rPr></w:pPr><w:r>{rPr12}<w:t xml:space=""preserve"">EXAMEN REALIZAT: </w:t></w:r><w:r>{rPr12}<w:t>{examVal}</w:t></w:r></w:p>");
 
-            // SUBSTANTA DE CONTRAST & DLP
-            string dlpValue = string.IsNullOrWhiteSpace(dlp) ? "" : $"{SecurityElement.Escape(dlp)} ";
-            sb.Append($@"<w:p><w:pPr><w:jc w:val=""both""/><w:rPr><w:bCs/></w:rPr></w:pPr><w:r><w:rPr><w:b/></w:rPr><w:t>SUBSTANTA DE CONTRAST: </w:t></w:r><w:r><w:t>{SecurityElement.Escape(contrast)}</w:t></w:r><w:r><w:tab/><w:tab/><w:tab/><w:tab/></w:r><w:r><w:rPr><w:b/></w:rPr><w:t>DLP: </w:t></w:r><w:r><w:t>{dlpValue}mGy*cm</w:t></w:r></w:p>");
+            // SUBSTANTA DE CONTRAST & DLP (12pt, Normal, No bold)
+            string contrastVal = string.IsNullOrWhiteSpace(contrast) ? "" : SecurityElement.Escape(contrast.ToUpperInvariant());
+            string dlpText = !string.IsNullOrWhiteSpace(dlp) ? $"{SecurityElement.Escape(dlp)} mGy*cm" : "mGy*cm";
+            sb.Append($@"<w:p><w:pPr><w:jc w:val=""both""/><w:rPr><w:sz w:val=""24""/><w:szCs w:val=""24""/></w:rPr></w:pPr><w:r>{rPr12}<w:t xml:space=""preserve"">SUBSTANTA DE CONTRAST: </w:t></w:r><w:r>{rPr12}<w:t>{contrastVal}</w:t></w:r><w:r>{rPr12}<w:tab/><w:tab/><w:tab/><w:tab/></w:r><w:r>{rPr12}<w:t xml:space=""preserve"">DLP: </w:t></w:r><w:r>{rPr12}<w:t>{dlpText}</w:t></w:r></w:p>");
 
             // UN RAND SPATIU INAINTE DE TEXT
-            sb.Append(@"<w:p><w:pPr><w:jc w:val=""both""/></w:pPr></w:p>");
+            sb.Append(@"<w:p><w:pPr><w:jc w:val=""both""/><w:rPr><w:sz w:val=""24""/><w:szCs w:val=""24""/></w:rPr></w:pPr></w:p>");
 
-            // TEXT / INTERPRETARE RAPORT
+            // TEXT / INTERPRETARE RAPORT (12pt)
             AppendUrgBodyParagraphs(sb, bodyText);
 
             // UN RAND SPATIU DUPA TEXT
-            sb.Append(@"<w:p><w:pPr><w:jc w:val=""both""/></w:pPr></w:p>");
+            sb.Append(@"<w:p><w:pPr><w:jc w:val=""both""/><w:rPr><w:sz w:val=""24""/><w:szCs w:val=""24""/></w:rPr></w:pPr></w:p>");
 
-            // TABELUL DE SEMNATURI AL DOCTORILOR
+            // TABELUL DE SEMNATURI AL DOCTORILOR (12pt)
             if (!string.IsNullOrWhiteSpace(tblXml))
             {
                 sb.Append(tblXml);
             }
 
             // POST-TABLE BLANK LINE
-            sb.Append(@"<w:p><w:pPr><w:jc w:val=""both""/></w:pPr></w:p>");
+            sb.Append(@"<w:p><w:pPr><w:jc w:val=""both""/><w:rPr><w:sz w:val=""24""/><w:szCs w:val=""24""/></w:rPr></w:pPr></w:p>");
 
             // SECTPR (header & footer references)
             if (!string.IsNullOrWhiteSpace(sectPrXml))

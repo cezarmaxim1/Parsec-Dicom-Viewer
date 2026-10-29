@@ -1983,19 +1983,19 @@ public partial class MainWindow : Window
                 if (string.IsNullOrWhiteSpace(cleanBody)) cleanBody = reportBodyText;
 
                 Core.Services.DocxExportService.SaveTextToUrgDocx(
-                    cleanBody,
-                    sfd.FileName,
-                    patientFullName,
-                    cnp,
-                    examDateStr,
-                    clinica,
-                    doctor,
-                    fo,
-                    diagnostic,
-                    examName,
-                    contrast,
-                    dlpStr,
-                    nr);
+                    bodyText: cleanBody,
+                    targetFilePath: sfd.FileName,
+                    patientName: patientFullName,
+                    cnp: cnp,
+                    examDate: examDateStr,
+                    clinica: clinica,
+                    doctor: doctor,
+                    fo: fo,
+                    diagnostic: diagnostic,
+                    examName: examName,
+                    contrast: contrast,
+                    dlp: dlpStr,
+                    nr: nr);
 
                 ViewModel.ProtocolsStatusMessage = $"URG Report saved: {System.IO.Path.GetFileName(sfd.FileName)} ({DateTime.Now:HH:mm:ss})";
             }
