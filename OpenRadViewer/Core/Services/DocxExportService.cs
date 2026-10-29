@@ -491,47 +491,47 @@ public static class DocxExportService
             const string rPr12 = @"<w:rPr><w:rFonts w:ascii=""Times New Roman"" w:hAnsi=""Times New Roman"" w:cs=""Times New Roman""/><w:sz w:val=""24""/><w:szCs w:val=""24""/><w:lang w:val=""ro-RO""/></w:rPr>";
             const string rPr12Bold = @"<w:rPr><w:rFonts w:ascii=""Times New Roman"" w:hAnsi=""Times New Roman"" w:cs=""Times New Roman""/><w:b/><w:sz w:val=""24""/><w:szCs w:val=""24""/><w:lang w:val=""ro-RO""/></w:rPr>";
 
-            // Title: BULETIN DE EXAMINARE COMPUTER-TOMOGRAFICĂ (12pt, Bold, Centered)
-            sb.Append($@"<w:p><w:pPr><w:jc w:val=""center""/><w:rPr><w:rFonts w:ascii=""Times New Roman"" w:hAnsi=""Times New Roman"" w:cs=""Times New Roman""/><w:b/><w:sz w:val=""24""/><w:szCs w:val=""24""/><w:lang w:val=""ro-RO""/></w:rPr></w:pPr><w:r>{rPr12Bold}<w:t>BULETIN DE EXAMINARE COMPUTER-TOMOGRAFICĂ</w:t></w:r></w:p>");
+            // Title: BULETIN DE EXAMINARE COMPUTER-TOMOGRAFICĂ (12pt, Bold, Centered, single spacing)
+            sb.Append($@"<w:p><w:pPr><w:jc w:val=""center""/><w:spacing w:before=""0"" w:after=""0"" w:line=""240"" w:lineRule=""auto""/><w:rPr><w:rFonts w:ascii=""Times New Roman"" w:hAnsi=""Times New Roman"" w:cs=""Times New Roman""/><w:b/><w:sz w:val=""24""/><w:szCs w:val=""24""/><w:lang w:val=""ro-RO""/></w:rPr></w:pPr><w:r>{rPr12Bold}<w:t>BULETIN DE EXAMINARE COMPUTER-TOMOGRAFICĂ</w:t></w:r></w:p>");
 
-            // Registration & Date: URG Nr. {nr} Din {examDate} (12pt, Normal, No bold)
+            // Registration & Date: URG nr. {nr} din {examDate} (12pt, Normal, No bold, Centered, single spacing)
             string nrPart = string.IsNullOrWhiteSpace(nr) ? " " : $" {SecurityElement.Escape(nr)} ";
-            sb.Append($@"<w:p><w:pPr><w:rPr><w:rFonts w:ascii=""Times New Roman"" w:hAnsi=""Times New Roman"" w:cs=""Times New Roman""/><w:sz w:val=""24""/><w:szCs w:val=""24""/><w:lang w:val=""ro-RO""/></w:rPr></w:pPr><w:r>{rPr12}<w:t xml:space=""preserve"">URG Nr.{nrPart}Din {SecurityElement.Escape(examDate)}</w:t></w:r></w:p>");
+            sb.Append($@"<w:p><w:pPr><w:jc w:val=""center""/><w:spacing w:before=""0"" w:after=""0"" w:line=""240"" w:lineRule=""auto""/><w:rPr><w:rFonts w:ascii=""Times New Roman"" w:hAnsi=""Times New Roman"" w:cs=""Times New Roman""/><w:sz w:val=""24""/><w:szCs w:val=""24""/><w:lang w:val=""ro-RO""/></w:rPr></w:pPr><w:r>{rPr12}<w:t xml:space=""preserve"">URG nr.{nrPart}din {SecurityElement.Escape(examDate)}</w:t></w:r></w:p>");
 
             // Empty line
-            sb.Append(@"<w:p><w:pPr><w:jc w:val=""both""/><w:rPr><w:sz w:val=""24""/><w:szCs w:val=""24""/></w:rPr></w:pPr></w:p>");
+            sb.Append(@"<w:p><w:pPr><w:jc w:val=""both""/><w:spacing w:before=""0"" w:after=""0"" w:line=""240"" w:lineRule=""auto""/><w:rPr><w:sz w:val=""24""/><w:szCs w:val=""24""/></w:rPr></w:pPr></w:p>");
 
-            // PACIENT & CNP (12pt, Normal, No bold)
+            // PACIENT & CNP (12pt, Normal, No bold, single spacing)
             string cnpVal = string.IsNullOrWhiteSpace(cnp) ? "" : SecurityElement.Escape(cnp);
-            sb.Append($@"<w:p><w:pPr><w:jc w:val=""both""/><w:rPr><w:sz w:val=""24""/><w:szCs w:val=""24""/></w:rPr></w:pPr><w:r>{rPr12}<w:t xml:space=""preserve"">PACIENT: </w:t></w:r><w:r>{rPr12}<w:t>{SecurityElement.Escape(patientName.ToUpperInvariant())}</w:t></w:r><w:r>{rPr12}<w:tab/><w:tab/><w:tab/><w:tab/><w:tab/></w:r><w:r>{rPr12}<w:t xml:space=""preserve"">CNP: </w:t></w:r><w:r>{rPr12}<w:t>{cnpVal}</w:t></w:r></w:p>");
+            sb.Append($@"<w:p><w:pPr><w:jc w:val=""both""/><w:spacing w:before=""0"" w:after=""0"" w:line=""240"" w:lineRule=""auto""/><w:rPr><w:sz w:val=""24""/><w:szCs w:val=""24""/></w:rPr></w:pPr><w:r>{rPr12}<w:t xml:space=""preserve"">PACIENT: </w:t></w:r><w:r>{rPr12}<w:t>{SecurityElement.Escape(patientName.ToUpperInvariant())}</w:t></w:r><w:r>{rPr12}<w:tab/><w:tab/><w:tab/><w:tab/><w:tab/></w:r><w:r>{rPr12}<w:t xml:space=""preserve"">CNP: </w:t></w:r><w:r>{rPr12}<w:t>{cnpVal}</w:t></w:r></w:p>");
 
-            // CLINICA/DR & FO (12pt, Normal, No bold)
+            // CLINICA/DR & FO (12pt, Normal, No bold, single spacing)
             string clinVal = string.IsNullOrWhiteSpace(clinica) ? "UPU" : clinica;
             string clinDrText = !string.IsNullOrWhiteSpace(doctor) ? $"{clinVal} /DR. {doctor.ToUpperInvariant()}" : $"{clinVal} /DR. ";
             string foVal = string.IsNullOrWhiteSpace(fo) ? "" : SecurityElement.Escape(fo);
-            sb.Append($@"<w:p><w:pPr><w:jc w:val=""both""/><w:rPr><w:sz w:val=""24""/><w:szCs w:val=""24""/></w:rPr></w:pPr><w:r>{rPr12}<w:t xml:space=""preserve"">CLINICA/DR: </w:t></w:r><w:r>{rPr12}<w:t>{SecurityElement.Escape(clinDrText)}</w:t></w:r><w:r>{rPr12}<w:tab/><w:tab/><w:tab/><w:tab/><w:tab/></w:r><w:r>{rPr12}<w:t xml:space=""preserve"">FO: </w:t></w:r><w:r>{rPr12}<w:t>{foVal}</w:t></w:r></w:p>");
+            sb.Append($@"<w:p><w:pPr><w:jc w:val=""both""/><w:spacing w:before=""0"" w:after=""0"" w:line=""240"" w:lineRule=""auto""/><w:rPr><w:sz w:val=""24""/><w:szCs w:val=""24""/></w:rPr></w:pPr><w:r>{rPr12}<w:t xml:space=""preserve"">CLINICA/DR: </w:t></w:r><w:r>{rPr12}<w:t>{SecurityElement.Escape(clinDrText)}</w:t></w:r><w:r>{rPr12}<w:tab/><w:tab/><w:tab/><w:tab/><w:tab/></w:r><w:r>{rPr12}<w:t xml:space=""preserve"">FO: </w:t></w:r><w:r>{rPr12}<w:t>{foVal}</w:t></w:r></w:p>");
 
-            // DIAGNOSTIC DE TRIMITERE (12pt, Normal, No bold)
+            // DIAGNOSTIC DE TRIMITERE (12pt, Normal, No bold, single spacing)
             string diagVal = string.IsNullOrWhiteSpace(diagnostic) ? "" : SecurityElement.Escape(diagnostic);
-            sb.Append($@"<w:p><w:pPr><w:jc w:val=""both""/><w:rPr><w:sz w:val=""24""/><w:szCs w:val=""24""/></w:rPr></w:pPr><w:r>{rPr12}<w:t xml:space=""preserve"">DIAGNOSTIC DE TRIMITERE: </w:t></w:r><w:r>{rPr12}<w:t>{diagVal}</w:t></w:r></w:p>");
+            sb.Append($@"<w:p><w:pPr><w:jc w:val=""both""/><w:spacing w:before=""0"" w:after=""0"" w:line=""240"" w:lineRule=""auto""/><w:rPr><w:sz w:val=""24""/><w:szCs w:val=""24""/></w:rPr></w:pPr><w:r>{rPr12}<w:t xml:space=""preserve"">DIAGNOSTIC DE TRIMITERE: </w:t></w:r><w:r>{rPr12}<w:t>{diagVal}</w:t></w:r></w:p>");
 
-            // EXAMEN REALIZAT (12pt, Normal, No bold)
+            // EXAMEN REALIZAT (12pt, Normal, No bold, single spacing)
             string examVal = string.IsNullOrWhiteSpace(examName) ? "" : SecurityElement.Escape(examName.ToUpperInvariant());
-            sb.Append($@"<w:p><w:pPr><w:jc w:val=""both""/><w:rPr><w:sz w:val=""24""/><w:szCs w:val=""24""/></w:rPr></w:pPr><w:r>{rPr12}<w:t xml:space=""preserve"">EXAMEN REALIZAT: </w:t></w:r><w:r>{rPr12}<w:t>{examVal}</w:t></w:r></w:p>");
+            sb.Append($@"<w:p><w:pPr><w:jc w:val=""both""/><w:spacing w:before=""0"" w:after=""0"" w:line=""240"" w:lineRule=""auto""/><w:rPr><w:sz w:val=""24""/><w:szCs w:val=""24""/></w:rPr></w:pPr><w:r>{rPr12}<w:t xml:space=""preserve"">EXAMEN REALIZAT: </w:t></w:r><w:r>{rPr12}<w:t>{examVal}</w:t></w:r></w:p>");
 
-            // SUBSTANTA DE CONTRAST & DLP (12pt, Normal, No bold)
+            // SUBSTANTA DE CONTRAST & DLP (12pt, Normal, No bold, single spacing)
             string contrastVal = string.IsNullOrWhiteSpace(contrast) ? "" : SecurityElement.Escape(contrast.ToUpperInvariant());
             string dlpText = !string.IsNullOrWhiteSpace(dlp) ? $"{SecurityElement.Escape(dlp)} mGy*cm" : "mGy*cm";
-            sb.Append($@"<w:p><w:pPr><w:jc w:val=""both""/><w:rPr><w:sz w:val=""24""/><w:szCs w:val=""24""/></w:rPr></w:pPr><w:r>{rPr12}<w:t xml:space=""preserve"">SUBSTANTA DE CONTRAST: </w:t></w:r><w:r>{rPr12}<w:t>{contrastVal}</w:t></w:r><w:r>{rPr12}<w:tab/><w:tab/><w:tab/><w:tab/></w:r><w:r>{rPr12}<w:t xml:space=""preserve"">DLP: </w:t></w:r><w:r>{rPr12}<w:t>{dlpText}</w:t></w:r></w:p>");
+            sb.Append($@"<w:p><w:pPr><w:jc w:val=""both""/><w:spacing w:before=""0"" w:after=""0"" w:line=""240"" w:lineRule=""auto""/><w:rPr><w:sz w:val=""24""/><w:szCs w:val=""24""/></w:rPr></w:pPr><w:r>{rPr12}<w:t xml:space=""preserve"">SUBSTANTA DE CONTRAST: </w:t></w:r><w:r>{rPr12}<w:t>{contrastVal}</w:t></w:r><w:r>{rPr12}<w:tab/><w:tab/><w:tab/><w:tab/></w:r><w:r>{rPr12}<w:t xml:space=""preserve"">DLP: </w:t></w:r><w:r>{rPr12}<w:t>{dlpText}</w:t></w:r></w:p>");
 
             // UN RAND SPATIU INAINTE DE TEXT
-            sb.Append(@"<w:p><w:pPr><w:jc w:val=""both""/><w:rPr><w:sz w:val=""24""/><w:szCs w:val=""24""/></w:rPr></w:pPr></w:p>");
+            sb.Append(@"<w:p><w:pPr><w:jc w:val=""both""/><w:spacing w:before=""0"" w:after=""0"" w:line=""240"" w:lineRule=""auto""/><w:rPr><w:sz w:val=""24""/><w:szCs w:val=""24""/></w:rPr></w:pPr></w:p>");
 
             // TEXT / INTERPRETARE RAPORT (12pt)
             AppendUrgBodyParagraphs(sb, bodyText);
 
             // UN RAND SPATIU DUPA TEXT
-            sb.Append(@"<w:p><w:pPr><w:jc w:val=""both""/><w:rPr><w:sz w:val=""24""/><w:szCs w:val=""24""/></w:rPr></w:pPr></w:p>");
+            sb.Append(@"<w:p><w:pPr><w:jc w:val=""both""/><w:spacing w:before=""0"" w:after=""0"" w:line=""240"" w:lineRule=""auto""/><w:rPr><w:sz w:val=""24""/><w:szCs w:val=""24""/></w:rPr></w:pPr></w:p>");
 
             // TABELUL DE SEMNATURI AL DOCTORILOR (12pt)
             if (!string.IsNullOrWhiteSpace(tblXml))
@@ -540,7 +540,7 @@ public static class DocxExportService
             }
 
             // POST-TABLE BLANK LINE
-            sb.Append(@"<w:p><w:pPr><w:jc w:val=""both""/><w:rPr><w:sz w:val=""24""/><w:szCs w:val=""24""/></w:rPr></w:pPr></w:p>");
+            sb.Append(@"<w:p><w:pPr><w:jc w:val=""both""/><w:spacing w:before=""0"" w:after=""0"" w:line=""240"" w:lineRule=""auto""/><w:rPr><w:sz w:val=""24""/><w:szCs w:val=""24""/></w:rPr></w:pPr></w:p>");
 
             // SECTPR (header & footer references)
             if (!string.IsNullOrWhiteSpace(sectPrXml))
@@ -603,7 +603,7 @@ public static class DocxExportService
             string line = rawLine.TrimEnd();
             if (string.IsNullOrWhiteSpace(line))
             {
-                sb.Append($@"<w:p><w:pPr><w:jc w:val=""both""/><w:spacing w:before=""0"" w:after=""0"" w:line=""276"" w:lineRule=""auto""/></w:pPr><w:r>{rPrBase}</w:r></w:p>");
+                sb.Append($@"<w:p><w:pPr><w:jc w:val=""both""/><w:spacing w:before=""0"" w:after=""0"" w:line=""240"" w:lineRule=""auto""/></w:pPr><w:r>{rPrBase}</w:r></w:p>");
                 continue;
             }
 
@@ -623,7 +623,7 @@ public static class DocxExportService
             string rPr = isHeader ? rPrBold : rPrBase;
             string escaped = SecurityElement.Escape(line);
 
-            sb.Append($@"<w:p><w:pPr><w:jc w:val=""both""/><w:spacing w:before=""0"" w:after=""0"" w:line=""276"" w:lineRule=""auto""/></w:pPr><w:r>{rPr}<w:t xml:space=""preserve"">{escaped}</w:t></w:r></w:p>");
+            sb.Append($@"<w:p><w:pPr><w:jc w:val=""both""/><w:spacing w:before=""0"" w:after=""0"" w:line=""240"" w:lineRule=""auto""/></w:pPr><w:r>{rPr}<w:t xml:space=""preserve"">{escaped}</w:t></w:r></w:p>");
         }
     }
 }
