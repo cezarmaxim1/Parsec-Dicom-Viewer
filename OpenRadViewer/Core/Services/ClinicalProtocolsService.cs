@@ -663,15 +663,12 @@ Examinare CT antepicior in limite normale, fara traiecte de fractura sau leziuni
             DefaultContrast = "Nu",
             Content =
 @"CRANIO-CEREBRAL:
-Cisternele de la baza sunt libere.
-Trunchi cerebral, fosa posterioara, sistem ventricular, emisfere cerebrale cu aspect CT normal.
-Fara elemente de semiologie CT sugestive pentru hemoragie subarahnoidiana, hematoame intra- sau extranevraxiale sau accident vascular ischemic constituit.
-Structurile liniei mediene situate in planul de simetrie al capului.
-Calcificari in plexurile coroide si in glanda pineala.
-Sinusuri paranazale și celule mastoidiene normal aerate.
-
-CONCLUZII:
-Examen CT cranio-cerebral nativ in limite normale. Fara procese expansive intracraniene, leziuni vasculare ischemice/hemoragice acute sau fracturi craniene decelabile."
+	Cisternele de la baza sunt libere.
+	Trunchi cerebral, fosa posterioara, sistem ventricular, emisfere cerebrale cu aspect CT normal.
+	Fara elemente de semiologie CT sugestive pentru hemoragie subarahnoidiana, hematoame intra- sau extranevraxiale sau accident vascular ischemic constituit.
+	Structurile liniei mediene situate in planul de simetrie al capului.
+	Calcificari in plexurile coroide si in glanda pineala.
+	Sinusuri paranazale și celule mastoidiene normal aerate."
         });
 
         _protocols.Add(new ClinicalProtocol
@@ -683,14 +680,11 @@ Examen CT cranio-cerebral nativ in limite normale. Fara procese expansive intrac
             DefaultContrast = "Nu",
             Content =
 @"TORACE:
-Parenchim pulmonar cu aspect CT în limite normale.
-Arbore traheo-bronșic permeabil.
-Absenta adenopatiilor mediastinale.
-Absența revărsatelor lichidiene pleuro-pericardice.
-Vase mediastinale permeabile, cu calibru normal.
-
-CONCLUZII:
-Examen CT toracic in limite normale, fara leziuni pleuro-parenchimatoase acute sau adenopatii mediastinale decelabile."
+	Parenchim pulmonar cu aspect CT în limite normale.
+	Arbore traheo-bronșic permeabil.
+	Absenta adenopatiilor mediastinale.
+	Absența revărsatelor lichidiene pleuro-pericardice.
+	Vase mediastinale permeabile, cu calibru normal."
         });
 
         _protocols.Add(new ClinicalProtocol
@@ -702,14 +696,11 @@ Examen CT toracic in limite normale, fara leziuni pleuro-parenchimatoase acute s
             DefaultContrast = "Da",
             Content =
 @"TEP:
-Trunchiul arterei pulmonare cu calibru de .. mm, arteră pulmonară dreaptă cu calibru de ... mm și stângă cu calibru de ... mm, fără defecte de umplere sugestive pentru trombembolism.
-Nu se constată defecte de umplere la nivelul ramurilor lobare, segmentare și subsegmentare pulmonar bilateral.
-Nu se constată arii de consolidare periferică cu aspect de infarct constituit pulmonar bilateral.
-Absența revărsatelor lichidiene pleuro-pericardice.
-Arbore traheo-bronsic permeabil.
-
-CONCLUZII:
-Angio-CT artere pulmonare fara imagini de defect de umplere endoluminal sugestive pentru trombembolism pulmonar (TEP)."
+	Trunchiul arterei pulmonare cu calibru de .. mm, arteră pulmonară dreaptă cu calibru de ... mm și stângă cu calibru de ... mm, fără defecte de umplere sugestive pentru trombembolism.
+	Nu se constată defecte de umplere la nivelul ramurilor lobare, segmentare și subsegmentare pulmonar bilateral.
+	Nu se constată arii de consolidare periferică cu aspect de infarct constituit pulmonar bilateral.
+	Absența revărsatelor lichidiene pleuro-pericardice.
+	Arbore traheo-bronsic permeabil."
         });
 
         _protocols.Add(new ClinicalProtocol
@@ -721,26 +712,23 @@ Angio-CT artere pulmonare fara imagini de defect de umplere endoluminal sugestiv
             DefaultContrast = "Da",
             Content =
 @"ABDOMINO-PELVIN:
-Ficat cu dimensiuni in limite normale / crescute (diametru antero-posterior al lobului drept de  mm, al lobului stâng de  mm), structura omogena.
-Căi biliare intra- si extrahepatice nedilatate.
-Colecist destins, cu conținut lichidian, perete cu grosime normală, fără calculi radioopaci.
-Sistem port cu calibru normal, permeabil (venă portă cu diametru de mm, mezenterică superioară mm, splenica de mm).
-Pancreas, glande suprarenale cu aspect CT în limite normale.
-Splină cu dimensiuni de ~  mm (diametru maxim axial x grosime x lungime cranio-caudală), cu structură omogenă.
-Rinichi cu poziție, dimensiuni și morfologie normale, cu secreție și excreție simetrice, în limite normale de timp.
-Nu se constată adenopatii abdomino-pelvine.
-Nu se identifică lichid intraperitoneal.
-Colon cu pregătire digestivă, a fost destins prin administrare de contrast neutru (apă) prin clismă. În condițiile de examinare nu se constată modificări parietale, de calibru sau formațiuni expansive intraluminale.
-Stomac, anse intestinale destinse prin administrare de contrast neutru (apa), fara prize de contrast parietale patologice.
-Vezică urinară, vezicule seminale cu aspect CT în limite normale.
-Prostată cu dimensiuni de ~ (diametru antero-posterior x transversal x cranio-caudal), cu aspect CT normal.
-Vezica urinara, cu aspect CT normal.
-Uter cu dimensiuni de ~  mm (diametru longitudinal x diametre transversale), cu aspect normal. Endometru cu grosimea de  mm. Ovar drept cu dimensiuni de ~  (diametru antero-posterior x transversal x cranio-caudal) și stâng cu dimensiuni de  ~  (diametru antero-posterior x transversal x cranio-caudal), cu aspect CT normal.
-Modificari degenerativ-artrozice la nivelul coloanei vertebrale cuprinse in volumul scanat, manifestate prin osteofite antero-marginale, cu formare de punti osteofitice, fenomene de vid discal, pensarea spatiilor.
-Baze pulmonare cu aspect în limite normale.
-
-CONCLUZII:
-Examen CT abdomino-pelvin fara anomalii organice evolutive sau leziuni focale cu caracter cert patologic decelabile in prezent."
+	Ficat cu dimensiuni in limite normale / crescute (diametru antero-posterior al lobului drept de  mm, al lobului stâng de  mm), structura omogena.
+	Căi biliare intra- si extrahepatice nedilatate.
+	Colecist destins, cu conținut lichidian, perete cu grosime normală, fără calculi radioopaci.
+	Sistem port cu calibru normal, permeabil (venă portă cu diametru de mm, mezenterică superioară mm, splenica de mm).
+	Pancreas, glande suprarenale cu aspect CT în limite normale.
+	Splină cu dimensiuni de ~  mm (diametru maxim axial x grosime x lungime cranio-caudală), cu structură omogenă.
+	Rinichi cu poziție, dimensiuni și morfologie normale, cu secreție și excreție simetrice, în limite normale de timp.
+	Nu se constată adenopatii abdomino-pelvine.
+	Nu se identifică lichid intraperitoneal.
+	Colon cu pregătire digestivă, a fost destins prin administrare de contrast neutru (apă) prin clismă. În condițiile de examinare nu se constată modificări parietale, de calibru sau formațiuni expansive intraluminale.
+	Stomac, anse intestinale destinse prin administrare de contrast neutru (apa), fara prize de contrast parietale patologice.
+	Vezică urinară, vezicule seminale cu aspect CT în limite normale.
+	Prostată cu dimensiuni de ~ (diametru antero-posterior x transversal x cranio-caudal), cu aspect CT normal.
+	Vezica urinara, cu aspect CT normal.
+	Uter cu dimensiuni de ~  mm (diametru longitudinal x diametre transversale), cu aspect normal. Endometru cu grosimea de  mm. Ovar drept cu dimensiuni de ~  (diametru antero-posterior x transversal x cranio-caudal) și stâng cu dimensiuni de  ~  (diametru antero-posterior x transversal x cranio-caudal), cu aspect CT normal.
+	Modificari degenerativ-artrozice la nivelul coloanei vertebrale cuprinse in volumul scanat, manifestate prin osteofite antero-marginale, cu formare de punti osteofitice, fenomene de vid discal, pensarea spatiilor.
+	Baze pulmonare cu aspect în limite normale."
         });
 
         _protocols.Add(new ClinicalProtocol
@@ -752,33 +740,30 @@ Examen CT abdomino-pelvin fara anomalii organice evolutive sau leziuni focale cu
             DefaultContrast = "Da",
             Content =
 @"TORACE:
-Parenchim pulmonar cu aspect CT în limite normale.
-Arbore traheo-bronșic permeabil.
-Absenta adenopatiilor mediastinale.
-Absența revărsatelor lichidiene pleuro-pericardice.
-Vase mediastinale permeabile, cu calibru normal.
+	Parenchim pulmonar cu aspect CT în limite normale.
+	Arbore traheo-bronșic permeabil.
+	Absenta adenopatiilor mediastinale.
+	Absența revărsatelor lichidiene pleuro-pericardice.
+	Vase mediastinale permeabile, cu calibru normal.
 
 ABDOMINO-PELVIN:
-Ficat cu dimensiuni in limite normale / crescute (diametru antero-posterior al lobului drept de  mm, al lobului stâng de  mm), structura omogena.
-Căi biliare intra- si extrahepatice nedilatate.
-Colecist destins, cu conținut lichidian, perete cu grosime normală, fără calculi radioopaci.
-Sistem port cu calibru normal, permeabil (venă portă cu diametru de mm, mezenterică superioară mm, splenica de mm).
-Pancreas, glande suprarenale cu aspect CT în limite normale.
-Splină cu dimensiuni de ~  mm (diametru maxim axial x grosime x lungime cranio-caudală), cu structură omogenă.
-Rinichi cu poziție, dimensiuni și morfologie normale, cu secreție și excreție simetrice, în limite normale de timp.
-Nu se constată adenopatii abdomino-pelvine.
-Nu se identifică lichid intraperitoneal.
-Colon cu pregătire digestivă, a fost destins prin administrare de contrast neutru (apă) prin clismă. În condițiile de examinare nu se constată modificări parietale, de calibru sau formațiuni expansive intraluminale.
-Stomac, anse intestinale destinse prin administrare de contrast neutru (apa), fara prize de contrast parietale patologice.
-Vezică urinară, vezicule seminale cu aspect CT în limite normale.
-Prostată cu dimensiuni de ~ (diametru antero-posterior x transversal x cranio-caudal), cu aspect CT normal.
-Vezica urinara, cu aspect CT normal.
-Uter cu dimensiuni de ~  mm (diametru longitudinal x diametre transversale), cu aspect normal. Endometru cu grosimea de  mm. Ovar drept cu dimensiuni de ~  (diametru antero-posterior x transversal x cranio-caudal) și stâng cu dimensiuni de  ~  (diametru antero-posterior x transversal x cranio-caudal), cu aspect CT normal.
-Modificari degenerativ-artrozice la nivelul coloanei vertebrale cuprinse in volumul scanat, manifestate prin osteofite antero-marginale, cu formare de punti osteofitice, fenomene de vid discal, pensarea spatiilor.
-Baze pulmonare cu aspect în limite normale.
-
-CONCLUZII:
-Examen CT toraco-abdomino-pelvin fara leziuni pleuro-pulmonare acute, formatiuni expansive sau leziuni focale organice abdominale/pelvine decelabile la data examinarii."
+	Ficat cu dimensiuni in limite normale / crescute (diametru antero-posterior al lobului drept de  mm, al lobului stâng de  mm), structura omogena.
+	Căi biliare intra- si extrahepatice nedilatate.
+	Colecist destins, cu conținut lichidian, perete cu grosime normală, fără calculi radioopaci.
+	Sistem port cu calibru normal, permeabil (venă portă cu diametru de mm, mezenterică superioară mm, splenica de mm).
+	Pancreas, glande suprarenale cu aspect CT în limite normale.
+	Splină cu dimensiuni de ~  mm (diametru maxim axial x grosime x lungime cranio-caudală), cu structură omogenă.
+	Rinichi cu poziție, dimensiuni și morfologie normale, cu secreție și excreție simetrice, în limite normale de timp.
+	Nu se constată adenopatii abdomino-pelvine.
+	Nu se identifică lichid intraperitoneal.
+	Colon cu pregătire digestivă, a fost destins prin administrare de contrast neutru (apă) prin clismă. În condițiile de examinare nu se constată modificări parietale, de calibru sau formațiuni expansive intraluminale.
+	Stomac, anse intestinale destinse prin administrare de contrast neutru (apa), fara prize de contrast parietale patologice.
+	Vezică urinară, vezicule seminale cu aspect CT în limite normale.
+	Prostată cu dimensiuni de ~ (diametru antero-posterior x transversal x cranio-caudal), cu aspect CT normal.
+	Vezica urinara, cu aspect CT normal.
+	Uter cu dimensiuni de ~  mm (diametru longitudinal x diametre transversale), cu aspect normal. Endometru cu grosimea de  mm. Ovar drept cu dimensiuni de ~  (diametru antero-posterior x transversal x cranio-caudal) și stâng cu dimensiuni de  ~  (diametru antero-posterior x transversal x cranio-caudal), cu aspect CT normal.
+	Modificari degenerativ-artrozice la nivelul coloanei vertebrale cuprinse in volumul scanat, manifestate prin osteofite antero-marginale, cu formare de punti osteofitice, fenomene de vid discal, pensarea spatiilor.
+	Baze pulmonare cu aspect în limite normale."
         });
 
         _protocols.Add(new ClinicalProtocol
@@ -790,14 +775,11 @@ Examen CT toraco-abdomino-pelvin fara leziuni pleuro-pulmonare acute, formatiuni
             DefaultContrast = "Nu",
             Content =
 @"CRANIO-CEREBRAL:
-Cisternele de la baza sunt libere.
-Trunchi cerebral, fosa posterioara, sistem ventricular, emisfere cerebrale cu aspect CT normal.
-Fara elemente de semiologie CT sugestive pentru hemoragie subarahnoidiana, hematoame intra- sau extranevraxiale, accident vascular ischemic.
-Structurile liniei mediene situate in planul de simetrie al capului.
-Nu se deceleaza traiecte de fractura la nivelul neuro- si viscerocraniului.
-
-CONCLUZII:
-Examen CT cranio-cerebral fara leziuni traumatice acute decelabile (fara hematoame intra/extranevraxiale, HSA sau fracturi craniene)."
+	Cisternele de la baza sunt libere.
+	Trunchi cerebral, fosa posterioara, sistem ventricular, emisfere cerebrale cu aspect CT normal.
+	Fara elemente de semiologie CT sugestive pentru hemoragie subarahnoidiana, hematoame intra- sau extranevraxiale, accident vascular ischemic.
+	Structurile liniei mediene situate in planul de simetrie al capului.
+	Nu se deceleaza traiecte de fractura la nivelul neuro- si viscerocraniului."
         });
 
         _protocols.Add(new ClinicalProtocol
@@ -809,12 +791,9 @@ Examen CT cranio-cerebral fara leziuni traumatice acute decelabile (fara hematoa
             DefaultContrast = "Nu",
             Content =
 @"COLOANA CERVICALA:
-Nu se constata traiecte de fractura la nivelul vertebrelor cervicale.
-Congruenta articulatiilor atlanto-occipitale, atlanto-axiale si interapofizare la nivel cervical.
-Aliniament vertebral cervical pastrat, fara tasari vertebrale recente sau deplasari in plan sagital.
-
-CONCLUZII:
-Examen CT coloana cervicala fara leziuni traumatice osoase sau luxatii/subluxatii articulare recente."
+	Nu se constata traiecte de fractura la nivelul vertebrelor cervicale.
+	Congruenta articulatiilor atlanto-occipitale, atlanto-axiale si interapofizare la nivel cervical.
+	Aliniament vertebral cervical pastrat, fara tasari vertebrale recente sau deplasari in plan sagital."
         });
 
         _protocols.Add(new ClinicalProtocol
@@ -826,15 +805,12 @@ Examen CT coloana cervicala fara leziuni traumatice osoase sau luxatii/subluxati
             DefaultContrast = "Nu",
             Content =
 @"TORACE:
-Nu se constata traiecte de fractura la nivelul vertebrelor toracale.
-Nu se constata traiecte de fractura la nivelul arcurilor costale sau la nivelul sternului.
-Absenta pneumotoraxului si a pneumomediastinului.
-Absenta epansamentelor pleuro-pericardice.
-Absenta adenopatiilor mediastinale.
-Parenchim pulmonar fara contuzii sau focare de condensare post-traumatica decelabile CT.
-
-CONCLUZII:
-Examen CT toracic fara leziuni traumatice osoase (fracturi costale/vertebrale), hemotorax sau pneumotorax."
+	Nu se constata traiecte de fractura la nivelul vertebrelor toracale.
+	Nu se constata traiecte de fractura la nivelul arcurilor costale sau la nivelul sternului.
+	Absenta pneumotoraxului si a pneumomediastinului.
+	Absenta epansamentelor pleuro-pericardice.
+	Absenta adenopatiilor mediastinale.
+	Parenchim pulmonar fara contuzii sau focare de condensare post-traumatica decelabile CT."
         });
 
         _protocols.Add(new ClinicalProtocol
@@ -846,17 +822,14 @@ Examen CT toracic fara leziuni traumatice osoase (fracturi costale/vertebrale), 
             DefaultContrast = "Nu",
             Content =
 @"ABDOMINO-PELVIN:
-Nu se constata traiecte de fractura la nivelul vertebrelor lombare si la nivelul bazinului.
-Nu se identifică lichid intraperitoneal. Absenta pneumoperitoneului.
-Ficat cu dimensiuni normale / usor crescute (diametrul antero-posterior al lobului hepatic drept ~  mm, lob hepatic stang ~  mm), cu structura omogena, fara leziuni focale sau laceratii.
-Sistem venos port permeabil, nedilatat.
-Colecist cu continut lichidian, fara calculi radioopaci. Caile biliare intra si extrahepatice nedilatate.
-Pancreas, splina, rinichi si glande suprarenale cu aspect CT normal, fara modificari traumatice decelabile.
-Absenta adenopatiilor abdominale.
-Vezica urinara cu aspect CT in limite normale.
-
-CONCLUZII:
-Examen CT abdomino-pelvin fara leziuni traumatice de viscere parenchimatoase sau cavitare, fara revarsat lichidian liber intraperitoneal sau fracturi la nivelul bazinului/coloanei lombare."
+	Nu se constata traiecte de fractura la nivelul vertebrelor lombare si la nivelul bazinului.
+	Nu se identifică lichid intraperitoneal. Absenta pneumoperitoneului.
+	Ficat cu dimensiuni normale / usor crescute (diametrul antero-posterior al lobului hepatic drept ~  mm, lob hepatic stang ~  mm), cu structura omogena, fara leziuni focale sau laceratii.
+	Sistem venos port permeabil, nedilatat.
+	Colecist cu continut lichidian, fara calculi radioopaci. Caile biliare intra si extrahepatice nedilatate.
+	Pancreas, splina, rinichi si glande suprarenale cu aspect CT normal, fara modificari traumatice decelabile.
+	Absenta adenopatiilor abdominale.
+	Vezica urinara cu aspect CT in limite normale."
         });
 
         _protocols.Add(new ClinicalProtocol
@@ -868,35 +841,32 @@ Examen CT abdomino-pelvin fara leziuni traumatice de viscere parenchimatoase sau
             DefaultContrast = "Da",
             Content =
 @"CRANIO-CEREBRAL:
-Cisternele de la baza sunt libere.
-Trunchi cerebral, fosa posterioara, sistem ventricular, emisfere cerebrale cu aspect CT normal.
-Fara elemente de semiologie CT sugestive pentru hemoragie subarahnoidiana, hematoame intra- sau extranevraxiale, accident vascular ischemic.
-Structurile liniei mediene situate in planul de simetrie al capului.
-Nu se deceleaza traiecte de fractura la nivelul neuro- si viscerocraniului.
+	Cisternele de la baza sunt libere.
+	Trunchi cerebral, fosa posterioara, sistem ventricular, emisfere cerebrale cu aspect CT normal.
+	Fara elemente de semiologie CT sugestive pentru hemoragie subarahnoidiana, hematoame intra- sau extranevraxiale, accident vascular ischemic.
+	Structurile liniei mediene situate in planul de simetrie al capului.
+	Nu se deceleaza traiecte de fractura la nivelul neuro- si viscerocraniului.
 
 COLOANA CERVICALA:
-Nu se constata traiecte de fractura la nivelul vertebrelor cervicale.
-Congruenta articulatiilor atlanto-occipitale, atlanto-axiale si interapofizare la nivel cervical.
+	Nu se constata traiecte de fractura la nivelul vertebrelor cervicale.
+	Congruenta articulatiilor atlanto-occipitale, atlanto-axiale si interapofizare la nivel cervical.
 
 TORACE:
-Nu se constata traiecte de fractura la nivelul vertebrelor toracale.
-Nu se constata traiecte de fractura la nivelul arcurilor costale sau la nivelul sternului.
-Absenta pneumotoraxului si a pneumomediastinului.
-Absenta epansamentelor pleuro-pericardice.
-Absenta adenopatiilor mediastinale.
+	Nu se constata traiecte de fractura la nivelul vertebrelor toracale.
+	Nu se constata traiecte de fractura la nivelul arcurilor costale sau la nivelul sternului.
+	Absenta pneumotoraxului si a pneumomediastinului.
+	Absenta epansamentelor pleuro-pericardice.
+	Absenta adenopatiilor mediastinale.
 
 ABDOMINO-PELVIN:
-Nu se constata traiecte de fractura la nivelul vertebrelor lombare si la nivelul bazinului.
-Nu se identifică lichid intraperitoneal. Absenta pneumoperitoneului.
-Ficat cu dimensiuni normale / crescute (diametrul antero-posterior al lobului hepatic drept ~  mm, lob hepatic stang ~  mm), cu structura omogena, fara leziuni focale.
-Sistem venos port permeabil, nedilatat.
-Colecist cu continut lichidian, fara calculi radioopaci. Caile biliare intra si extrahepatice nedilatate.
-Pancreas, splina, rinichi si glande suprarenale cu aspect CT normal.
-Absenta adenopatiilor abdominale.
-Vezica urinara cu aspect CT in limite normale.
-
-CONCLUZII:
-Examen CT politraumă complet fără leziuni traumatice acute neurocraniene, viscerocraniene, vertebro-medulare, toraco-pulmonare sau abdomino-pelvine decelabile la data examinării."
+	Nu se constata traiecte de fractura la nivelul vertebrelor lombare si la nivelul bazinului.
+	Nu se identifică lichid intraperitoneal. Absenta pneumoperitoneului.
+	Ficat cu dimensiuni normale / crescute (diametrul antero-posterior al lobului hepatic drept ~  mm, lob hepatic stang ~  mm), cu structura omogena, fara leziuni focale.
+	Sistem venos port permeabil, nedilatat.
+	Colecist cu continut lichidian, fara calculi radioopaci. Caile biliare intra si extrahepatice nedilatate.
+	Pancreas, splina, rinichi si glande suprarenale cu aspect CT normal.
+	Absenta adenopatiilor abdominale.
+	Vezica urinara cu aspect CT in limite normale."
         });
     }
 
@@ -1191,7 +1161,8 @@ Examen CT politraumă complet fără leziuni traumatice acute neurocraniene, vis
     {
         var sb = new StringBuilder();
         sb.AppendLine(protocol.Content.Trim());
-        if (!protocol.Content.Contains("CONCLUZII:", StringComparison.OrdinalIgnoreCase) &&
+        if (!protocol.Id.StartsWith("URG_", StringComparison.OrdinalIgnoreCase) &&
+            !protocol.Content.Contains("CONCLUZII:", StringComparison.OrdinalIgnoreCase) &&
             !protocol.Content.Contains("Concluzii:", StringComparison.OrdinalIgnoreCase))
         {
             sb.AppendLine();

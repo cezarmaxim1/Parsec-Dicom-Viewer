@@ -503,7 +503,7 @@ public static class DocxExportService
 
             // PACIENT & CNP (12pt, Normal, No bold, single spacing)
             string cnpVal = string.IsNullOrWhiteSpace(cnp) ? "" : SecurityElement.Escape(cnp);
-            sb.Append($@"<w:p><w:pPr><w:jc w:val=""both""/><w:spacing w:before=""0"" w:after=""0"" w:line=""240"" w:lineRule=""auto""/><w:rPr><w:sz w:val=""24""/><w:szCs w:val=""24""/></w:rPr></w:pPr><w:r>{rPr12}<w:t xml:space=""preserve"">PACIENT: </w:t></w:r><w:r>{rPr12}<w:t>{SecurityElement.Escape(patientName.ToUpperInvariant())}</w:t></w:r><w:r>{rPr12}<w:tab/><w:tab/><w:tab/><w:tab/><w:tab/></w:r><w:r>{rPr12}<w:t xml:space=""preserve"">CNP: </w:t></w:r><w:r>{rPr12}<w:t>{cnpVal}</w:t></w:r></w:p>");
+            sb.Append($@"<w:p><w:pPr><w:jc w:val=""both""/><w:spacing w:before=""0"" w:after=""0"" w:line=""240"" w:lineRule=""auto""/><w:rPr><w:sz w:val=""24""/><w:szCs w:val=""24""/></w:rPr></w:pPr><w:r>{rPr12}<w:t xml:space=""preserve"">PACIENT: </w:t></w:r><w:r>{rPr12}<w:t>{SecurityElement.Escape(patientName.ToUpperInvariant())}</w:t></w:r><w:r>{rPr12}<w:tab/><w:tab/><w:tab/><w:tab/><w:tab/><w:tab/></w:r><w:r>{rPr12}<w:t xml:space=""preserve"">CNP: </w:t></w:r><w:r>{rPr12}<w:t>{cnpVal}</w:t></w:r><w:r>{rPr12}<w:tab/></w:r></w:p>");
 
             // CLINICA/DR & FO (12pt, Normal, No bold, single spacing)
             string clinVal = string.IsNullOrWhiteSpace(clinica) ? "UPU" : clinica;
@@ -522,7 +522,7 @@ public static class DocxExportService
             // SUBSTANTA DE CONTRAST & DLP (12pt, Normal, No bold, single spacing)
             string contrastVal = string.IsNullOrWhiteSpace(contrast) ? "" : SecurityElement.Escape(contrast.ToUpperInvariant());
             string dlpText = !string.IsNullOrWhiteSpace(dlp) ? $"{SecurityElement.Escape(dlp)} mGy*cm" : "mGy*cm";
-            sb.Append($@"<w:p><w:pPr><w:jc w:val=""both""/><w:spacing w:before=""0"" w:after=""0"" w:line=""240"" w:lineRule=""auto""/><w:rPr><w:sz w:val=""24""/><w:szCs w:val=""24""/></w:rPr></w:pPr><w:r>{rPr12}<w:t xml:space=""preserve"">SUBSTANTA DE CONTRAST: </w:t></w:r><w:r>{rPr12}<w:t>{contrastVal}</w:t></w:r><w:r>{rPr12}<w:tab/><w:tab/><w:tab/><w:tab/></w:r><w:r>{rPr12}<w:t xml:space=""preserve"">DLP: </w:t></w:r><w:r>{rPr12}<w:t>{dlpText}</w:t></w:r></w:p>");
+            sb.Append($@"<w:p><w:pPr><w:jc w:val=""both""/><w:spacing w:before=""0"" w:after=""0"" w:line=""240"" w:lineRule=""auto""/><w:rPr><w:sz w:val=""24""/><w:szCs w:val=""24""/></w:rPr></w:pPr><w:r>{rPr12}<w:t xml:space=""preserve"">SUBSTANTA DE CONTRAST: </w:t></w:r><w:r>{rPr12}<w:t>{contrastVal}</w:t></w:r><w:r>{rPr12}<w:tab/><w:tab/><w:tab/><w:tab/><w:tab/></w:r><w:r>{rPr12}<w:t xml:space=""preserve"">DLP: </w:t></w:r><w:r>{rPr12}<w:t>{dlpText}</w:t></w:r><w:r>{rPr12}<w:tab/></w:r></w:p>");
 
             // UN RAND SPATIU INAINTE DE TEXT
             sb.Append(@"<w:p><w:pPr><w:jc w:val=""both""/><w:spacing w:before=""0"" w:after=""0"" w:line=""240"" w:lineRule=""auto""/><w:rPr><w:sz w:val=""24""/><w:szCs w:val=""24""/></w:rPr></w:pPr></w:p>");
@@ -621,9 +621,18 @@ public static class DocxExportService
                             (trimmed.EndsWith(":") && trimmed == trimmed.ToUpperInvariant() && trimmed.Length <= 45);
 
             string rPr = isHeader ? rPrBold : rPrBase;
-            string escaped = SecurityElement.Escape(line);
+            string cleanLine = line.TrimStart('\t', ' ');
+            string escaped = SecurityElement.Escape(cleanLine);
 
-            sb.Append($@"<w:p><w:pPr><w:jc w:val=""both""/><w:spacing w:before=""0"" w:after=""0"" w:line=""240"" w:lineRule=""auto""/></w:pPr><w:r>{rPr}<w:t xml:space=""preserve"">{escaped}</w:t></w:r></w:p>");
+            if (isHeader)
+            {
+                sb.Append($@"<w:p><w:pPr><w:jc w:val=""both""/><w:spacing w:before=""0"" w:after=""0"" w:line=""240"" w:lineRule=""auto""/></w:pPr><w:r>{rPr}<w:t xml:space=""preserve"">{escaped}</w:t></w:r></w:p>");
+            }
+            else
+            {
+                // Body text: TAB inainte de fiecare rand
+                sb.Append($@"<w:p><w:pPr><w:jc w:val=""both""/><w:spacing w:before=""0"" w:after=""0"" w:line=""240"" w:lineRule=""auto""/></w:pPr><w:r>{rPr}<w:tab/></w:r><w:r>{rPr}<w:t xml:space=""preserve"">{escaped}</w:t></w:r></w:p>");
+            }
         }
     }
 }
