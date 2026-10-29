@@ -714,11 +714,32 @@ public partial class ViewportViewModel : ObservableObject
         ImageRendered?.Invoke(this);
     }
 
+    public MainViewModel? ParentViewModel { get; set; }
+
+    private bool _hasMultiplePanels;
+    public bool HasMultiplePanels
+    {
+        get => _hasMultiplePanels;
+        set
+        {
+            if (SetProperty(ref _hasMultiplePanels, value))
+            {
+                OnPropertyChanged(nameof(IsCloseButtonVisible));
+            }
+        }
+    }
+
     public bool IsCloseButtonVisible
     {
         get
         {
             if (CurrentSeries != null) return true;
+            if (ParentViewModel != null)
+            {
+                if (ParentViewModel.IsMaximizedPanel) return false;
+                return (ParentViewModel.GridRows * ParentViewModel.GridColumns) > 1;
+            }
+            if (_hasMultiplePanels) return true;
             if (System.Windows.Application.Current?.MainWindow?.DataContext is MainViewModel mainVm)
             {
                 if (mainVm.IsMaximizedPanel) return false;

@@ -734,8 +734,11 @@ public partial class MainViewModel : ObservableObject
                 DisplayedViewports.Add(Viewports[i]);
             }
         }
+        bool multiplePanels = !IsMaximizedPanel && (GridRows * GridColumns) > 1;
         foreach (var vp in Viewports)
         {
+            vp.ParentViewModel = this;
+            vp.HasMultiplePanels = multiplePanels;
             vp.NotifyCloseButtonVisibilityChanged();
         }
     }
@@ -752,7 +755,11 @@ public partial class MainViewModel : ObservableObject
         // Ensure we have totalNeeded viewports
         while (Viewports.Count < totalNeeded)
         {
-            var vp = new ViewportViewModel(Viewports.Count);
+            var vp = new ViewportViewModel(Viewports.Count)
+            {
+                ParentViewModel = this,
+                HasMultiplePanels = (totalNeeded > 1)
+            };
             vp.ImageRendered += OnViewportImageRendered;
             vp.TransformChanged += OnViewportTransformChanged;
             Viewports.Add(vp);

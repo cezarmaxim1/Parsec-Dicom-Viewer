@@ -567,10 +567,19 @@ public partial class ViewportControl : UserControl
         Focus();
 
         // Double-click to Maximize / Restore this viewport panel (RadiAnt style)
-        // Unless clicking on a vertebra label badge
+        // Unless clicking on a vertebra label badge or measurement text badge (which resets offset)
         if (e.ChangedButton == MouseButton.Left && e.ClickCount >= 2)
         {
             Point mousePos = e.GetPosition(this);
+            var textHit = FindMeasurementTextAt(mousePos);
+            if (textHit != null && textHit.TextOffset != null)
+            {
+                textHit.TextOffset = null;
+                RedrawMeasurements();
+                e.Handled = true;
+                return;
+            }
+
             var onSliceVertebra = vm.VertebraLabels.Where(v => v.SliceIndex == vm.CurrentSliceIndex).ToList();
             bool nearVertebra = onSliceVertebra.Any(v =>
             {
@@ -735,19 +744,6 @@ public partial class ViewportControl : UserControl
             }
         }
 
-        // 2.5. Double-click on moved Measurement Text Badge resets its offset to default
-        if (e.ClickCount == 2 && e.ChangedButton == MouseButton.Left)
-        {
-            var textHit = FindMeasurementTextAt(_lastMousePos);
-            if (textHit != null && textHit.TextOffset != null)
-            {
-                textHit.TextOffset = null;
-                RedrawMeasurements();
-                e.Handled = true;
-                return;
-            }
-        }
-
         // 2.6. Interactive Selection and Dragging of Measurement Text Badge (moving text table independently of ROI shape)
         if (e.ChangedButton == MouseButton.Left)
         {
@@ -770,8 +766,19 @@ public partial class ViewportControl : UserControl
             }
         }
 
-        // 3. Interactive Handle Resizing on currently selected measurement
-        if (e.ChangedButton == MouseButton.Left && _selectedMeasurement != null)
+        // Determine button action
+        MouseToolAction buttonAction = e.ChangedButton switch
+        {
+            MouseButton.Left => mainVm.LeftTool,
+            MouseButton.Right => mainVm.RightTool,
+            MouseButton.Middle => mainVm.MiddleTool,
+            MouseButton.XButton1 => mainVm.MouseConfig.GetActionFor(MouseInputTrigger.XButton1Drag),
+            MouseButton.XButton2 => mainVm.MouseConfig.GetActionFor(MouseInputTrigger.XButton2Drag),
+            _ => MouseToolAction.None
+        };
+
+        // 3. Interactive Handle Resizing on currently selected measurement (only when NOT holding an active drawing tool)
+        if (e.ChangedButton == MouseButton.Left && _selectedMeasurement != null && !IsMeasurementTool(buttonAction) && buttonAction != MouseToolAction.VertebraLabel)
         {
             int handleIndex = HitTestHandles(_selectedMeasurement, _lastMousePos);
             if (handleIndex >= 0)
@@ -785,17 +792,6 @@ public partial class ViewportControl : UserControl
                 return;
             }
         }
-
-        // Determine button action
-        MouseToolAction buttonAction = e.ChangedButton switch
-        {
-            MouseButton.Left => mainVm.LeftTool,
-            MouseButton.Right => mainVm.RightTool,
-            MouseButton.Middle => mainVm.MiddleTool,
-            MouseButton.XButton1 => mainVm.MouseConfig.GetActionFor(MouseInputTrigger.XButton1Drag),
-            MouseButton.XButton2 => mainVm.MouseConfig.GetActionFor(MouseInputTrigger.XButton2Drag),
-            _ => MouseToolAction.None
-        };
 
         // 4. Interactive Selection & Moving of existing measurements (when not holding an active drawing tool)
         if (e.ChangedButton == MouseButton.Left)
@@ -1348,24 +1344,63 @@ public partial class ViewportControl : UserControl
                         var vm = ViewModel;
                         if (vm?.CurrentSlice != null)
                         {
+                            bool isValidMeasurement = false;
                             if (_activeMeasurement.Type == MeasurementType.Ellipse)
                             {
-                                _activeMeasurement.ComputeEllipseStatistics(vm.CurrentSlice);
+                                if (_activeMeasurement.Points.Count >= 2)
+                                {
+                                    double dx = Math.Abs(_activeMeasurement.Points[1].X - _activeMeasurement.Points[0].X);
+                                    double dy = Math.Abs(_activeMeasurement.Points[1].Y - _activeMeasurement.Points[0].Y);
+                                    if (dx >= 3 && dy >= 3)
+                                    {
+                                        _activeMeasurement.ComputeEllipseStatistics(vm.CurrentSlice);
+                                        isValidMeasurement = true;
+                                    }
+                                }
                             }
                             else if (_activeMeasurement.Type == MeasurementType.Rectangle)
                             {
-                                _activeMeasurement.ComputeRectangleStatistics(vm.CurrentSlice);
+                                if (_activeMeasurement.Points.Count >= 2)
+                                {
+                                    double dx = Math.Abs(_activeMeasurement.Points[1].X - _activeMeasurement.Points[0].X);
+                                    double dy = Math.Abs(_activeMeasurement.Points[1].Y - _activeMeasurement.Points[0].Y);
+                                    if (dx >= 3 && dy >= 3)
+                                    {
+                                        _activeMeasurement.ComputeRectangleStatistics(vm.CurrentSlice);
+                                        isValidMeasurement = true;
+                                    }
+                                }
                             }
                             else if (_activeMeasurement.Type == MeasurementType.Length)
                             {
                                 double lenMm = _activeMeasurement.CalculateLengthMm(vm.CurrentSlice.PixelSpacingX, vm.CurrentSlice.PixelSpacingY);
-                                _activeMeasurement.Details = $"{lenMm:0.0} mm";
+                                // Require at least 1.0 mm to avoid accidental zero-length click micro-artifacts
+                                if (lenMm >= 1.0)
+                                {
+                                    _activeMeasurement.Details = $"{lenMm:0.0} mm";
+                                    isValidMeasurement = true;
+                                }
+                            }
+                            else if (_activeMeasurement.Type == MeasurementType.Arrow)
+                            {
+                                if (_activeMeasurement.Points.Count >= 2)
+                                {
+                                    double dist = (_activeMeasurement.Points[1] - _activeMeasurement.Points[0]).Length;
+                                    if (dist >= 4.0) isValidMeasurement = true;
+                                }
+                            }
+                            else if (_activeMeasurement.Type == MeasurementType.Pencil)
+                            {
+                                if (_activeMeasurement.Points.Count >= 3) isValidMeasurement = true;
                             }
 
-                            _activeMeasurement.IsSelected = true;
-                            vm.Measurements.Add(_activeMeasurement);
-                            _selectedMeasurement = _activeMeasurement;
-                            GetMainViewModel()?.NotifyMeasurementSelected(_activeMeasurement);
+                            if (isValidMeasurement)
+                            {
+                                _activeMeasurement.IsSelected = true;
+                                vm.Measurements.Add(_activeMeasurement);
+                                _selectedMeasurement = _activeMeasurement;
+                                GetMainViewModel()?.NotifyMeasurementSelected(_activeMeasurement);
+                            }
                         }
                         _activeMeasurement = null;
                         RedrawMeasurements();
@@ -1464,12 +1499,26 @@ public partial class ViewportControl : UserControl
             return;
         }
 
-        if (_selectedMeasurement != null && HitTestHandles(_selectedMeasurement, currentPos) >= 0)
+        if (_selectedMeasurement != null && !IsMeasurementTool(mainVm.CurrentTool) && HitTestHandles(_selectedMeasurement, currentPos) >= 0)
         {
             Cursor = Cursors.Cross;
             return;
         }
 
+        Cursor = Cursors.Arrow;
+    }
+
+    protected override void OnLostMouseCapture(MouseEventArgs e)
+    {
+        base.OnLostMouseCapture(e);
+        _isDragging = false;
+        _isDraggingMeasurementText = false;
+        _isResizingHandle = false;
+        _isMovingMeasurement = false;
+        _isDraggingVertebra = false;
+        _draggedVertebra = null;
+        _mprDragTarget = MprDragTarget.None;
+        _draggedMprLine = null;
         Cursor = Cursors.Arrow;
     }
 
@@ -1668,15 +1717,31 @@ public partial class ViewportControl : UserControl
         var allItems = new List<MeasurementItem>(vm.Measurements);
         if (_activeMeasurement != null) allItems.Add(_activeMeasurement);
 
+        // 1. If currently selected measurement's text badge is under cursor, give it priority (crucial when multiple lines overlap)
+        if (_selectedMeasurement != null && allItems.Contains(_selectedMeasurement))
+        {
+            if (mainVm?.MeasurementsCurrentSliceOnly != true || _selectedMeasurement == _activeMeasurement || _selectedMeasurement.SliceIndex == vm.CurrentSliceIndex)
+            {
+                if (!string.IsNullOrEmpty(_selectedMeasurement.Details) && !_selectedMeasurement.LastTextScreenRect.IsEmpty)
+                {
+                    var selRect = _selectedMeasurement.LastTextScreenRect;
+                    selRect.Inflate(6, 6);
+                    if (selRect.Contains(screenPt))
+                        return _selectedMeasurement;
+                }
+            }
+        }
+
+        // 2. Iterate from topmost to bottom
         for (int i = allItems.Count - 1; i >= 0; i--)
         {
             var m = allItems[i];
             if (mainVm?.MeasurementsCurrentSliceOnly == true && m != _activeMeasurement && m.SliceIndex != vm.CurrentSliceIndex) continue;
             if (string.IsNullOrEmpty(m.Details) || m.LastTextScreenRect.IsEmpty) continue;
 
-            // Expand hit area slightly (4px margin) for comfortable clicking and dragging
+            // Expand hit area comfortably (6px margin) for seamless clicking and dragging
             var rect = m.LastTextScreenRect;
-            rect.Inflate(4, 4);
+            rect.Inflate(6, 6);
             if (rect.Contains(screenPt))
                 return m;
         }
@@ -1905,8 +1970,9 @@ public partial class ViewportControl : UserControl
         };
 
         border.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
-        double badgeW = border.DesiredSize.Width;
-        double badgeH = border.DesiredSize.Height;
+        double minTextW = Math.Max(50.0, (m.Details?.Length ?? 5) * 8.0 + 16.0);
+        double badgeW = Math.Max(border.DesiredSize.Width, minTextW);
+        double badgeH = Math.Max(border.DesiredSize.Height, 22.0);
         m.LastTextScreenRect = new Rect(textX, textY, badgeW, badgeH);
 
         if (hasCustomOffset)
