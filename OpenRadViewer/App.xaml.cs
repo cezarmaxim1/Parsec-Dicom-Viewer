@@ -79,11 +79,13 @@ public partial class App : Application
 
         File.AppendAllText(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "app.log"), "mainWindow.Show completed\n");
 
-        // Clean any leftover orphan cache files according to retention policy
+        // Clean any leftover orphan cache files according to retention policy & register shell context menus
         _ = Task.Run(() =>
         {
             try
             {
+                Core.Services.ArchiveExtractionService.CleanOldTempArchives(24);
+                Core.Services.ArchiveExtractionService.RegisterShellOpenWithContextMenus();
                 var s = Core.Services.PacsService.Instance.Settings;
                 if (s != null && s.CacheRetentionDays > 0)
                 {

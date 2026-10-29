@@ -694,8 +694,8 @@ public partial class MainWindow : Window
         var dlg = new OpenFileDialog
         {
             Multiselect = true,
-            Filter = "DICOM Files (*.dcm;*.dicom)|*.dcm;*.dicom|All files (*.*)|*.*",
-            Title = "Open DICOM Files"
+            Filter = "All Supported Files (*.dcm;*.dicom;*.zip;*.rar;*.7z;*.tar)|*.dcm;*.dicom;*.zip;*.rar;*.7z;*.tar|DICOM Files (*.dcm;*.dicom)|*.dcm;*.dicom|Medical Archives (*.zip;*.rar;*.7z)|*.zip;*.rar;*.7z|All files (*.*)|*.*",
+            Title = "Open DICOM Files or Archives (.zip, .rar, .7z)"
         };
         if (dlg.ShowDialog() == true && dlg.FileNames.Length > 0)
         {

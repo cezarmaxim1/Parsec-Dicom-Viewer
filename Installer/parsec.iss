@@ -58,5 +58,18 @@ Root: HKA; Subkey: "Software\Classes\Directory\Background\shell\Parsec"; ValueTy
 Root: HKA; Subkey: "Software\Classes\Directory\Background\shell\Parsec"; ValueType: string; ValueName: "Icon"; ValueData: """{app}\{#MyAppExeName}"",0"
 Root: HKA; Subkey: "Software\Classes\Directory\Background\shell\Parsec\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#MyAppExeName}"" ""%V"""
 
+; Medical Archive context menu ("Open with Parsec" for .zip, .rar, .7z)
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.zip\shell\Parsec"; ValueType: string; ValueName: ""; ValueData: "Open with Parsec"; Flags: uninsdeletekey
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.zip\shell\Parsec"; ValueType: string; ValueName: "Icon"; ValueData: """{app}\{#MyAppExeName}"",0"
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.zip\shell\Parsec\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#MyAppExeName}"" ""%1"""
+
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.rar\shell\Parsec"; ValueType: string; ValueName: ""; ValueData: "Open with Parsec"; Flags: uninsdeletekey
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.rar\shell\Parsec"; ValueType: string; ValueName: "Icon"; ValueData: """{app}\{#MyAppExeName}"",0"
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.rar\shell\Parsec\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#MyAppExeName}"" ""%1"""
+
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.7z\shell\Parsec"; ValueType: string; ValueName: ""; ValueData: "Open with Parsec"; Flags: uninsdeletekey
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.7z\shell\Parsec"; ValueType: string; ValueName: "Icon"; ValueData: """{app}\{#MyAppExeName}"",0"
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.7z\shell\Parsec\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#MyAppExeName}"" ""%1"""
+
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent

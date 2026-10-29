@@ -38,6 +38,7 @@
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
     <PackageReference Include="fo-dicom" Version="5.2.6" />
     <PackageReference Include="fo-dicom.Codecs" Version="5.16.7" />
+    <PackageReference Include="SharpCompress" Version="0.50.7" />
     <PackageReference Include="Vortice.D3DCompiler" Version="3.6.2" />
     <PackageReference Include="Vortice.Direct3D11" Version="3.6.2" />
     <PackageReference Include="Vortice.Mathematics" Version="1.9.2" />

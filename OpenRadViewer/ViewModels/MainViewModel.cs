@@ -1454,6 +1454,36 @@ public partial class MainViewModel : ObservableObject
         var inputList = rawPaths.Where(p => !string.IsNullOrWhiteSpace(p)).ToList();
         if (inputList.Count == 0) return;
 
+        // Automatically extract any compressed medical archives (.zip, .rar, .7z, .tar, .gz)
+        var extractedPaths = new List<string>();
+        foreach (var p in inputList)
+        {
+            if (File.Exists(p) && ArchiveExtractionService.IsArchiveFile(p))
+            {
+                StatusMessage = $"Dezarhivare {Path.GetFileName(p)}...";
+                IsLoading = true;
+                string? outDir = await ArchiveExtractionService.ExtractArchiveAsync(p);
+                if (!string.IsNullOrEmpty(outDir))
+                {
+                    extractedPaths.Add(outDir);
+                    if (targetFilePath != null && string.Equals(Path.GetFullPath(p), Path.GetFullPath(targetFilePath), StringComparison.OrdinalIgnoreCase))
+                    {
+                        targetFilePath = null;
+                    }
+                }
+            }
+            else
+            {
+                extractedPaths.Add(p);
+            }
+        }
+        inputList = extractedPaths;
+        if (inputList.Count == 0)
+        {
+            IsLoading = false;
+            return;
+        }
+
         // If a single file was passed (e.g. "Open with Parsec" or dropped single file):
         // If its parent directory is a specific folder with other DICOMs, we scan the parent folder
         // so that the entire study is in the left preview list, and target the specific file!

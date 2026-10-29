@@ -127,7 +127,11 @@ public class DicomLoaderService
                                 !f.EndsWith(".txt", StringComparison.OrdinalIgnoreCase) &&
                                 !f.EndsWith(".xml", StringComparison.OrdinalIgnoreCase) &&
                                 !f.EndsWith(".ini", StringComparison.OrdinalIgnoreCase) &&
-                                !f.EndsWith(".zip", StringComparison.OrdinalIgnoreCase)));
+                                !f.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) &&
+                                !f.EndsWith(".rar", StringComparison.OrdinalIgnoreCase) &&
+                                !f.EndsWith(".7z", StringComparison.OrdinalIgnoreCase) &&
+                                !f.EndsWith(".tar", StringComparison.OrdinalIgnoreCase) &&
+                                !f.EndsWith(".gz", StringComparison.OrdinalIgnoreCase)));
             }
             else if (File.Exists(p))
             {
