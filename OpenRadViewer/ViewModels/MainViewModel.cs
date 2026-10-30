@@ -365,28 +365,51 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private MouseToolAction _middleTool = MouseToolAction.WindowLevel;
 
+    public static bool IsTransientTool(MouseToolAction action) =>
+        action is MouseToolAction.MeasureLength or
+                  MouseToolAction.MeasureEllipse or
+                  MouseToolAction.MeasureRectangle or
+                  MouseToolAction.MeasureAngle or
+                  MouseToolAction.MeasureCobbAngle or
+                  MouseToolAction.MeasureInsallSalvati or
+                  MouseToolAction.Arrow or
+                  MouseToolAction.Pencil or
+                  MouseToolAction.TextAnnotation or
+                  MouseToolAction.VertebraLabel or
+                  MouseToolAction.AiLesionCrop or
+                  MouseToolAction.PixelProbe;
+
     public void AssignLeftTool(MouseToolAction tool)
     {
         LeftTool = tool;
         CurrentTool = tool;
-        MouseConfig.SetActionFor(MouseInputTrigger.LeftDrag, tool);
-        try { MouseConfig.SaveToFile(_settingsPath); } catch { }
+        if (!IsTransientTool(tool))
+        {
+            MouseConfig.SetActionFor(MouseInputTrigger.LeftDrag, tool);
+            try { MouseConfig.SaveToFile(_settingsPath); } catch { }
+        }
         StatusMessage = $"Left-click tool set to: {tool}";
     }
 
     public void AssignRightTool(MouseToolAction tool)
     {
         RightTool = tool;
-        MouseConfig.SetActionFor(MouseInputTrigger.RightDrag, tool);
-        try { MouseConfig.SaveToFile(_settingsPath); } catch { }
+        if (!IsTransientTool(tool))
+        {
+            MouseConfig.SetActionFor(MouseInputTrigger.RightDrag, tool);
+            try { MouseConfig.SaveToFile(_settingsPath); } catch { }
+        }
         StatusMessage = $"Right-click tool set to: {tool}";
     }
 
     public void AssignMiddleTool(MouseToolAction tool)
     {
         MiddleTool = tool;
-        MouseConfig.SetActionFor(MouseInputTrigger.MiddleDrag, tool);
-        try { MouseConfig.SaveToFile(_settingsPath); } catch { }
+        if (!IsTransientTool(tool))
+        {
+            MouseConfig.SetActionFor(MouseInputTrigger.MiddleDrag, tool);
+            try { MouseConfig.SaveToFile(_settingsPath); } catch { }
+        }
         StatusMessage = $"Hold Wheel tool set to: {tool}";
     }
 
@@ -458,11 +481,34 @@ public partial class MainViewModel : ObservableObject
         _invertScrolling = MouseConfig.InvertScrolling;
 
         var cfgLeft = MouseConfig.GetActionFor(MouseInputTrigger.LeftDrag);
-        if (cfgLeft != MouseToolAction.None) LeftTool = cfgLeft;
+        if (cfgLeft != MouseToolAction.None && !IsTransientTool(cfgLeft)) 
+            LeftTool = cfgLeft;
+        else
+        {
+            LeftTool = MouseToolAction.BrowseSeries;
+            MouseConfig.SetActionFor(MouseInputTrigger.LeftDrag, MouseToolAction.BrowseSeries);
+            try { MouseConfig.SaveToFile(_settingsPath); } catch { }
+        }
+
         var cfgRight = MouseConfig.GetActionFor(MouseInputTrigger.RightDrag);
-        if (cfgRight != MouseToolAction.None) RightTool = cfgRight;
+        if (cfgRight != MouseToolAction.None && !IsTransientTool(cfgRight)) 
+            RightTool = cfgRight;
+        else
+        {
+            RightTool = MouseToolAction.Pan;
+            MouseConfig.SetActionFor(MouseInputTrigger.RightDrag, MouseToolAction.Pan);
+            try { MouseConfig.SaveToFile(_settingsPath); } catch { }
+        }
+
         var cfgMiddle = MouseConfig.GetActionFor(MouseInputTrigger.MiddleDrag);
-        if (cfgMiddle != MouseToolAction.None) MiddleTool = cfgMiddle;
+        if (cfgMiddle != MouseToolAction.None && !IsTransientTool(cfgMiddle)) 
+            MiddleTool = cfgMiddle;
+        else
+        {
+            MiddleTool = MouseToolAction.WindowLevel;
+            MouseConfig.SetActionFor(MouseInputTrigger.MiddleDrag, MouseToolAction.WindowLevel);
+            try { MouseConfig.SaveToFile(_settingsPath); } catch { }
+        }
 
         _protocolsPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "protocols.txt");
         SelectedClinicalProtocol = ClinicalProtocols.FirstOrDefault();
@@ -1461,6 +1507,12 @@ public partial class MainViewModel : ObservableObject
         if (rawPaths == null) return;
         var inputList = rawPaths.Where(p => !string.IsNullOrWhiteSpace(p)).ToList();
         if (inputList.Count == 0) return;
+
+        // Ensure we reset to normal browsing when opening a new study/patient
+        if (IsTransientTool(LeftTool))
+        {
+            AssignLeftTool(MouseToolAction.BrowseSeries);
+        }
 
         // Automatically extract any compressed medical archives (.zip, .rar, .7z, .tar, .gz)
         var extractedPaths = new List<string>();

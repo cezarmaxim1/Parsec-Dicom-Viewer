@@ -309,7 +309,16 @@ public partial class MainWindow : Window
                 return;
             }
 
-            // If an ROI is currently selected or 3D cursor active, clear it first
+            // 1. If any transient measurement tool is active, revert to BrowseSeries first
+            if (MainViewModel.IsTransientTool(vm.LeftTool))
+            {
+                vm.AssignLeftTool(MouseToolAction.BrowseSeries);
+                vm.StatusMessage = "Instrument măsură anulat. Revenit la Browse Series.";
+                e.Handled = true;
+                return;
+            }
+
+            // 2. If an ROI is currently selected or 3D cursor active, clear it first
             bool hadSelectionOrCursor = false;
             if (active != null && active.Measurements.Any(m => m.IsSelected))
             {
@@ -324,7 +333,7 @@ public partial class MainWindow : Window
 
             if (!hadSelectionOrCursor)
             {
-                // Escape closes the active series panel
+                // Escape closes the active series panel only if nothing else was being cancelled
                 vm.CloseActivePanel();
             }
 

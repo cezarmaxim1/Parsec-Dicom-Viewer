@@ -146,18 +146,54 @@ public partial class ViewportControl : UserControl
         }
         else if (e.Key == Key.Escape)
         {
+            var mainVm = GetMainViewModel();
+            if (_activeMeasurement != null || _angleCreationStep > 0)
+            {
+                _activeMeasurement = null;
+                _angleCreationStep = 0;
+                RedrawMeasurements();
+                if (mainVm != null && MainViewModel.IsTransientTool(mainVm.LeftTool))
+                {
+                    mainVm.AssignLeftTool(MouseToolAction.BrowseSeries);
+                    mainVm.StatusMessage = "Măsurătoare anulată. Revenit la Browse Series.";
+                }
+                e.Handled = true;
+                return;
+            }
+
+            if (mainVm != null && MainViewModel.IsTransientTool(mainVm.LeftTool))
+            {
+                mainVm.AssignLeftTool(MouseToolAction.BrowseSeries);
+                mainVm.StatusMessage = "Instrument măsură anulat. Revenit la Browse Series.";
+                e.Handled = true;
+                return;
+            }
+
             bool changed = false;
             foreach (var m in vm.Measurements) { if (m.IsSelected) { m.IsSelected = false; changed = true; } }
             foreach (var v in vm.VertebraLabels) { if (v.IsSelected) { v.IsSelected = false; changed = true; } }
             _selectedMeasurement = null;
             _draggedVertebra = null;
             if (changed) RedrawMeasurements();
-            e.Handled = true;
+            if (changed)
+            {
+                e.Handled = true;
+                return;
+            }
         }
     }
 
     private void OnViewModelPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
+        if (e.PropertyName is nameof(ViewportViewModel.CurrentSeries) or nameof(ViewportViewModel.CurrentSliceIndex))
+        {
+            if (_angleCreationStep > 0 || _activeMeasurement != null)
+            {
+                _activeMeasurement = null;
+                _angleCreationStep = 0;
+            }
+        }
+
         if (e.PropertyName is nameof(ViewportViewModel.CurrentSeries) or
                               nameof(ViewportViewModel.DisplayImage) or
                               nameof(ViewportViewModel.Crosshair3DPoint) or 
@@ -672,6 +708,21 @@ public partial class ViewportControl : UserControl
             }
         }
 
+        // Right click cancels in-progress measurement or resets transient tool
+        if (e.ChangedButton == MouseButton.Right && (_activeMeasurement != null || _angleCreationStep > 0))
+        {
+            _activeMeasurement = null;
+            _angleCreationStep = 0;
+            RedrawMeasurements();
+            if (MainViewModel.IsTransientTool(mainVm.LeftTool))
+            {
+                mainVm.AssignLeftTool(MouseToolAction.BrowseSeries);
+                mainVm.StatusMessage = "Măsurătoare anulată. Revenit la Browse Series.";
+            }
+            e.Handled = true;
+            return;
+        }
+
         // 1. 3D Cursor Spatial Reference Tool (Q)
         bool isCursor3DTrigger = (e.ChangedButton == MouseButton.Left && (mainVm.CurrentTool == MouseToolAction.Cursor3D || mainVm.LeftTool == MouseToolAction.Cursor3D))
                               || (e.ChangedButton == MouseButton.Right && mainVm.RightTool == MouseToolAction.Cursor3D)
@@ -738,6 +789,10 @@ public partial class ViewportControl : UserControl
                 _selectedMeasurement = _activeMeasurement;
                 _activeMeasurement = null;
                 _angleCreationStep = 0;
+                if (mainVm.CurrentTool == MouseToolAction.MeasureInsallSalvati || mainVm.LeftTool == MouseToolAction.MeasureInsallSalvati)
+                {
+                    mainVm.AssignLeftTool(MouseToolAction.BrowseSeries);
+                }
                 RedrawMeasurements();
                 e.Handled = true;
                 return;
