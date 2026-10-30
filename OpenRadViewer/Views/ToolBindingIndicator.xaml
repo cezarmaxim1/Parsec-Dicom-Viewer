@@ -5,10 +5,10 @@
              SnapsToDevicePixels="True">
     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
         <!-- Left Mouse Button Indicator (Orange / Golden Amber) -->
-        <Ellipse x:Name="DotLeft" Width="5.5" Height="5.5" Fill="#F5AF28" Stroke="#101010" StrokeThickness="0.8" Margin="0.5,0" Visibility="Collapsed" ToolTip="Left Mouse Button" />
+        <Ellipse x:Name="DotLeft" Width="7.5" Height="7.5" Fill="#F5AF28" Stroke="#101010" StrokeThickness="1" Margin="0.5,0" Visibility="Collapsed" ToolTip="Left Mouse Button" />
         <!-- Right Mouse Button Indicator (Cyan / Blue) -->
-        <Ellipse x:Name="DotRight" Width="5.5" Height="5.5" Fill="#40C0FF" Stroke="#101010" StrokeThickness="0.8" Margin="0.5,0" Visibility="Collapsed" ToolTip="Right Mouse Button" />
+        <Ellipse x:Name="DotRight" Width="7.5" Height="7.5" Fill="#40C0FF" Stroke="#101010" StrokeThickness="1" Margin="0.5,0" Visibility="Collapsed" ToolTip="Right Mouse Button" />
         <!-- Middle / Hold Wheel Indicator (Green) -->
-        <Ellipse x:Name="DotMiddle" Width="5.5" Height="5.5" Fill="#80E880" Stroke="#101010" StrokeThickness="0.8" Margin="0.5,0" Visibility="Collapsed" ToolTip="Hold Wheel (Middle Button)" />
+        <Ellipse x:Name="DotMiddle" Width="7.5" Height="7.5" Fill="#80E880" Stroke="#101010" StrokeThickness="1" Margin="0.5,0" Visibility="Collapsed" ToolTip="Hold Wheel (Middle Button)" />
     </StackPanel>
 </UserControl>

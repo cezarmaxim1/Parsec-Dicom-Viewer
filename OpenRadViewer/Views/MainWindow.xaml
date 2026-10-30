@@ -355,7 +355,7 @@
                         ToolTip="3D Crosshair Spatial Cursor (Q)&#x0a;[Left-Click: Bind Left mouse]&#x0a;[Right-Click: Bind Right mouse]&#x0a;[Wheel-Click: Bind Hold Wheel]">
                     <Grid Width="22" Height="22">
                         <Path Stroke="#CCCCCC" StrokeThickness="1.5" Data="M8,1 L8,4 M8,12 L8,15 M1,8 L4,8 M12,8 L15,8 M8,5 A3,3 0 1,0 8,11 A3,3 0 1,0 8,5" Width="15" Height="15" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                        <views:ToolBindingIndicator TargetAction="Cursor3D" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-3,-4,0" />
+                        <views:ToolBindingIndicator TargetAction="Cursor3D" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-1,-1,0" />
                     </Grid>
                 </Button>
 
@@ -373,7 +373,7 @@
                                 <Path Fill="#888888" Data="M0,0 L6,0 L3,4 Z" Width="6" Height="4" VerticalAlignment="Center" />
                             </Button>
                         </StackPanel>
-                        <views:ToolBindingIndicator TargetAction="BrowseSeries" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-3,-4,0" />
+                        <views:ToolBindingIndicator TargetAction="BrowseSeries" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-1,-1,0" />
                     </Grid>
                     <Button.ContextMenu>
                         <ContextMenu x:Name="BrowseSensitivityContextMenu">
@@ -393,7 +393,7 @@
                         ToolTip="Pan Image (M)&#x0a;[Left-Click: Bind Left mouse]&#x0a;[Right-Click: Bind Right mouse]&#x0a;[Wheel-Click: Bind Hold Wheel]">
                     <Grid Width="22" Height="22">
                         <Path Fill="#CCCCCC" Data="M7.5,1 L4.5,4 L6.5,4 L6.5,6.5 L4,6.5 L4,4.5 L1,7.5 L4,10.5 L4,8.5 L6.5,8.5 L6.5,11 L4.5,11 L7.5,14 L10.5,11 L8.5,11 L8.5,8.5 L11,8.5 L11,10.5 L14,7.5 L11,4.5 L11,6.5 L8.5,6.5 L8.5,4 L10.5,4 Z" Width="14" Height="14" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                        <views:ToolBindingIndicator TargetAction="Pan" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-3,-4,0" />
+                        <views:ToolBindingIndicator TargetAction="Pan" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-1,-1,0" />
                     </Grid>
                 </Button>
 
@@ -405,7 +405,7 @@
                         ToolTip="Zoom Image (Z)&#x0a;[Left-Click: Bind Left mouse]&#x0a;[Right-Click: Bind Right mouse]&#x0a;[Wheel-Click: Bind Hold Wheel]">
                     <Grid Width="22" Height="22">
                         <Path Stroke="#CCCCCC" StrokeThickness="1.5" Data="M7,2 A5,5 0 1,0 7,12 A5,5 0 1,0 7,2 M11,11 L16,16" Width="15" Height="15" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                        <views:ToolBindingIndicator TargetAction="Zoom" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-3,-4,0" />
+                        <views:ToolBindingIndicator TargetAction="Zoom" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-1,-1,0" />
                     </Grid>
                 </Button>
 
@@ -438,7 +438,7 @@
                                     <Path Fill="#CCCCCC" Stroke="#CCCCCC" StrokeThickness="1" Data="M8,1 A7,7 0 1,0 8,15 L8,1 Z" Width="14" Height="14" Stretch="Uniform" />
                                     <TextBlock Text=" W/L" FontSize="11" Margin="3,0,0,0" VerticalAlignment="Center" Foreground="#CCCCCC" />
                                 </StackPanel>
-                                <views:ToolBindingIndicator TargetAction="WindowLevel" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-3,-4,0" />
+                                <views:ToolBindingIndicator TargetAction="WindowLevel" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-1,-1,0" />
                             </Grid>
                         </Button>
 
@@ -560,7 +560,7 @@
                             <TextBlock Text=" Tools" FontSize="11" Margin="4,0,0,0" VerticalAlignment="Center" />
                             <Path Fill="#888888" Data="M0,0 L6,0 L3,4 Z" Width="6" Height="4" Margin="4,0,0,0" VerticalAlignment="Center" />
                         </StackPanel>
-                        <views:ToolBindingIndicator TargetAction="Measurement" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-3,-4,0" />
+                        <views:ToolBindingIndicator TargetAction="Measurement" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-1,-1,0" />
                     </Grid>
                     <Button.ContextMenu>
                         <ContextMenu x:Name="MeasureContextMenu">
