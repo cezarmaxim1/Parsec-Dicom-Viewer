@@ -82,14 +82,18 @@
             </DataGrid.Columns>
         </DataGrid>
 
-        <!-- Footer Buttons -->
-        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
-            <Button Content="Reset to Defaults" Click="OnResetDefaults" Margin="0,0,10,0" Padding="12,5"
-                    Background="#303030" Foreground="#D0D0D0" BorderBrush="#444444" />
-            <Button Content="Cancel" Click="OnCancel" Margin="0,0,8,0" Padding="12,5"
-                    Background="#303030" Foreground="#D0D0D0" BorderBrush="#444444" />
-            <Button Content="Save &amp; Apply" Click="OnSave" Padding="16,5"
-                    Background="#F5AF28" Foreground="Black" FontWeight="Bold" BorderBrush="#F5AF28" />
-        </StackPanel>
+        <!-- Footer: Checkbox + Action Buttons -->
+        <Grid Grid.Row="2" Margin="0,16,0,0">
+            <CheckBox x:Name="ChkInvertScrolling" Content="Invert Slice Scrolling (Wheel &amp; Drag)"
+                      VerticalAlignment="Center" Foreground="#E0E0E0" FontSize="12" />
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Content="Reset to Defaults" Click="OnResetDefaults" Margin="0,0,10,0" Padding="12,5"
+                        Background="#303030" Foreground="#D0D0D0" BorderBrush="#444444" />
+                <Button Content="Cancel" Click="OnCancel" Margin="0,0,8,0" Padding="12,5"
+                        Background="#303030" Foreground="#D0D0D0" BorderBrush="#444444" />
+                <Button Content="Save &amp; Apply" Click="OnSave" Padding="16,5"
+                        Background="#F5AF28" Foreground="Black" FontWeight="Bold" BorderBrush="#F5AF28" />
+            </StackPanel>
+        </Grid>
     </Grid>
 </Window>

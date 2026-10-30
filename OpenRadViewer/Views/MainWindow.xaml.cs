@@ -101,6 +101,7 @@ public partial class MainWindow : Window
 
     private async void OnWindowLoaded(object sender, RoutedEventArgs e)
     {
+        SyncInvertScrollingChecks();
         string logPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "app.log");
         File.AppendAllText(logPath, "OnWindowLoaded entered\n");
         try
@@ -1723,6 +1724,7 @@ public partial class MainWindow : Window
 
     private void OnOpenExtraToolsMenu(object sender, RoutedEventArgs e)
     {
+        SyncInvertScrollingChecks();
         if (sender is FrameworkElement fe && fe.ContextMenu != null)
         {
             fe.ContextMenu.PlacementTarget = fe;
@@ -2331,6 +2333,34 @@ public partial class MainWindow : Window
         {
             ApplySeriesBarVisualState();
         }
+        else if (e.PropertyName == nameof(MainViewModel.InvertScrolling))
+        {
+            SyncInvertScrollingChecks();
+        }
+    }
+
+    private void OnToggleInvertScrolling(object sender, RoutedEventArgs e)
+    {
+        if (sender is MenuItem mi)
+        {
+            ViewModel.InvertScrolling = mi.IsChecked;
+        }
+        else
+        {
+            ViewModel.InvertScrolling = !ViewModel.InvertScrolling;
+        }
+        SyncInvertScrollingChecks();
+    }
+
+    private void SyncInvertScrollingChecks()
+    {
+        bool val = ViewModel?.InvertScrolling ?? false;
+        if (ToolbarInvertScrolling != null && ToolbarInvertScrolling.IsChecked != val)
+            ToolbarInvertScrolling.IsChecked = val;
+        if (MenuInvertScrolling != null && MenuInvertScrolling.IsChecked != val)
+            MenuInvertScrolling.IsChecked = val;
+        if (MenuViewInvertScrolling != null && MenuViewInvertScrolling.IsChecked != val)
+            MenuViewInvertScrolling.IsChecked = val;
     }
     #endregion
 }

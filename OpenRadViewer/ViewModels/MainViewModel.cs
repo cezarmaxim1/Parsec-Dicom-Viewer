@@ -802,6 +802,7 @@ public partial class MainViewModel : ObservableObject
             MouseConfig.InvertScrolling = value;
             try { MouseConfig.SaveToFile(_settingsPath); } catch { }
         }
+        StatusMessage = value ? "Invert Scrolling: Activat" : "Invert Scrolling: Dezactivat";
     }
 
     private readonly HashSet<string> _smartLayoutAppliedStudies = new();

@@ -60,7 +60,7 @@ public partial class ViewportControl : UserControl
         MouseDown += OnMouseDown;
         MouseMove += OnMouseMove;
         MouseUp += OnMouseUp;
-        MouseWheel += OnMouseWheel;
+        PreviewMouseWheel += OnPreviewMouseWheel;
         KeyDown += OnViewportKeyDown;
 
         DragOver += OnDragOver;
@@ -1531,6 +1531,14 @@ public partial class ViewportControl : UserControl
         }
     }
 
+    private void OnPreviewMouseWheel(object sender, MouseWheelEventArgs e)
+    {
+        if (BdSlabBadge != null && BdSlabBadge.IsMouseOver)
+            return;
+
+        OnMouseWheel(sender, e);
+    }
+
     private void OnMouseWheel(object sender, MouseWheelEventArgs e)
     {
         var vm = ViewModel;
@@ -1611,24 +1619,36 @@ public partial class ViewportControl : UserControl
 
             case MouseToolAction.BrowseSeries:
                 _browseAccumulatorY += deltaY;
-                double pixelsPerSlice = GetMainViewModel()?.BrowseSensitivityPixels ?? 6.0;
+                var mainVm = GetMainViewModel();
+                double pixelsPerSlice = mainVm?.BrowseSensitivityPixels ?? 6.0;
                 if (pixelsPerSlice <= 0) pixelsPerSlice = 6.0;
                 if (Math.Abs(_browseAccumulatorY) >= pixelsPerSlice)
                 {
                     int steps = (int)(_browseAccumulatorY / pixelsPerSlice);
                     _browseAccumulatorY -= steps * pixelsPerSlice;
-                    vm.StepImages(-steps);
+                    int stepDelta = -steps;
+                    if (mainVm?.InvertScrolling == true)
+                    {
+                        stepDelta = -stepDelta;
+                    }
+                    vm.StepImages(stepDelta);
                     RedrawMeasurements();
                 }
                 break;
 
             case MouseToolAction.NextImage:
-                vm.NextImage();
+                if (GetMainViewModel()?.InvertScrolling == true)
+                    vm.PreviousImage();
+                else
+                    vm.NextImage();
                 RedrawMeasurements();
                 break;
 
             case MouseToolAction.PreviousImage:
-                vm.PreviousImage();
+                if (GetMainViewModel()?.InvertScrolling == true)
+                    vm.NextImage();
+                else
+                    vm.PreviousImage();
                 RedrawMeasurements();
                 break;
 

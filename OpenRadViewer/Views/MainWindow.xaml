@@ -181,7 +181,7 @@
                     <MenuItem Header="AI Configuration &amp; Style Settings..." Click="OnOpenAiSettings" />
                 </MenuItem>
                 <Separator Background="#333333" />
-                <MenuItem Header="Invert Scrolling" IsCheckable="True" IsChecked="{Binding InvertScrolling, Mode=TwoWay}" ToolTip="Inverts mouse wheel slice scrolling direction" />
+                <MenuItem x:Name="MenuInvertScrolling" Header="Invert Scrolling" IsCheckable="True" IsChecked="{Binding InvertScrolling, Mode=TwoWay}" Click="OnToggleInvertScrolling" ToolTip="Inverts mouse wheel slice scrolling direction" />
             </MenuItem>
 
             <MenuItem Header="_View">
@@ -191,6 +191,8 @@
                 <MenuItem Header="Reconstruct Sagittal Plane (Alt+2)" Click="OnMprSagittal" />
                 <MenuItem Header="3D Multiplanar Reconstruction (3D MPR)" Click="OnToggle3DMpr" />
                 <MenuItem Header="3D Volume Rendering (3D VR) (Ctrl+Shift+V)" Click="OnOpen3DVr" />
+                <Separator Background="#333333" />
+                <MenuItem x:Name="MenuViewInvertScrolling" Header="Invert Scrolling" IsCheckable="True" Click="OnToggleInvertScrolling" ToolTip="Inverts mouse slice scrolling direction (wheel and drag)" />
                 <Separator Background="#333333" />
                 <MenuItem Header="Main Menu Bar (Ctrl+Alt+F5)" IsCheckable="True" IsChecked="{Binding ShowMenuBar, Mode=TwoWay}" />
                 <MenuItem Header="Series Preview Bar (Ctrl+Alt+F2)" IsCheckable="True" IsChecked="{Binding ShowSeriesPreviewBar}" />
@@ -660,7 +662,7 @@
                                 <MenuItem Header="+ Add Table..." Click="OnAddCustomTable" FontWeight="SemiBold" Foreground="#64D2B4" />
                             </MenuItem>
                             <Separator Background="#333333" />
-                            <MenuItem Header="Invert Scrolling" IsCheckable="True" IsChecked="{Binding InvertScrolling, Mode=TwoWay}" ToolTip="Inverts mouse wheel slice scrolling direction" />
+                            <MenuItem x:Name="ToolbarInvertScrolling" Header="Invert Scrolling" IsCheckable="True" Click="OnToggleInvertScrolling" ToolTip="Inverts mouse slice scrolling direction (wheel and drag)" />
                         </ContextMenu>
                     </Button.ContextMenu>
                 </Button>

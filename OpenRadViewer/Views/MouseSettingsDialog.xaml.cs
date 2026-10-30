@@ -30,6 +30,7 @@ public partial class MouseSettingsDialog : Window
     private void LoadCurrentBindings()
     {
         EditableBindings.Clear();
+        ChkInvertScrolling.IsChecked = _mainVm.InvertScrolling;
 
         // Ensure all triggers have an entry
         var allTriggers = Enum.GetValues<MouseInputTrigger>();
@@ -51,12 +52,15 @@ public partial class MouseSettingsDialog : Window
         {
             row.Action = defaults.GetActionFor(row.Trigger);
         }
+        ChkInvertScrolling.IsChecked = defaults.InvertScrolling;
         BindingsGrid.Items.Refresh();
     }
 
     private void OnSave(object sender, RoutedEventArgs e)
     {
         _mainVm.MouseConfig.Bindings = EditableBindings.ToList();
+        _mainVm.InvertScrolling = ChkInvertScrolling.IsChecked == true;
+        _mainVm.MouseConfig.InvertScrolling = _mainVm.InvertScrolling;
         
         string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "mousesettings.json");
         _mainVm.MouseConfig.SaveToFile(path);
