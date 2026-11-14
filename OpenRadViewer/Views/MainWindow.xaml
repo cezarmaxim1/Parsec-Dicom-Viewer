@@ -192,8 +192,8 @@
                     <!-- Data sources -->
                     <Border Style="{StaticResource ToolbarCapsule}">
                         <StackPanel Orientation="Horizontal">
-                            <Button Style="{StaticResource ToolbarButton}" Click="OnOpenDatabase" ToolTip="Parsec Local Database (Ctrl+D)&#x0a;Open Study Archive &amp; Import">
-                                <StackPanel Orientation="Horizontal"><Path Style="{StaticResource ToolIcon}" Data="{StaticResource IconDatabase}" /><TextBlock Text="Database" Margin="6,0,0,0" VerticalAlignment="Center" /></StackPanel>
+                            <Button Style="{StaticResource ToolbarButton}" Width="32" Padding="0" Click="OnOpenDatabase" ToolTip="Parsec Local Database (Ctrl+D)&#x0a;Open Study Archive &amp; Import">
+                                <Path Style="{StaticResource ToolIcon}" Data="{StaticResource IconDatabase}" />
                             </Button>
                             <Button Style="{StaticResource ToolbarButton}" Click="OnOpenPacsSearch" ToolTip="PACS Search &amp; Transfer (Ctrl+P)&#x0a;C-FIND, C-MOVE / C-GET, C-STORE">
                                 <StackPanel Orientation="Horizontal"><Path Style="{StaticResource ToolIcon}" Data="{StaticResource IconServer}" /><TextBlock Text="PACS" Margin="6,0,0,0" VerticalAlignment="Center" /></StackPanel>
@@ -539,8 +539,8 @@
                             <Button Style="{StaticResource ToolbarButton}" Width="32" Padding="0" Click="OnToggleFullScreen" ToolTip="Toggle Full Screen (F)">
                                 <Path Style="{StaticResource ToolIcon}" Data="{StaticResource IconFullscreen}" />
                             </Button>
-                            <Button Style="{StaticResource ToolbarButton}" Click="OnShowPatientDetails" ToolTip="Patient &amp; Study Details (Name, CNP, Age, Scan Type, Total DLP)">
-                                <StackPanel Orientation="Horizontal"><Path Style="{StaticResource ToolIcon}" Data="{StaticResource IconUser}" /><TextBlock Text="Patient" Margin="6,0,0,0" VerticalAlignment="Center" /></StackPanel>
+                            <Button Style="{StaticResource ToolbarButton}" Width="32" Padding="0" Click="OnShowPatientDetails" ToolTip="Patient &amp; Study Details (Name, CNP, Age, Scan Type, Total DLP)">
+                                <Path Style="{StaticResource ToolIcon}" Data="{StaticResource IconUser}" />
                             </Button>
                             <Button Style="{StaticResource ToolbarButton}" Width="32" Padding="0" Click="OnShowAboutDialog" ToolTip="About Parsec">
                                 <Path Style="{StaticResource ToolIcon}" Data="{StaticResource IconInfo}" />
