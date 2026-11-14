@@ -59,6 +59,7 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         DataContext = new MainViewModel();
+        CustomTitleBar.Attach(this, RootGrid, ToolbarBorder);
 
         // Enforce dark title bar (matching Antigravity / VS Code)
         DarkWindowHelper.ApplyDarkTitleBar(this);
@@ -97,6 +98,16 @@ public partial class MainWindow : Window
     {
         base.OnSourceInitialized(e);
         DarkWindowHelper.ApplyDarkTitleBar(this);
+    }
+
+    private void OnOpenTransformMenu(object sender, RoutedEventArgs e)
+    {
+        if (BtnTransformMenu.ContextMenu != null)
+        {
+            BtnTransformMenu.ContextMenu.PlacementTarget = BtnTransformMenu;
+            BtnTransformMenu.ContextMenu.IsOpen = true;
+        }
+        e.Handled = true;
     }
 
     private async void OnWindowLoaded(object sender, RoutedEventArgs e)
@@ -179,6 +190,12 @@ public partial class MainWindow : Window
         // 0b. AI Protocol Formatting (F5)
         if (key == Key.F5 && !isCtrl && !isShift && !isAlt)
         {
+            if (SpeechRecognitionService.Instance.AutoformatAiEnabled)
+            {
+                vm.ProtocolsStatusMessage = "⚡ Autoformat AI este activ (formatarea se aplică automat la finalul dictării).";
+                e.Handled = true;
+                return;
+            }
             if (!vm.IsProtocolsPanelOpen)
             {
                 vm.IsProtocolsPanelOpen = true;
@@ -309,10 +326,19 @@ public partial class MainWindow : Window
                 return;
             }
 
-            // 1. If any transient measurement tool is active, revert to BrowseSeries first
-            if (MainViewModel.IsTransientTool(vm.LeftTool))
+            // 1. Cancel in-progress measurement or transient tool
+            bool wasTransient = vm.CancelTransientTools();
+            bool hadActiveDrawing = false;
+            foreach (var vpCtrl in FindVisualChildren<ViewportControl>(this))
             {
-                vm.AssignLeftTool(MouseToolAction.BrowseSeries);
+                if (vpCtrl.CancelActiveMeasurement())
+                {
+                    hadActiveDrawing = true;
+                }
+            }
+
+            if (wasTransient || hadActiveDrawing)
+            {
                 vm.StatusMessage = "Instrument măsură anulat. Revenit la Browse Series.";
                 e.Handled = true;
                 return;
@@ -866,121 +892,6 @@ public partial class MainWindow : Window
         ViewModel.StatusMessage = "Insall-Salvati Ratio: Click 1: Tibial insertion → Click 2: Inferior patellar pole (apex) → Click 3: Superior patellar pole (base)";
     }
 
-    private void OnInstantAiConsult(object sender, RoutedEventArgs e)
-    {
-        var viewports = ViewModel.DisplayedViewports
-            .Where(vp => vp.DisplayImage != null)
-            .ToList();
-
-        if (viewports.Count == 0)
-        {
-            MessageBox.Show(this, "No active DICOM image or series loaded to consult.", "AI Consultation", MessageBoxButton.OK, MessageBoxImage.Information);
-            return;
-        }
-
-        if (!AiService.Instance.Settings.AutoIncludeAllViewports && ViewModel.ActiveViewport?.DisplayImage != null)
-        {
-            viewports = new List<ViewportViewModel> { ViewModel.ActiveViewport };
-        }
-
-        var crops = new List<AiImageCrop>();
-        foreach (var vp in viewports)
-        {
-            var crop = ViewportControl.ExtractImageCrop(vp, null);
-            if (crop != null) crops.Add(crop);
-        }
-
-        if (crops.Count == 0)
-        {
-            MessageBox.Show(this, "Could not capture image from open viewports.", "AI Consultation", MessageBoxButton.OK, MessageBoxImage.Warning);
-            return;
-        }
-
-        var consultWin = new AiConsultationWindow(crops)
-        {
-            Owner = this
-        };
-        consultWin.Show();
-    }
-
-    private void OnToolAiLesionCrop(object sender, RoutedEventArgs e)
-    {
-        ViewModel.AssignLeftTool(MouseToolAction.AiLesionCrop);
-        ViewModel.StatusMessage = "Tool: AI Lesion Crop (Gemini / Claude). Drag a rectangle over the lesion to consult AI...";
-    }
-
-    private void OnOpenAiMenu(object sender, RoutedEventArgs e)
-    {
-        e.Handled = true;
-        if (AiContextMenu != null)
-        {
-            AiContextMenu.PlacementTarget = BtnAiDropdown ?? (sender as UIElement) ?? BtnAiConsult;
-            AiContextMenu.Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom;
-            AiContextMenu.IsOpen = true;
-        }
-    }
-
-    private void OnOpenAiMenuRight(object sender, MouseButtonEventArgs e)
-    {
-        e.Handled = true;
-        if (AiContextMenu != null)
-        {
-            AiContextMenu.PlacementTarget = BtnAiConsult ?? (sender as UIElement);
-            AiContextMenu.Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom;
-            AiContextMenu.IsOpen = true;
-        }
-    }
-
-    private void OnOpenAiSettings(object sender, RoutedEventArgs e)
-    {
-        try
-        {
-            var dlg = new AiSettingsWindow { Owner = this };
-            dlg.ShowDialog();
-        }
-        catch (Exception ex)
-        {
-            MessageBox.Show(this, $"Error opening AI settings: {ex.Message}", "AI Settings", MessageBoxButton.OK, MessageBoxImage.Error);
-        }
-    }
-
-    private void OnConsultAiOnArrowTarget(object sender, RoutedEventArgs e)
-    {
-        var activeVp = ViewModel.ActiveViewport;
-        if (activeVp == null)
-        {
-            MessageBox.Show(this, "No active viewport selected.", "AI Consultation", MessageBoxButton.OK, MessageBoxImage.Information);
-            return;
-        }
-
-        // Collect arrows across all slices of the active series, prioritizing the active slice
-        int sliceIdx = activeVp.CurrentSliceIndex;
-        var arrows = activeVp.Measurements
-            .Where(m => m.Type == MeasurementType.Arrow && m.Points.Count >= 2)
-            .OrderBy(m => m.SliceIndex == sliceIdx ? 0 : 1)
-            .ToList();
-
-        if (arrows.Count == 0)
-        {
-            MessageBox.Show(this,
-                "No arrow indicator found in the active series.\n\nUse the Arrow tool (Hotkey: Y) from the Tools menu to point an arrow at the lesion, pathology, or structure first.",
-                "AI Arrow Target",
-                MessageBoxButton.OK,
-                MessageBoxImage.Information);
-            return;
-        }
-
-        var vc = FindActiveViewportControl();
-        if (vc != null)
-        {
-            vc.TriggerAiConsultationForArrows(arrows);
-        }
-        else
-        {
-            MessageBox.Show(this, "Could not locate active viewport control.", "AI Consultation", MessageBoxButton.OK, MessageBoxImage.Warning);
-        }
-    }
-
     private ViewportControl? FindActiveViewportControl()
     {
         var activeVm = ViewModel.ActiveViewport;
@@ -1391,7 +1302,7 @@ public partial class MainWindow : Window
         var dlg = new MouseSettingsDialog(ViewModel) { Owner = this };
         if (dlg.ShowDialog() == true)
         {
-            string path = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "mousesettings.json");
+            string path = ViewModel.SettingsPath;
             ViewModel.MouseConfig.SaveToFile(path);
             ViewModel.StatusMessage = "Mouse bindings saved.";
         }
@@ -1453,7 +1364,9 @@ public partial class MainWindow : Window
         aboutWin.ShowDialog();
     }
 
-    private void OnToggleFullScreen(object sender, RoutedEventArgs e)
+    private void OnToggleFullScreen(object sender, RoutedEventArgs e) => ToggleFullScreen();
+
+    public void ToggleFullScreen()
     {
         if (WindowState == WindowState.Maximized && WindowStyle == WindowStyle.None)
         {
@@ -1463,6 +1376,8 @@ public partial class MainWindow : Window
         }
         else
         {
+            // Leave Maximized first: Windows only covers the taskbar when maximizing without a caption
+            WindowState = WindowState.Normal;
             WindowStyle = WindowStyle.None;
             WindowState = WindowState.Maximized;
             ViewModel.IsFullScreen = true;
@@ -1489,6 +1404,7 @@ public partial class MainWindow : Window
             BtnBrowse.ContextMenu.PlacementTarget = BtnBrowse;
             BtnBrowse.ContextMenu.IsOpen = true;
         }
+        e.Handled = true;
     }
 
     private void OnBrowseSensitivityVeryFast(object sender, RoutedEventArgs e)
@@ -1700,8 +1616,7 @@ public partial class MainWindow : Window
                 currentPatient?.Id ?? activeSeries.PatientId, 
                 currentPatient?.BirthDate ?? "");
 
-            ViewModel.StatusMessage = $"Studiul '{rec.PatientName}' a fost importat cu succes în baza de date.";
-            MessageBox.Show(this, $"Studiul '{rec.PatientName}' ({rec.TotalImages} imagini) a fost importat cu succes în Parsec Database.", "Import Database", MessageBoxButton.OK, MessageBoxImage.Information);
+            ViewModel.StatusMessage = $"Studiul '{rec.PatientName}' ({rec.TotalImages} imagini) a fost importat cu succes în baza de date.";
         }
         catch (Exception ex)
         {
@@ -1853,6 +1768,8 @@ public partial class MainWindow : Window
         ViewModel.ToggleProtocolsPanel();
     }
 
+
+
     private void OnSaveAsDocx(object sender, RoutedEventArgs e)
     {
         try
@@ -1932,8 +1849,9 @@ public partial class MainWindow : Window
                 ? demo.ExamDate
                 : DateTime.Now.ToString("dd.MM.yyyy");
 
-            string examName = Core.Services.ClinicalProtocolsService.ResolveExaminationName(
-                reportBodyText, ViewModel.SelectedClinicalProtocol, demo.ExamZone);
+            string examName = Core.Services.ClinicalProtocolsService.AppendLaterality(
+                Core.Services.ClinicalProtocolsService.ResolveExaminationName(reportBodyText, ViewModel.SelectedClinicalProtocol, demo.ExamZone),
+                study, curSeries);
 
             string contrast = (demo.Contrast?.Trim().ToUpperInvariant() == "DA" || examName.Contains("ANGIO-CT")) ? "DA" : "NU";
 
@@ -1970,7 +1888,7 @@ public partial class MainWindow : Window
             {
                 Title = "Salvează Buletin CT Urgență Word (.docx)",
                 Filter = "Word Document (*.docx)|*.docx|All Files (*.*)|*.*",
-                FileName = $"URG CM {cleanPatientName}.docx",
+                FileName = $"URG {cleanPatientName}.docx",
                 DefaultExt = ".docx"
             };
 
@@ -2009,7 +1927,10 @@ public partial class MainWindow : Window
         {
             Owner = this
         };
-        win.ShowDialog();
+        if (win.ShowDialog() == true)
+        {
+            ViewModel.RefreshAutoformatAiState();
+        }
     }
 
     private void OnClearProtocolsText(object sender, RoutedEventArgs e)
@@ -2086,6 +2007,11 @@ public partial class MainWindow : Window
                 if (!string.IsNullOrWhiteSpace(text))
                 {
                     InsertTextAtCaret(text + " ");
+
+                    if (SpeechRecognitionService.Instance.AutoformatAiEnabled)
+                    {
+                        OnFormatProtocolWithAi(this, new RoutedEventArgs());
+                    }
                 }
             }
         }
@@ -2370,6 +2296,8 @@ public partial class MainWindow : Window
             MenuInvertScrolling.IsChecked = val;
         if (MenuViewInvertScrolling != null && MenuViewInvertScrolling.IsChecked != val)
             MenuViewInvertScrolling.IsChecked = val;
+        if (ToolbarContextMenuInvertScrolling != null && ToolbarContextMenuInvertScrolling.IsChecked != val)
+            ToolbarContextMenuInvertScrolling.IsChecked = val;
     }
     #endregion
 }

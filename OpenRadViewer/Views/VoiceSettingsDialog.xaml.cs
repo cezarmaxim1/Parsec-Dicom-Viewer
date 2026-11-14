@@ -20,14 +20,17 @@ public partial class VoiceSettingsDialog : Window
         var availableModels = new List<string>
         {
             "gemini-3.8-flash",
+            "gemini-3.6-flash",
             "gemini-3.5-flash",
             "gemini-3.5-flash-lite",
-            "gemini-flash-latest",
-            "Auto"
+            "gemini-flash-latest"
         };
 
-        string currentGeminiModel = SpeechRecognitionService.Instance.SelectedGeminiModel?.Trim() ?? "";
-        if (string.IsNullOrWhiteSpace(currentGeminiModel)) currentGeminiModel = "gemini-3.8-flash";
+        string currentGeminiModel = SpeechRecognitionService.CleanModelName(SpeechRecognitionService.Instance.SelectedGeminiModel);
+        if (string.IsNullOrWhiteSpace(currentGeminiModel))
+        {
+            currentGeminiModel = "gemini-3.8-flash";
+        }
 
         if (!availableModels.Contains(currentGeminiModel, StringComparer.OrdinalIgnoreCase))
         {
@@ -39,6 +42,7 @@ public partial class VoiceSettingsDialog : Window
         ComboGeminiModel.Text = currentGeminiModel;
 
         TxtCustomAiRules.Text = SpeechRecognitionService.Instance.CustomAiRules ?? string.Empty;
+        ChkAutoformatAi.IsChecked = SpeechRecognitionService.Instance.AutoformatAiEnabled;
 
         UpdateRefFilesCount();
     }
@@ -67,11 +71,12 @@ public partial class VoiceSettingsDialog : Window
     {
         SpeechRecognitionService.Instance.SaveGeminiApiKey(TxtGeminiKey.Text);
 
-        string modelToSave = ComboGeminiModel.Text?.Trim() ?? "";
+        string modelToSave = (ComboGeminiModel.SelectedItem as string) ?? ComboGeminiModel.Text?.Trim() ?? "";
         if (string.IsNullOrWhiteSpace(modelToSave)) modelToSave = "gemini-3.8-flash";
         SpeechRecognitionService.Instance.SaveGeminiModel(modelToSave);
 
         SpeechRecognitionService.Instance.SaveCustomAiRules(TxtCustomAiRules.Text);
+        SpeechRecognitionService.Instance.SaveAutoformatAi(ChkAutoformatAi.IsChecked == true);
 
         MessageBox.Show(this, "Voice dictation & AI rules saved successfully!", "Voice Settings", MessageBoxButton.OK, MessageBoxImage.Information);
         DialogResult = true;

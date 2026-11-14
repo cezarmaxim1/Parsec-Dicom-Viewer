@@ -6,6 +6,7 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Media;
 using OpenRadViewer.Core.Services;
 
@@ -156,12 +157,28 @@ public partial class PacsConfigurationWindow : Window
         }
     }
 
+    private void OnServerTypeChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (DicomFieldsPanel == null || WebFieldsPanel == null) return;
+        bool isWeb = CmbServerType.SelectedIndex == 1;
+        DicomFieldsPanel.Visibility = isWeb ? Visibility.Collapsed : Visibility.Visible;
+        WebFieldsPanel.Visibility = isWeb ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    /// <summary>Host name of a web portal URL, stored as the server address of a web PACS entry.</summary>
+    private static string HostFromUrl(string url) =>
+        Uri.TryCreate(url.Trim(), UriKind.Absolute, out var uri) ? uri.Host : string.Empty;
+
     private void OnAddServerClicked(object sender, RoutedEventArgs e)
     {
         _editingServer = null;
-        TxtEditTitle.Text = "Add New PACS Location";
-        TxtEditDesc.Text = "PXDPACS_NEW";
-        TxtEditIp.Text = "192.168.1.";
+        TxtEditTitle.Text = "Add PACS Location";
+        TxtEditDesc.Text = string.Empty;
+        CmbServerType.SelectedIndex = 0; // DICOM
+        TxtWebUrl.Text = string.Empty;
+        TxtWebUsername.Text = string.Empty;
+        TxtWebPassword.Password = string.Empty;
+        TxtEditIp.Text = string.Empty;
         TxtEditPort.Text = "4020";
         TxtEditAe.Text = "PXDPACS";
         CmbEditMode.SelectedIndex = 0;
@@ -175,6 +192,11 @@ public partial class PacsConfigurationWindow : Window
         _editingServer = s;
         TxtEditTitle.Text = $"Edit Location: {s.Description}";
         TxtEditDesc.Text = s.Description;
+        bool isWeb = s.ServerType == "PixelDataWeb";
+        CmbServerType.SelectedIndex = isWeb ? 1 : 0;
+        TxtWebUrl.Text = s.WebUrl ?? string.Empty;
+        TxtWebUsername.Text = s.WebUsername ?? string.Empty;
+        TxtWebPassword.Password = s.WebPassword ?? "";
         TxtEditIp.Text = s.IpAddress;
         TxtEditPort.Text = s.Port.ToString();
         TxtEditAe.Text = s.AeTitle;
@@ -190,15 +212,29 @@ public partial class PacsConfigurationWindow : Window
 
     private void OnSaveServerEditClicked(object sender, RoutedEventArgs e)
     {
-        if (string.IsNullOrWhiteSpace(TxtEditDesc.Text) || string.IsNullOrWhiteSpace(TxtEditIp.Text))
+        bool isWeb = CmbServerType.SelectedIndex == 1;
+
+        if (string.IsNullOrWhiteSpace(TxtEditDesc.Text))
         {
-            MessageBox.Show("Please enter a description and IP address for the PACS server.", "Warning", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show("Please enter a description for the PACS server.", "Warning", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        if (isWeb && string.IsNullOrWhiteSpace(TxtWebUrl.Text))
+        {
+            MessageBox.Show("Please enter the Web Portal URL (https://host:port).", "Warning", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        if (!isWeb && string.IsNullOrWhiteSpace(TxtEditIp.Text))
+        {
+            MessageBox.Show("Please enter the IP address for the DICOM server.", "Warning", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
 
         if (!int.TryParse(TxtEditPort.Text.Trim(), out int port))
         {
-            port = 4020;
+            port = isWeb ? 4023 : 4020;
         }
 
         string mode = CmbEditMode.SelectedIndex == 1 ? "C-GET" : "C-MOVE";
@@ -209,7 +245,11 @@ public partial class PacsConfigurationWindow : Window
             var newServer = new PacsServerConfig
             {
                 Description = TxtEditDesc.Text.Trim(),
-                IpAddress = TxtEditIp.Text.Trim(),
+                ServerType = isWeb ? "PixelDataWeb" : "DICOM",
+                WebUrl = TxtWebUrl.Text.Trim(),
+                WebUsername = TxtWebUsername.Text.Trim(),
+                WebPassword = TxtWebPassword.Password,
+                IpAddress = isWeb ? HostFromUrl(TxtWebUrl.Text) : TxtEditIp.Text.Trim(),
                 Port = port,
                 AeTitle = TxtEditAe.Text.Trim(),
                 RetrievalMode = mode,
@@ -221,7 +261,11 @@ public partial class PacsConfigurationWindow : Window
         else
         {
             _editingServer.Description = TxtEditDesc.Text.Trim();
-            _editingServer.IpAddress = TxtEditIp.Text.Trim();
+            _editingServer.ServerType = isWeb ? "PixelDataWeb" : "DICOM";
+            _editingServer.WebUrl = TxtWebUrl.Text.Trim();
+            _editingServer.WebUsername = TxtWebUsername.Text.Trim();
+            _editingServer.WebPassword = TxtWebPassword.Password;
+            _editingServer.IpAddress = isWeb ? HostFromUrl(TxtWebUrl.Text) : TxtEditIp.Text.Trim();
             _editingServer.Port = port;
             _editingServer.AeTitle = TxtEditAe.Text.Trim();
             _editingServer.RetrievalMode = mode;

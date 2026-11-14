@@ -62,7 +62,7 @@ public partial class MouseSettingsDialog : Window
         _mainVm.InvertScrolling = ChkInvertScrolling.IsChecked == true;
         _mainVm.MouseConfig.InvertScrolling = _mainVm.InvertScrolling;
         
-        string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "mousesettings.json");
+        string path = _mainVm.SettingsPath;
         _mainVm.MouseConfig.SaveToFile(path);
 
         _mainVm.LeftTool = _mainVm.MouseConfig.GetActionFor(MouseInputTrigger.LeftDrag);

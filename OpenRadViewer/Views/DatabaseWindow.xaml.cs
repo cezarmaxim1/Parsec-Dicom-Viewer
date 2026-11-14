@@ -23,6 +23,7 @@ public partial class DatabaseWindow : Window
     {
         InitializeComponent();
         _mainViewModel = mainViewModel;
+        CustomTitleBar.Attach(this, RootGrid, TitleBarBorder);
 
         DarkWindowHelper.ApplyDarkTitleBar(this);
         try
@@ -38,6 +39,8 @@ public partial class DatabaseWindow : Window
         TxtDbPath.Text = $"Database: {DatabaseService.GetDatabaseFolder()}";
         Loaded += OnWindowLoaded;
         KeyDown += OnWindowKeyDown;
+        DatabaseService.IndexFileChanged += OnIndexFileChanged;
+        Closed += (_, _) => DatabaseService.IndexFileChanged -= OnIndexFileChanged;
     }
 
     protected override void OnSourceInitialized(EventArgs e)
@@ -46,9 +49,43 @@ public partial class DatabaseWindow : Window
         DarkWindowHelper.ApplyDarkTitleBar(this);
     }
 
-    private void OnWindowLoaded(object sender, RoutedEventArgs e)
+    private async void OnWindowLoaded(object sender, RoutedEventArgs e)
     {
         ReloadDatabase();
+
+        // Older records have no stored times, so they are filled in from their DICOM files once
+        bool updated = await Task.Run(DatabaseService.BackfillTimes);
+
+        // Older records have no stored size either; it is measured from the study folder once
+        updated |= await Task.Run(DatabaseService.BackfillSizes);
+
+        // Notes changed on the server, or saved here while it was down, are compared by edit time
+        _ = Task.Run(() => ParsecPacsSyncService.SyncAllRecordNotesAsync(ParsecPacsSyncService.GetNoteHosts()));
+
+        if (!updated || !IsLoaded) return;
+
+        string? selectedUid = (GridStudies.SelectedItem as DatabaseRecordModel)?.StudyInstanceUid;
+        ReloadDatabase();
+        var match = _filteredRecords.FirstOrDefault(r => r.StudyInstanceUid == selectedUid);
+        if (match != null) GridStudies.SelectedItem = match;
+    }
+
+    private void OnIndexFileChanged()
+    {
+        Dispatcher.BeginInvoke(() =>
+        {
+            var latest = DatabaseService.LoadRecords();
+            bool changed = false;
+            foreach (var record in _allRecords)
+            {
+                var current = latest.FirstOrDefault(r => r.StudyInstanceUid == record.StudyInstanceUid);
+                if (current == null || current.PatientComments == record.PatientComments) continue;
+                record.PatientComments = current.PatientComments;
+                record.PatientCommentsUpdatedAt = current.PatientCommentsUpdatedAt;
+                changed = true;
+            }
+            if (changed) GridStudies.Items.Refresh();
+        });
     }
 
     private void OnWindowKeyDown(object sender, KeyEventArgs e)
@@ -56,6 +93,12 @@ public partial class DatabaseWindow : Window
         if (e.Key == Key.Escape)
         {
             Close();
+            e.Handled = true;
+        }
+        else if (e.Key == Key.Delete && e.OriginalSource is not System.Windows.Controls.TextBox)
+        {
+            // Del also works when the focus is on the toolbar or the series list, not only on the study list
+            OnDeleteStudy(sender, e);
             e.Handled = true;
         }
     }
@@ -195,6 +238,7 @@ public partial class DatabaseWindow : Window
         OpenSelectedSeries(appendToCurrentStudy: true);
     }
 
+    // AI-NOTE: wired to PreviewKeyDown. DataGrid handles Delete (and Enter) itself, so a bubbling KeyDown handler never sees them.
     private void OnGridStudiesKeyDown(object sender, KeyEventArgs e)
     {
         if (e.Key == Key.Enter)
@@ -419,16 +463,32 @@ public partial class DatabaseWindow : Window
 
     private bool _isSendingToPacs;
 
-    private void OnEditNotes(object sender, RoutedEventArgs e)
+    private async void OnEditNotes(object sender, RoutedEventArgs e)
     {
         if (GridStudies.SelectedItem is not DatabaseRecordModel record) return;
+        var hosts = ParsecPacsSyncService.GetNoteHosts();
+
+        record.PatientComments = await Task.Run(() => ParsecPacsSyncService.LoadLatestNoteAsync(record.StudyInstanceUid, record.PatientComments, hosts));
+        GridStudies.Items.Refresh();
+
         var dlg = new NotesEditDialog(record.PatientName?.Replace("^", " ") ?? string.Empty, record.PatientComments) { Owner = this };
         if (dlg.ShowDialog() != true) return;
 
         string text = dlg.NotesText;
-        DatabaseService.SetLocalNote(record.StudyInstanceUid, text);
+        string previous = record.PatientComments;
+        var status = await Task.Run(() => ParsecPacsSyncService.SaveUserNoteAsync(record.StudyInstanceUid, text, previous, hosts));
+        if (status == NoteSaveStatus.LocalSaveFailed)
+        {
+            MessageBox.Show(this, "Notița NU a fost salvată: baza de date locală nu a putut fi actualizată. Încercați din nou.", "Notițe", MessageBoxButton.OK, MessageBoxImage.Error);
+            return;
+        }
+
         record.PatientComments = text;
         GridStudies.Items.Refresh();
+        if (status == NoteSaveStatus.PacsUnreachable)
+        {
+            MessageBox.Show(this, "Notița este salvată în baza de date locală, dar NU a ajuns în PACS: serverul nu răspunde.\n\nVa fi trimisă automat când serverul răspunde din nou, la următoarea deschidere a acestei ferestre sau reîmprospătare a listei PACS.", "Notițe", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
     }
 
     private void OnToggleReviewed(object sender, RoutedEventArgs e)
@@ -604,10 +664,14 @@ public partial class DatabaseWindow : Window
         }
     }
 
-    private void OnDeleteStudy(object sender, RoutedEventArgs e)
+    private async void OnDeleteStudy(object sender, RoutedEventArgs e)
     {
         var selected = GridStudies.SelectedItems.OfType<DatabaseRecordModel>().ToList();
-        if (selected.Count == 0) return;
+        if (selected.Count == 0)
+        {
+            TxtStatus.Text = "Selectați mai întâi un studiu din listă.";
+            return;
+        }
 
         if (selected.Count == 1)
         {
@@ -620,9 +684,7 @@ public partial class DatabaseWindow : Window
 
             if (res == MessageBoxResult.Yes)
             {
-                DatabaseService.DeleteRecord(record);
-                ReloadDatabase();
-                TxtStatus.Text = $"Studiul a fost șters.";
+                await DeleteAndReportAsync(selected);
             }
         }
         else
@@ -636,10 +698,48 @@ public partial class DatabaseWindow : Window
 
             if (res == MessageBoxResult.Yes)
             {
-                DatabaseService.DeleteRecords(selected);
-                ReloadDatabase();
-                TxtStatus.Text = $"{selected.Count} studii au fost șterse.";
+                await DeleteAndReportAsync(selected);
             }
+        }
+    }
+
+    /// <summary>Deletes studies off the UI thread and says plainly when the index or a folder could not be changed.</summary>
+    private async Task DeleteAndReportAsync(List<DatabaseRecordModel> selected)
+    {
+        TxtStatus.Text = selected.Count == 1 ? "Se șterge studiul..." : $"Se șterg {selected.Count} studii...";
+        IsEnabled = false;
+        DeleteResult result;
+        try
+        {
+            result = await Task.Run(() => DatabaseService.DeleteRecords(selected));
+        }
+        catch (Exception ex)
+        {
+            result = new DeleteResult();
+            System.Diagnostics.Debug.WriteLine($"[Database] Delete failed: {ex.Message}");
+        }
+        finally
+        {
+            IsEnabled = true;
+        }
+
+        ReloadDatabase();
+
+        if (!result.IndexUpdated)
+        {
+            TxtStatus.Text = "Ștergerea nu a reușit.";
+            MessageBox.Show(this,
+                "Studiul nu a putut fi șters: fișierul bazei de date (database_index.json) nu a putut fi citit sau scris.\n\nNu s-a șters nimic. Închideți alte programe care folosesc baza de date și încercați din nou.",
+                "Ștergere nereușită", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        TxtStatus.Text = result.RemovedCount == 1 ? "Studiul a fost șters." : $"{result.RemovedCount} studii au fost șterse.";
+        if (result.FoldersLeft.Count > 0)
+        {
+            MessageBox.Show(this,
+                $"Studiul a fost scos din listă, dar {result.FoldersLeft.Count} dosar(e) cu imagini nu au putut fi șterse de pe disc, probabil pentru că fișierele sunt folosite acum.\n\nVor fi șterse automat la următoarea deschidere a bazei de date.",
+                "Fișiere rămase pe disc", MessageBoxButton.OK, MessageBoxImage.Information);
         }
     }
 

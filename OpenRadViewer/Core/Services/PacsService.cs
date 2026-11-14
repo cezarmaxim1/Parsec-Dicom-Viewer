@@ -33,6 +33,11 @@ public class PacsService
     public event Action<string, string, string>? InstanceReceived; // (studyUid, seriesUid, filePath)
     public event Action<string, string, string, int>? InstanceReceivedWithFrames; // (studyUid, seriesUid, filePath, frames)
 
+    public void RaiseInstanceReceived(string studyUid, string seriesUid, string filePath)
+    {
+        InstanceReceived?.Invoke(studyUid, seriesUid, filePath);
+    }
+
     private PacsService()
     {
         string appDataDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Parsec");
@@ -265,6 +270,15 @@ public class PacsService
 
     public async Task<(bool Success, long LatencyMs, string Message)> TestEchoAsync(PacsServerConfig server)
     {
+        if (server.ServerType == "PixelDataWeb")
+        {
+            var webRes = await PixelDataPacsService.Instance.TestConnectionAsync(server);
+            server.Status = webRes.status;
+            server.LastPingMs = webRes.pingMs;
+            server.LastChecked = DateTime.Now;
+            return (webRes.success, webRes.pingMs ?? 0, webRes.status);
+        }
+
         var sw = Stopwatch.StartNew();
         try
         {
@@ -329,8 +343,25 @@ public class PacsService
 
     #region DICOM C-FIND (Query Studies & Series)
 
+    /// <summary>
+    /// Patient ID matching key. A full CNP (13 digits) is matched exactly; a shorter one as a prefix ("276*").
+    /// Many PACS ignore or reject a leading "*" on Patient ID, so "*276*" can return nothing.
+    /// </summary>
+    private static string BuildPatientIdKey(string? patientId)
+    {
+        if (string.IsNullOrWhiteSpace(patientId)) return string.Empty;
+        string id = patientId.Trim();
+        if (id.Contains('*') || id.Contains('?')) return id;
+        return id.Length >= 13 ? id : $"{id}*";
+    }
+
     public async Task<List<PacsStudyResult>> QueryStudiesAsync(PacsServerConfig server, PacsSearchFilter filter, CancellationToken ct = default)
     {
+        if (server.ServerType == "PixelDataWeb")
+        {
+            return await PixelDataPacsService.Instance.QueryStudiesAsync(server, filter, ct);
+        }
+
         var results = new List<PacsStudyResult>();
         try
         {
@@ -359,8 +390,10 @@ public class PacsService
                 var request = new DicomCFindRequest(DicomQueryRetrieveLevel.Study);
 
                 // Return keys (empty tags instruct PACS to return these attributes)
-                request.Dataset.AddOrUpdate(DicomTag.PatientName, string.IsNullOrWhiteSpace(filter.PatientName) ? string.Empty : $"*{filter.PatientName.Trim()}*");
-                request.Dataset.AddOrUpdate(DicomTag.PatientID, string.IsNullOrWhiteSpace(filter.PatientId) ? string.Empty : $"*{filter.PatientId.Trim()}*");
+                // "popescu io" becomes "*popescu*io*", which matches the stored "POPESCU^IOANA"
+                var nameWords = PacsSearchFilter.NameWords(filter.PatientName);
+                request.Dataset.AddOrUpdate(DicomTag.PatientName, nameWords.Length == 0 ? string.Empty : $"*{string.Join("*", nameWords)}*");
+                request.Dataset.AddOrUpdate(DicomTag.PatientID, BuildPatientIdKey(filter.PatientId));
                 request.Dataset.AddOrUpdate(DicomTag.PatientBirthDate, string.Empty);
                 request.Dataset.AddOrUpdate(DicomTag.PatientAge, string.Empty);
                 request.Dataset.AddOrUpdate(DicomTag.AccessionNumber, string.IsNullOrWhiteSpace(filter.AccessionNumber) ? string.Empty : filter.AccessionNumber.Trim());
@@ -561,6 +594,8 @@ public class PacsService
             request.Dataset.AddOrUpdate(DicomTag.SeriesNumber, string.Empty);
             request.Dataset.AddOrUpdate(DicomTag.Modality, string.Empty);
             request.Dataset.AddOrUpdate(DicomTag.SeriesDescription, string.Empty);
+            request.Dataset.AddOrUpdate(DicomTag.SeriesDate, string.Empty);
+            request.Dataset.AddOrUpdate(DicomTag.SeriesTime, string.Empty);
             request.Dataset.AddOrUpdate(DicomTag.NumberOfSeriesRelatedInstances, string.Empty);
 
             request.OnResponseReceived += (req, res) =>
@@ -578,6 +613,8 @@ public class PacsService
                         SeriesNumber = ds.GetSingleValueOrDefault(DicomTag.SeriesNumber, "1"),
                         Modality = ds.GetSingleValueOrDefault(DicomTag.Modality, string.Empty),
                         SeriesDescription = ds.GetSingleValueOrDefault(DicomTag.SeriesDescription, string.Empty),
+                        SeriesDate = ds.GetSingleValueOrDefault(DicomTag.SeriesDate, string.Empty),
+                        SeriesTime = ds.GetSingleValueOrDefault(DicomTag.SeriesTime, string.Empty),
                         InstanceCount = ds.GetSingleValueOrDefault(DicomTag.NumberOfSeriesRelatedInstances, 0)
                     };
 
@@ -610,11 +647,36 @@ public class PacsService
 
     public async Task<string> DownloadStudyAsync(
         PacsServerConfig server,
+        PacsStudyResult study,
+        int expectedTotalInstances = 0,
+        IProgress<(int current, int total, string message)>? progress = null,
+        CancellationToken ct = default)
+    {
+        if (server.ServerType == "PixelDataWeb")
+        {
+            return await PixelDataPacsService.Instance.DownloadStudyAsync(server, study, expectedTotalInstances, progress, ct);
+        }
+
+        return await DownloadStudyAsync(server, study.StudyInstanceUid, expectedTotalInstances, progress, ct);
+    }
+
+    public async Task<string> DownloadStudyAsync(
+        PacsServerConfig server,
         string studyInstanceUid,
         int expectedTotalInstances = 0,
         IProgress<(int current, int total, string message)>? progress = null,
         CancellationToken ct = default)
     {
+        if (server.ServerType == "PixelDataWeb")
+        {
+            var fallbackStudy = new PacsStudyResult
+            {
+                StudyInstanceUid = studyInstanceUid,
+                InstanceCount = expectedTotalInstances
+            };
+            return await PixelDataPacsService.Instance.DownloadStudyAsync(server, fallbackStudy, expectedTotalInstances, progress, ct);
+        }
+
         string studyDir = Path.Combine(Settings.CacheDirectory, Sanitize(studyInstanceUid));
         Directory.CreateDirectory(studyDir);
 
@@ -677,12 +739,38 @@ public class PacsService
 
     public async Task<string> DownloadSeriesAsync(
         PacsServerConfig server,
+        PacsStudyResult study,
+        string seriesInstanceUid,
+        int expectedTotalInstances = 0,
+        IProgress<(int current, int total, string message)>? progress = null,
+        CancellationToken ct = default)
+    {
+        if (server.ServerType == "PixelDataWeb")
+        {
+            return await PixelDataPacsService.Instance.DownloadStudyAsync(server, study, expectedTotalInstances, progress, ct, seriesInstanceUid);
+        }
+
+        return await DownloadSeriesAsync(server, study.StudyInstanceUid, seriesInstanceUid, expectedTotalInstances, progress, ct);
+    }
+
+    public async Task<string> DownloadSeriesAsync(
+        PacsServerConfig server,
         string studyInstanceUid,
         string seriesInstanceUid,
         int expectedTotalInstances = 0,
         IProgress<(int current, int total, string message)>? progress = null,
         CancellationToken ct = default)
     {
+        if (server.ServerType == "PixelDataWeb")
+        {
+            var fallbackStudy = new PacsStudyResult
+            {
+                StudyInstanceUid = studyInstanceUid,
+                InstanceCount = expectedTotalInstances
+            };
+            return await PixelDataPacsService.Instance.DownloadStudyAsync(server, fallbackStudy, expectedTotalInstances, progress, ct, seriesInstanceUid);
+        }
+
         string studyDir = Path.Combine(Settings.CacheDirectory, Sanitize(studyInstanceUid));
         string seriesDir = Path.Combine(studyDir, Sanitize(seriesInstanceUid));
         Directory.CreateDirectory(seriesDir);

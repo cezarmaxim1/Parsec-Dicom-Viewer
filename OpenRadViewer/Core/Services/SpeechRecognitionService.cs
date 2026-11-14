@@ -49,10 +49,89 @@ public class SpeechRecognitionService : IDisposable
     public string SelectedWhisperModel { get; set; } = "base"; // "base", "small", "tiny"
     public string ReferenceReportsDir => _referenceReportsDir;
     public string CustomAiRules { get; set; } = string.Empty;
+    public bool AutoformatAiEnabled { get; set; } = false;
 
     private readonly string _referenceReportsDir;
     private readonly string _geminiModelPath;
     private readonly string _customRulesPath;
+    private readonly string _autoformatPath;
+
+    private static readonly string _overloadedModelsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Parsec", "overloaded_models.json");
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, DateTime> _overloadedModels = LoadOverloadedModels();
+
+    private static System.Collections.Concurrent.ConcurrentDictionary<string, DateTime> LoadOverloadedModels()
+    {
+        var dict = new System.Collections.Concurrent.ConcurrentDictionary<string, DateTime>(StringComparer.OrdinalIgnoreCase);
+        try
+        {
+            if (File.Exists(_overloadedModelsPath))
+            {
+                string json = File.ReadAllText(_overloadedModelsPath);
+                var loaded = JsonSerializer.Deserialize<Dictionary<string, DateTime>>(json);
+                if (loaded != null)
+                {
+                    DateTime now = DateTime.UtcNow;
+                    foreach (var kvp in loaded)
+                    {
+                        if (kvp.Value > now) dict[kvp.Key] = kvp.Value;
+                    }
+                }
+            }
+        }
+        catch { }
+        return dict;
+    }
+
+    private static void SaveOverloadedModels()
+    {
+        try
+        {
+            DateTime now = DateTime.UtcNow;
+            var active = _overloadedModels.Where(kvp => kvp.Value > now).ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
+            string json = JsonSerializer.Serialize(active, new JsonSerializerOptions { WriteIndented = true });
+            File.WriteAllText(_overloadedModelsPath, json);
+        }
+        catch { }
+    }
+
+    private static bool IsModelTemporarilyOverloaded(string model)
+    {
+        if (_overloadedModels.TryGetValue(model, out var until))
+        {
+            if (DateTime.UtcNow < until) return true;
+            _overloadedModels.TryRemove(model, out _);
+            SaveOverloadedModels();
+        }
+        return false;
+    }
+
+    private static void MarkModelOverloaded(string model, int minutes = 15)
+    {
+        _overloadedModels[model] = DateTime.UtcNow.AddMinutes(minutes);
+        SaveOverloadedModels();
+    }
+
+    private static void MarkModelHealthy(string model)
+    {
+        if (_overloadedModels.TryRemove(model, out _))
+        {
+            SaveOverloadedModels();
+        }
+    }
+
+    public static void LogAiTiming(string operation, string model, double elapsedSeconds, int statusCode, int outTokens = 0, int thinkTokens = 0, string? note = null)
+    {
+        try
+        {
+            string appData = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Parsec");
+            string logPath = Path.Combine(appData, "ai_timing.log");
+            string line = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] [{operation}] Model: {model} | Time: {elapsedSeconds:0.00}s | Status: {statusCode} | OutTokens: {outTokens} | ThinkTokens: {thinkTokens}"
+                + (!string.IsNullOrWhiteSpace(note) ? $" | {note}" : "")
+                + Environment.NewLine;
+            File.AppendAllText(logPath, line);
+        }
+        catch { }
+    }
 
     public event Action<int>? RecordingDurationChanged;
     public event Action<string>? StatusChanged;
@@ -65,6 +144,7 @@ public class SpeechRecognitionService : IDisposable
         _geminiKeyPath = Path.Combine(appData, "gemini_key.txt");
         _geminiModelPath = Path.Combine(appData, "gemini_model.txt");
         _customRulesPath = Path.Combine(appData, "ai_custom_rules.txt");
+        _autoformatPath = Path.Combine(appData, "autoformat_ai.txt");
         _referenceReportsDir = Path.Combine(appData, "ReferenceReports");
 
         Directory.CreateDirectory(_audioDir);
@@ -91,13 +171,13 @@ public class SpeechRecognitionService : IDisposable
                 string m = File.ReadAllText(_geminiModelPath).Trim();
                 if (!string.IsNullOrEmpty(m))
                 {
-                    // Auto-migrate retired 1.5, 2.0, 2.5 models
+                    m = CleanModelName(m);
                     if (m.Contains("2.5") || m.Contains("2.0") || m.Contains("1.5"))
                     {
                         m = "gemini-3.8-flash";
-                        try { File.WriteAllText(_geminiModelPath, m); } catch { }
                     }
                     SelectedGeminiModel = m;
+                    try { File.WriteAllText(_geminiModelPath, m); } catch { }
                 }
             }
         }
@@ -114,6 +194,17 @@ public class SpeechRecognitionService : IDisposable
             {
                 CustomAiRules = "Concluziile pe scurt.\r\nFara \"-\" inainte la concluzii.";
                 File.WriteAllText(_customRulesPath, CustomAiRules);
+            }
+        }
+        catch { }
+
+        // Load saved Autoformat AI setting if present
+        try
+        {
+            if (File.Exists(_autoformatPath))
+            {
+                string val = File.ReadAllText(_autoformatPath).Trim();
+                AutoformatAiEnabled = string.Equals(val, "true", StringComparison.OrdinalIgnoreCase);
             }
         }
         catch { }
@@ -286,9 +377,17 @@ public class SpeechRecognitionService : IDisposable
         }
     }
 
+    public static string CleanModelName(string? model)
+    {
+        if (string.IsNullOrWhiteSpace(model)) return "gemini-3.8-flash";
+        string clean = model.Split('(')[0].Trim();
+        if (clean.Equals("Auto", StringComparison.OrdinalIgnoreCase)) return "gemini-3.8-flash";
+        return string.IsNullOrWhiteSpace(clean) ? "gemini-3.8-flash" : clean;
+    }
+
     public void SaveGeminiModel(string model)
     {
-        SelectedGeminiModel = string.IsNullOrWhiteSpace(model) ? "gemini-3.8-flash" : model.Trim();
+        SelectedGeminiModel = CleanModelName(model);
         try
         {
             File.WriteAllText(_geminiModelPath, SelectedGeminiModel);
@@ -302,6 +401,16 @@ public class SpeechRecognitionService : IDisposable
         try
         {
             File.WriteAllText(_customRulesPath, CustomAiRules);
+        }
+        catch { }
+    }
+
+    public void SaveAutoformatAi(bool enabled)
+    {
+        AutoformatAiEnabled = enabled;
+        try
+        {
+            File.WriteAllText(_autoformatPath, enabled ? "true" : "false");
         }
         catch { }
     }
@@ -617,9 +726,9 @@ public class SpeechRecognitionService : IDisposable
 
         string json = JsonSerializer.Serialize(payload);
 
-        // Build list of models to try. First priority is ALWAYS the model specified by user/setting (gemini-3.8-flash -> gemini-3.5-flash)
+        // Build list of models to try. First priority is gemini-3.8-flash -> gemini-3.6-flash -> gemini-3.5-flash
         var modelsToTry = new List<string>();
-        string target = preferredModel?.Trim() ?? "";
+        string target = CleanModelName(preferredModel);
 
         if (!string.IsNullOrWhiteSpace(target) && !target.Equals("auto", StringComparison.OrdinalIgnoreCase))
         {
@@ -629,6 +738,7 @@ public class SpeechRecognitionService : IDisposable
         var pool = new[]
         {
             "gemini-3.8-flash",
+            "gemini-3.6-flash",
             "gemini-3.5-flash",
             "gemini-3.5-flash-lite",
             "gemini-flash-latest",
@@ -643,22 +753,33 @@ public class SpeechRecognitionService : IDisposable
             }
         }
 
-        // 120s timeout so long dictations (5+ minutes, ~10MB WAV) never time out during upload/transcription
-        using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(120) };
+        // Prioritize healthy models over temporarily overloaded ones (503 / 429)
+        modelsToTry = modelsToTry.OrderBy(m => IsModelTemporarilyOverloaded(m) ? 1 : 0).ToList();
+
+        using var client = new HttpClient();
 
         // Attempt 1: Try with full prompt (including medical vocabulary)
         foreach (var model in modelsToTry)
         {
+            var sw = System.Diagnostics.Stopwatch.StartNew();
             try
             {
                 string url = $"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={apiKey.Trim()}";
                 using var content = new StringContent(json, Encoding.UTF8, "application/json");
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(25));
 
-                var response = await client.PostAsync(url, content);
+                var response = await client.PostAsync(url, content, cts.Token);
                 if (!response.IsSuccessStatusCode)
                 {
+                    LogAiTiming("TranscribeAudio", model, sw.Elapsed.TotalSeconds, (int)response.StatusCode);
+                    if ((int)response.StatusCode == 503 || (int)response.StatusCode == 429)
+                    {
+                        MarkModelOverloaded(model, 15);
+                    }
                     continue; // try next model if 429 quota, 503 high demand or 404
                 }
+
+                MarkModelHealthy(model);
 
                 string respJson = await response.Content.ReadAsStringAsync();
                 using var doc = JsonDocument.Parse(respJson);
@@ -670,24 +791,37 @@ public class SpeechRecognitionService : IDisposable
                         cObj.TryGetProperty("parts", out var parts) && parts.GetArrayLength() > 0)
                     {
                         var firstPart = parts[0];
-                        // 1. Standard text field (gemini-3.8-flash, gemini-3.5-flash-lite, etc.)
+                        // 1. Standard text field (gemini-3.6-flash, gemini-3.5-flash-lite, etc.)
                         if (firstPart.TryGetProperty("text", out var textProp))
                         {
                             string text = textProp.GetString() ?? "";
-                            if (!string.IsNullOrWhiteSpace(text)) return text.Trim();
+                            if (!string.IsNullOrWhiteSpace(text))
+                            {
+                                LogAiTiming("TranscribeAudio", model, sw.Elapsed.TotalSeconds, (int)response.StatusCode, note: "OK");
+                                return text.Trim();
+                            }
                         }
                         // 2. Dedicated transcription field (gemini-3.5-transcribe)
                         if (firstPart.TryGetProperty("audioTranscription", out var atObj) &&
                             atObj.TryGetProperty("text", out var atTextProp))
                         {
                             string text = atTextProp.GetString() ?? "";
-                            if (!string.IsNullOrWhiteSpace(text)) return text.Trim();
+                            if (!string.IsNullOrWhiteSpace(text))
+                            {
+                                LogAiTiming("TranscribeAudio", model, sw.Elapsed.TotalSeconds, (int)response.StatusCode, note: "OK (audioTranscription)");
+                                return text.Trim();
+                            }
                         }
                     }
                 }
             }
-            catch
+            catch (Exception ex)
             {
+                LogAiTiming("TranscribeAudio", model, sw.Elapsed.TotalSeconds, 0, note: $"Ex: {ex.Message}");
+                if (ex is OperationCanceledException or TimeoutException or HttpRequestException)
+                {
+                    MarkModelOverloaded(model, 15);
+                }
                 // try next candidate model
             }
         }
@@ -1042,6 +1176,7 @@ public class SpeechRecognitionService : IDisposable
             return string.Empty;
         }
 
+        var sw = System.Diagnostics.Stopwatch.StartNew();
         SetStatus("✨ Se formatează protocolul cu AI...");
 
         string relevantNotes = ClinicalProtocolsService.ExtractRelevantReferenceLines(dictatedText, protocol, 25);
@@ -1076,7 +1211,24 @@ public class SpeechRecognitionService : IDisposable
         promptSb.AppendLine("REGULI STRICTE DE REDACTARE:");
         promptSb.AppendLine("- Răspunde STRICT cu partea de interpretare radiologică (TEXT + CONCLUZII) și nimic altceva.");
         promptSb.AppendLine("- NU introduce antet cu datele pacientului (fără Nume, Prenume, CNP, Vârstă, Zona examinată), NU introduce titlul 'REZULTAT EXAMEN' și NU introduce subsolul cu 'DATA' sau 'MEDIC EXAMINATOR' (acestea vor fi adăugate automat de Parsec la salvare).");
-        promptSb.AppendLine("- Începe direct cu subtitlul regiunii examinate din șablon (ex: COLOANA LOMBARA:, COLOANA CERVICALA:, CRANIO-CEREBRAL:, GENUNCHI:, etc.).");
+        promptSb.AppendLine("- Începe direct cu subtitlul regiunii examinate din șablon (ex: COLOANA LOMBARA:, COLOANA CERVICALA:, CRANIO-CEREBRAL:, GENUNCHI:, ABDOMINO-PELVIN:, etc.).");
+        promptSb.AppendLine();
+        promptSb.AppendLine("PĂSTRAREA INTEGRALĂ A ORGANELOR ȘI STRUCTURILOR DIN ȘABLON:");
+        promptSb.AppendLine("- Când medicul dictează 'în rest normal', 'restul normal' sau menționează doar 1-2 constatări/modificări, TREBUIE să păstrezi OBLIGATORIU descrierile normale din șablonul de bază pentru TOATE celelalte organe și structuri menționate în șablon (de exemplu: Pancreas, Glande suprarenale, Splină, Rinichi, Ficat, Colecist, Căi biliare, Vezică urinară, Lichid liber intraperitoneal etc.).");
+        promptSb.AppendLine("- Este STRICT INTERZISĂ omiterea, trunchierea sau ștergerea vreunui organ sau paragraf prezent în șablonul protocolului!");
+        promptSb.AppendLine();
+        promptSb.AppendLine("EXTINDEREA PRESCURTĂRILOR MEDICALE ȘI RADIOLOGICE UZUALE ÎN LIMBA ROMÂNĂ:");
+        promptSb.AppendLine("- 'vu' / 'VU' / 'v.u.' -> 'Vezica urinară' (ex: 'vu în repleție cu contur parietal regulat' -> integrează la rubrica vezicii urinare: 'Vezica urinară în repleție, cu contur parietal regulat').");
+        promptSb.AppendLine("- 'cbih' / 'cbeh' -> 'căi biliare intrahepatice / extrahepatice'.");
+        promptSb.AppendLine("- 'vp' -> 'vena portă'.");
+        promptSb.AppendLine("- 'gsr' -> 'glande suprarenale'.");
+        promptSb.AppendLine("- 'rd' / 'rs' -> 'rinichiul drept / stâng'.");
+        promptSb.AppendLine("- 'ao' -> 'aorta'.");
+        promptSb.AppendLine("- 'tp' -> 'trunchiul arterei pulmonare'.");
+        promptSb.AppendLine("- 'ap' / 'apd' / 'aps' -> 'artera pulmonară / dreaptă / stângă'.");
+        promptSb.AppendLine("- 'lid' / 'lis' / 'lsd' / 'lss' / 'lm' -> 'lobul inferior drept / stâng, lobul superior drept / stâng, lobul mediu'.");
+        promptSb.AppendLine("- 'tep' -> 'tromboembolism pulmonar (TEP)'.");
+        promptSb.AppendLine();
         promptSb.AppendLine("- Integrează toate modificările dictate de medic în structura șablonului de bază, păstrând formulările standard pentru elementele normale și înlocuind/completând segmentele patologice.");
         promptSb.AppendLine("- Corectează automat eventualele erori fonetice din dictare (ex: 'al patru' -> 'L4', 'fisură în doi' / 'fisură în trei' sau niveluri vertebrale L1-L2, L2-L3, L3-L4, L4-L5, L5-S1, T12-L1).");
         promptSb.AppendLine("- La modificările discale etajate, ordonează-le clar cu liniuță pe rânduri separate (ex: '- L2-L3: ...', '- L3-L4: ...', '- L4-L5: ...').");
@@ -1097,7 +1249,11 @@ public class SpeechRecognitionService : IDisposable
             },
             generationConfig = new
             {
-                temperature = 0.15
+                temperature = 0.15,
+                thinkingConfig = new
+                {
+                    thinkingBudget = 128
+                }
             }
         };
 
@@ -1105,7 +1261,7 @@ public class SpeechRecognitionService : IDisposable
         if (!string.IsNullOrWhiteSpace(result))
         {
             result = ClinicalProtocolsService.StripHeaderAndFooter(result);
-            SetStatus("✨ Protocol formatat cu succes!");
+            SetStatus($"✨ Protocol formatat în {sw.Elapsed.TotalSeconds:0.1}s!");
             return result;
         }
 
@@ -1132,6 +1288,7 @@ public class SpeechRecognitionService : IDisposable
             return string.Empty;
         }
 
+        var sw = System.Diagnostics.Stopwatch.StartNew();
         SetStatus("🪄 Se aplică modificarea cerută în raport...");
 
         string cleanCurrent = ClinicalProtocolsService.StripHeaderAndFooter(currentReportText);
@@ -1164,7 +1321,8 @@ public class SpeechRecognitionService : IDisposable
         }
         promptSb.AppendLine("REGULI STRICTE:");
         promptSb.AppendLine("- Aplică ÎNTOCMAI modificarea cerută de medic direct în textul interpretării/concluziilor (de exemplu: dacă cere scurtarea concluziilor, fă-le scurte, telegrafice și la obiect; dacă cere adăugarea/ștergerea sau modificarea unei observații, opereaz-o la locul potrivit și actualizează concluziile dacă e cazul).");
-        promptSb.AppendLine("- Păstrează INTACT restul interpretării și concluziilor care nu sunt vizate de modificare.");
+        promptSb.AppendLine("- Păstrează INTACT restul interpretării și concluziilor care nu sunt vizate de modificare. NU șterge și nu omite niciun alt organ din raport.");
+        promptSb.AppendLine("- Recunoaște abrevierile medicale: 'vu'/'VU' -> 'Vezica urinară', 'cbih'/'cbeh' -> căi biliare, 'vp' -> vena portă, 'gsr' -> suprarenale, 'rd'/'rs' -> rinichi drept/stâng.");
         promptSb.AppendLine("- NU adăuga antet cu datele pacientului (Nume, Prenume, CNP, Vârstă), NU adăuga 'REZULTAT EXAMEN' și NU adăuga subsol cu 'DATA' sau 'MEDIC EXAMINATOR'. Răspunde STRICT cu TEXT + CONCLUZII.");
         promptSb.AppendLine("- NU folosi blocuri markdown (fără ```), NU pune steluțe (**), nu adăuga explicații sau comentarii; răspunde EXCLUSIV cu interpretarea și concluziile actualizate.");
 
@@ -1182,7 +1340,11 @@ public class SpeechRecognitionService : IDisposable
             },
             generationConfig = new
             {
-                temperature = 0.15
+                temperature = 0.15,
+                thinkingConfig = new
+                {
+                    thinkingBudget = 128
+                }
             }
         };
 
@@ -1190,7 +1352,7 @@ public class SpeechRecognitionService : IDisposable
         if (!string.IsNullOrWhiteSpace(result))
         {
             result = ClinicalProtocolsService.StripHeaderAndFooter(result);
-            SetStatus("🪄 Modificare aplicată cu succes!");
+            SetStatus($"🪄 Modificare aplicată în {sw.Elapsed.TotalSeconds:0.1}s!");
             return result;
         }
 
@@ -1236,6 +1398,7 @@ public class SpeechRecognitionService : IDisposable
                 return string.Empty;
             }
 
+            var sw = System.Diagnostics.Stopwatch.StartNew();
             SetStatus("🪄 Se ascultă instrucțiunea și se modifică raportul...");
 
             byte[] audioBytes = await File.ReadAllBytesAsync(_tempWavPath);
@@ -1267,7 +1430,8 @@ public class SpeechRecognitionService : IDisposable
             }
             promptSb.AppendLine("REGULI STRICTE:");
             promptSb.AppendLine("- Aplică ÎNTOCMAI modificarea rostită de medic în audio direct asupra textului interpretării/concluziilor.");
-            promptSb.AppendLine("- Păstrează INTACT restul interpretării și concluziilor care nu sunt vizate de modificare.");
+            promptSb.AppendLine("- Păstrează INTACT restul interpretării și concluziilor care nu sunt vizate de modificare. NU șterge și nu omite niciun alt organ din raport.");
+            promptSb.AppendLine("- Recunoaște abrevierile medicale: 'vu'/'VU' -> 'Vezica urinară', 'cbih'/'cbeh' -> căi biliare, 'vp' -> vena portă, 'gsr' -> suprarenale, 'rd'/'rs' -> rinichi drept/stâng.");
             promptSb.AppendLine("- NU adăuga antet cu datele pacientului (Nume, Prenume, CNP, Vârstă), NU adăuga 'REZULTAT EXAMEN' și NU adăuga subsol cu 'DATA' sau 'MEDIC EXAMINATOR'. Răspunde STRICT cu TEXT + CONCLUZII.");
             promptSb.AppendLine("- NU transcrie cuvintele comenzii în raport, ci execută modificarea cerută!");
             promptSb.AppendLine("- NU folosi blocuri markdown (fără ```), NU pune steluțe (**), răspunde EXCLUSIV cu interpretarea și concluziile actualizate.");
@@ -1294,7 +1458,11 @@ public class SpeechRecognitionService : IDisposable
                 },
                 generationConfig = new
                 {
-                    temperature = 0.15
+                    temperature = 0.15,
+                    thinkingConfig = new
+                    {
+                        thinkingBudget = 128
+                    }
                 }
             };
 
@@ -1302,7 +1470,7 @@ public class SpeechRecognitionService : IDisposable
             if (!string.IsNullOrWhiteSpace(result))
             {
                 result = ClinicalProtocolsService.StripHeaderAndFooter(result);
-                SetStatus("🪄 Raport modificat conform instrucțiunii vocale!");
+                SetStatus($"🪄 Raport modificat în {sw.Elapsed.TotalSeconds:0.1}s conform instrucțiunii vocale!");
                 return result;
             }
 
@@ -1325,7 +1493,7 @@ public class SpeechRecognitionService : IDisposable
     {
         LastAiError = string.Empty;
         var modelsToTry = new List<string>();
-        string target = SelectedGeminiModel?.Trim() ?? "";
+        string target = CleanModelName(SelectedGeminiModel);
         if (!string.IsNullOrWhiteSpace(target) && !target.Equals("auto", StringComparison.OrdinalIgnoreCase))
         {
             modelsToTry.Add(target);
@@ -1334,6 +1502,7 @@ public class SpeechRecognitionService : IDisposable
         var pool = new[]
         {
             "gemini-3.8-flash",
+            "gemini-3.6-flash",
             "gemini-3.5-flash",
             "gemini-3.5-flash-lite",
             "gemini-flash-latest"
@@ -1347,11 +1516,15 @@ public class SpeechRecognitionService : IDisposable
             }
         }
 
+        // Prioritize healthy models over temporarily overloaded ones (503 / 429)
+        modelsToTry = modelsToTry.OrderBy(m => IsModelTemporarilyOverloaded(m) ? 1 : 0).ToList();
+
         using var client = new HttpClient();
 
         for (int i = 0; i < modelsToTry.Count; i++)
         {
             var model = modelsToTry[i];
+            var sw = System.Diagnostics.Stopwatch.StartNew();
             try
             {
                 if (i > 0)
@@ -1361,14 +1534,21 @@ public class SpeechRecognitionService : IDisposable
 
                 string url = $"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={apiKey}";
                 using var content = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
-                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(45));
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
 
                 var response = await client.PostAsync(url, content, cts.Token);
                 if (!response.IsSuccessStatusCode)
                 {
                     LastAiError = $"[{model}] HTTP {(int)response.StatusCode}";
+                    LogAiTiming("SendGenerateContent", model, sw.Elapsed.TotalSeconds, (int)response.StatusCode);
+                    if ((int)response.StatusCode == 503 || (int)response.StatusCode == 429)
+                    {
+                        MarkModelOverloaded(model, 15);
+                    }
                     continue;
                 }
+
+                MarkModelHealthy(model);
 
                 string respJson = await response.Content.ReadAsStringAsync();
                 using var doc = JsonDocument.Parse(respJson);
@@ -1385,6 +1565,14 @@ public class SpeechRecognitionService : IDisposable
                             string formatted = textProp.GetString() ?? "";
                             if (!string.IsNullOrWhiteSpace(formatted))
                             {
+                                int outTokens = 0, thinkTokens = 0;
+                                if (root.TryGetProperty("usageMetadata", out var uObj))
+                                {
+                                    if (uObj.TryGetProperty("candidatesTokenCount", out var cTok)) outTokens = cTok.GetInt32();
+                                    if (uObj.TryGetProperty("thoughtsTokenCount", out var tTok)) thinkTokens = tTok.GetInt32();
+                                }
+                                LogAiTiming("SendGenerateContent", model, sw.Elapsed.TotalSeconds, (int)response.StatusCode, outTokens, thinkTokens, "OK");
+
                                 formatted = System.Text.RegularExpressions.Regex.Replace(formatted.Trim(), @"^```[a-zA-Z]*\s*", "");
                                 formatted = System.Text.RegularExpressions.Regex.Replace(formatted, @"\s*```$", "");
                                 formatted = formatted.Replace("**", "").Trim();
@@ -1397,6 +1585,11 @@ public class SpeechRecognitionService : IDisposable
             catch (Exception ex)
             {
                 LastAiError = $"[{model}] {ex.Message}";
+                LogAiTiming("SendGenerateContent", model, sw.Elapsed.TotalSeconds, 0, note: $"Ex: {ex.Message}");
+                if (ex is OperationCanceledException or TimeoutException or HttpRequestException)
+                {
+                    MarkModelOverloaded(model, 15);
+                }
                 // try next model
             }
         }

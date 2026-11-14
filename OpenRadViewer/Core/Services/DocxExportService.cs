@@ -178,7 +178,7 @@ public static class DocxExportService
                 sb.Append(@"<?xml version=""1.0"" encoding=""UTF-8"" standalone=""yes""?>
 <w:document xmlns:w=""http://schemas.openxmlformats.org/wordprocessingml/2006/main"">
   <w:body>");
-                AppendBodyParagraphs(sb, text, includeFallbackTopLine: true);
+                AppendBodyParagraphs(sb, text, includeFallbackTopLine: false);
                 sb.Append(@"<w:sectPr>
   <w:pgSz w:w=""11906"" w:h=""16838""/>
   <w:pgMar w:top=""1440"" w:right=""1440"" w:bottom=""1440"" w:left=""1440"" w:header=""720"" w:footer=""720"" w:gutter=""0""/>
@@ -194,45 +194,12 @@ public static class DocxExportService
     {
         try
         {
-            string appDataRefDir = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                "Parsec",
-                "ReferenceReports");
-
             string baseAssetsDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assets");
-
-            string[] priorityCandidates = new[]
+            string templatePath = Path.Combine(baseAssetsDir, "cfr_header_template.docx");
+            if (File.Exists(templatePath))
             {
-                Path.Combine(appDataRefDir, "CT.docx"),
-                Path.Combine(appDataRefDir, "IRM.docx"),
-                Path.Combine(baseAssetsDir, "cfr_header_template.docx")
-            };
-
-            foreach (var candidate in priorityCandidates)
-            {
-                if (File.Exists(candidate))
-                {
-                    File.Copy(candidate, targetFilePath, overwrite: true);
-                    return true;
-                }
-            }
-
-            if (Directory.Exists(appDataRefDir))
-            {
-                foreach (var docxFile in Directory.GetFiles(appDataRefDir, "*.docx"))
-                {
-                    try
-                    {
-                        using var checkZip = ZipFile.OpenRead(docxFile);
-                        if (checkZip.GetEntry("word/header2.xml") != null || checkZip.GetEntry("word/header1.xml") != null)
-                        {
-                            checkZip.Dispose();
-                            File.Copy(docxFile, targetFilePath, overwrite: true);
-                            return true;
-                        }
-                    }
-                    catch { }
-                }
+                File.Copy(templatePath, targetFilePath, overwrite: true);
+                return true;
             }
 
             // Fallback to embedded WPF resource pack://application:,,,/Assets/cfr_header_template.docx
@@ -460,16 +427,8 @@ public static class DocxExportService
             ? origXml.Substring(0, bodyIdx + "<w:body>".Length)
             : @"<?xml version=""1.0"" encoding=""UTF-8"" standalone=""yes""?><w:document xmlns:r=""http://schemas.openxmlformats.org/officeDocument/2006/relationships"" xmlns:w=""http://schemas.openxmlformats.org/wordprocessingml/2006/main""><w:body>";
 
-        // Extract doctor signatures table <w:tbl>...</w:tbl>
-        string tblXml = "";
-        int tblStart = origXml.IndexOf("<w:tbl", StringComparison.Ordinal);
-        int tblEnd = origXml.IndexOf("</w:tbl>", StringComparison.Ordinal);
-        if (tblStart >= 0 && tblEnd > tblStart)
-        {
-            tblXml = origXml.Substring(tblStart, (tblEnd + "</w:tbl>".Length) - tblStart);
-            // Ensure font size in signatures table is strictly 12pt (sz val=24)
-            tblXml = tblXml.Replace(@"w:val=""22""", @"w:val=""24""");
-        }
+        // Use clean 12pt Times New Roman signatures table with blank space beneath Medic rezident and Medic examinator
+        string tblXml = @"<w:tbl><w:tblPr><w:tblW w:w=""9861"" w:type=""dxa""/><w:tblInd w:w=""55"" w:type=""dxa""/><w:tblLayout w:type=""fixed""/><w:tblCellMar><w:top w:w=""55"" w:type=""dxa""/><w:left w:w=""55"" w:type=""dxa""/><w:bottom w:w=""55"" w:type=""dxa""/><w:right w:w=""55"" w:type=""dxa""/></w:tblCellMar><w:tblLook w:val=""0000"" w:firstRow=""0"" w:lastRow=""0"" w:firstColumn=""0"" w:lastColumn=""0"" w:noHBand=""0"" w:noVBand=""0""/></w:tblPr><w:tblGrid><w:gridCol w:w=""4770""/><w:gridCol w:w=""5091""/></w:tblGrid><w:tr><w:tc><w:tcPr><w:tcW w:w=""4770"" w:type=""dxa""/></w:tcPr><w:p><w:pPr><w:snapToGrid w:val=""0""/><w:jc w:val=""center""/><w:rPr><w:sz w:val=""24""/><w:szCs w:val=""24""/></w:rPr></w:pPr></w:p></w:tc><w:tc><w:tcPr><w:tcW w:w=""5091"" w:type=""dxa""/></w:tcPr><w:p><w:pPr><w:snapToGrid w:val=""0""/><w:jc w:val=""center""/><w:rPr><w:sz w:val=""24""/><w:szCs w:val=""24""/></w:rPr></w:pPr></w:p></w:tc></w:tr><w:tr><w:tc><w:tcPr><w:tcW w:w=""4770"" w:type=""dxa""/></w:tcPr><w:p><w:pPr><w:snapToGrid w:val=""0""/><w:jc w:val=""center""/><w:rPr><w:sz w:val=""24""/><w:szCs w:val=""24""/></w:rPr></w:pPr><w:r><w:rPr><w:rFonts w:ascii=""Times New Roman"" w:hAnsi=""Times New Roman"" w:cs=""Times New Roman""/><w:sz w:val=""24""/><w:szCs w:val=""24""/></w:rPr><w:t>Medic rezident:</w:t></w:r></w:p><w:p><w:pPr><w:snapToGrid w:val=""0""/><w:jc w:val=""center""/><w:rPr><w:sz w:val=""24""/><w:szCs w:val=""24""/></w:rPr></w:pPr></w:p></w:tc><w:tc><w:tcPr><w:tcW w:w=""5091"" w:type=""dxa""/></w:tcPr><w:p><w:pPr><w:snapToGrid w:val=""0""/><w:jc w:val=""center""/><w:rPr><w:sz w:val=""24""/><w:szCs w:val=""24""/></w:rPr></w:pPr><w:r><w:rPr><w:rFonts w:ascii=""Times New Roman"" w:hAnsi=""Times New Roman"" w:cs=""Times New Roman""/><w:sz w:val=""24""/><w:szCs w:val=""24""/></w:rPr><w:t>Medic examinator:</w:t></w:r></w:p><w:p><w:pPr><w:snapToGrid w:val=""0""/><w:jc w:val=""center""/><w:rPr><w:sz w:val=""24""/><w:szCs w:val=""24""/></w:rPr></w:pPr></w:p></w:tc></w:tr></w:tbl>";
 
         // Extract section properties <w:sectPr>...</w:sectPr>
         string sectPrXml = "";
@@ -564,8 +523,7 @@ public static class DocxExportService
             {
                 Path.Combine(baseDir, "Assets", "antet_ct_urgente.docx"),
                 Path.Combine(appData, "Parsec", "Assets", "antet_ct_urgente.docx"),
-                Path.Combine(appData, "Parsec", "antet_ct_urgente.docx"),
-                @"F:\Desktop\antet ct urgente.docx"
+                Path.Combine(appData, "Parsec", "antet_ct_urgente.docx")
             };
 
             foreach (var candidate in priorityCandidates)

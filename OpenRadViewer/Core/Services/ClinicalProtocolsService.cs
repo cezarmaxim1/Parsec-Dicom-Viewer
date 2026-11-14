@@ -941,21 +941,7 @@ ABDOMINO-PELVIN:
             examZone = category;
         }
 
-        string contrast = protocol?.DefaultContrast ?? "Nu";
-        if (examZone.Contains("ANGIO-CT") || examZone.Contains("TEP"))
-        {
-            contrast = "Da";
-        }
-
-        // Check if study/series indicates contrast administration
-        if (study != null && study.Series.Any(s =>
-            (s.SeriesDescription?.Contains("+C", StringComparison.OrdinalIgnoreCase) ?? false) ||
-            (s.SeriesDescription?.Contains("CIV", StringComparison.OrdinalIgnoreCase) ?? false) ||
-            (s.SeriesDescription?.Contains("GD", StringComparison.OrdinalIgnoreCase) ?? false) ||
-            (s.SeriesDescription?.Contains("CONTRAST", StringComparison.OrdinalIgnoreCase) ?? false)))
-        {
-            contrast = "Da";
-        }
+        string contrast = ResolveContrast(study, protocol, examZone);
 
         return (lastName, firstName, cnp, age, examZone, contrast, examDate, category);
     }
@@ -969,6 +955,8 @@ ABDOMINO-PELVIN:
     public static string ResolveExaminationName(string reportText, ClinicalProtocol? selectedProtocol, string? fallbackExamZone = null)
     {
         var detectedList = new List<string>();
+        string modality = selectedProtocol?.Category
+            ?? (fallbackExamZone?.StartsWith("IRM", StringComparison.OrdinalIgnoreCase) == true ? "IRM" : "CT");
 
         if (!string.IsNullOrWhiteSpace(reportText))
         {
@@ -1086,6 +1074,12 @@ ABDOMINO-PELVIN:
                     exam = "CT GAT";
                 }
 
+                // A bare section header such as "COLOANA LOMBARA:" names only the region, so it takes the exam's modality
+                if (exam != null && exam.StartsWith("CT ", StringComparison.Ordinal) && !line.StartsWith("CT", StringComparison.OrdinalIgnoreCase))
+                {
+                    exam = $"{modality} {exam.Substring(3)}";
+                }
+
                 if (exam != null && !detectedList.Contains(exam))
                 {
                     detectedList.Add(exam);
@@ -1153,6 +1147,91 @@ ABDOMINO-PELVIN:
         return "CT";
     }
 
+    // Phrases that say "no contrast" although they contain the word; removed before looking for contrast markers
+    private static readonly System.Text.RegularExpressions.Regex NoContrastPhrase = new(
+        @"FARA\s+(SUBSTANTA\s+DE\s+)?(CONTRAST|SC|CIV)|NON[-_ ]?CONTRAST|PRE[-_ ]?CONTRAST");
+
+    // "+C", "+CIV", "C+", CIV, CONTRAST, GD / GADO, POST (not POSTERIOR or POST-OP), contrast phases, ANGIO
+    private static readonly System.Text.RegularExpressions.Regex ContrastMarker = new(
+        @"\+\s*C(IV)?(?![A-Z])|(?<![A-Z])C\+|(?<![A-Z])CIV(?![A-Z])|CONTRAST|(?<![A-Z])GD(?![A-Z])|(?<![A-Z])GADO" +
+        @"|(?<![A-Z])POST(?![A-Z])(?!\s*-?\s*OP)|(?<![A-Z])POST[-_ ]?(C|GD)(?![A-Z])" +
+        @"|(?<![A-Z])(ARTERIAL|VENOS|PORTAL|TARDIV|ANGIO)");
+
+    private static readonly System.Text.RegularExpressions.Regex NativeMarker = new(@"(?<![A-Z])NATIV[AE]?(?![A-Z])");
+
+    /// <summary>
+    /// Decides the "Contrast: Da / Nu" line of the report from what the study says, before the protocol default:
+    /// 1. a contrast marker in the study or any series description gives "Da" (a native series next to it is the pre-contrast phase);
+    /// 2. a study described as native or without contrast gives "Nu", even if the chosen protocol defaults to "Da";
+    /// 3. otherwise the protocol default is used.
+    /// </summary>
+    public static string ResolveContrast(StudyModel? study, ClinicalProtocol? protocol, string? examZone)
+    {
+        string zone = examZone ?? string.Empty;
+        if (zone.Contains("ANGIO-CT") || zone.Contains("TEP")) return "Da";
+
+        if (study != null)
+        {
+            string studyText = RemoveDiacritics(study.StudyDescription ?? string.Empty).ToUpperInvariant();
+            bool studySaysNoContrast = NoContrastPhrase.IsMatch(studyText) || NativeMarker.IsMatch(studyText);
+
+            var descriptions = new List<string> { studyText };
+            descriptions.AddRange(study.Series.Select(s => RemoveDiacritics(s.SeriesDescription ?? string.Empty).ToUpperInvariant()));
+            if (descriptions.Any(d => ContrastMarker.IsMatch(NoContrastPhrase.Replace(d, " ")))) return "Da";
+
+            if (studySaysNoContrast) return "Nu";
+        }
+
+        return protocol?.DefaultContrast ?? "Nu";
+    }
+
+    private static readonly string[] PairedRegions =
+    {
+        "GENUNCHI", "UMAR", "COT", "PUMN", "MANA", "ANTEBRAT", "BRAT", "SOLD", "COAPSA", "GAMBA",
+        "GLEZNA", "PICIOR", "ANTEPICIOR", "CALCANEU", "HALUCE", "SAN", "MAMAR", "ORBITA", "STANCA"
+    };
+
+    private static readonly System.Text.RegularExpressions.Regex LeftSide = new(@"\b(STANG|STANGA|STG|LEFT)\b");
+    private static readonly System.Text.RegularExpressions.Regex RightSide = new(@"\b(DREPT|DREAPTA|DRT|RIGHT)\b");
+
+    /// <summary>
+    /// Adds the side ("STANG" / "DREPT") to each examination of a paired region, read from the study and series
+    /// descriptions (for example "pd_tse_sag (GENUNCHI STANG)"). Nothing is added when no side or both sides are found.
+    /// </summary>
+    public static string AppendLaterality(string examName, StudyModel? study, SeriesModel? series)
+    {
+        if (string.IsNullOrWhiteSpace(examName)) return examName;
+
+        var descriptions = new List<string?> { study?.StudyDescription, series?.SeriesDescription };
+        if (study != null) descriptions.AddRange(study.Series.Select(s => s.SeriesDescription));
+        string text = RemoveDiacritics(string.Join(" ", descriptions.Where(d => !string.IsNullOrWhiteSpace(d)))).ToUpperInvariant();
+
+        bool left = LeftSide.IsMatch(text), right = RightSide.IsMatch(text);
+        if (left == right) return examName;
+        string side = left ? "STANG" : "DREPT";
+
+        var exams = examName.Split(". ");
+        for (int i = 0; i < exams.Length; i++)
+        {
+            string plain = RemoveDiacritics(exams[i]).ToUpperInvariant();
+            bool paired = PairedRegions.Any(r => System.Text.RegularExpressions.Regex.IsMatch(plain, $@"\b{r}\b"));
+            if (paired && !LeftSide.IsMatch(plain) && !RightSide.IsMatch(plain))
+                exams[i] = $"{exams[i]} {side}";
+        }
+        return string.Join(". ", exams);
+    }
+
+    private static string RemoveDiacritics(string text)
+    {
+        var sb = new StringBuilder();
+        foreach (char c in text.Normalize(NormalizationForm.FormD))
+        {
+            if (System.Globalization.CharUnicodeInfo.GetUnicodeCategory(c) != System.Globalization.UnicodeCategory.NonSpacingMark)
+                sb.Append(c);
+        }
+        return sb.ToString().Normalize(NormalizationForm.FormC);
+    }
+
     /// <summary>
     /// Generates the template content for the editor textbox (strictly TEXT + CONCLUZII, without header/footer).
     /// Header and footer are added automatically by Parsec when exporting/saving as .docx.
@@ -1202,7 +1281,7 @@ ABDOMINO-PELVIN:
         }
 
         var demo = GetPatientDemographics(patient, study, series, effectiveProtocol);
-        string resolvedZone = ResolveExaminationName(cleanBody, effectiveProtocol, demo.ExamZone);
+        string resolvedZone = AppendLaterality(ResolveExaminationName(cleanBody, effectiveProtocol, demo.ExamZone), study, series);
         string contrast = (demo.Contrast == "Da" || resolvedZone.Contains("ANGIO-CT")) ? "Da" : demo.Contrast;
 
         var sb = new StringBuilder();

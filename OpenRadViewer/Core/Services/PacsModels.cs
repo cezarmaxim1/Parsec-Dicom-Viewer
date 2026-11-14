@@ -23,6 +23,10 @@ public class PacsServerConfig
     public string AeTitle { get; set; } = "REMOTE_PACS";
     public string RetrievalMode { get; set; } = "C-MOVE"; // "C-MOVE" or "C-GET"
     public string TransferSyntax { get; set; } = "Explicit VR Little Endian";
+    public string ServerType { get; set; } = "DICOM"; // "DICOM" or "PixelDataWeb"
+    public string WebUrl { get; set; } = "";
+    public string WebUsername { get; set; } = "";
+    public string WebPassword { get; set; } = "";
     public bool IsEnabled { get; set; } = true;
     public string Status { get; set; } = "Not Tested";
     public long? LastPingMs { get; set; }
@@ -71,6 +75,21 @@ public class PacsStudyResult : System.ComponentModel.INotifyPropertyChanged
             if (_isInLocalDatabase != value)
             {
                 _isInLocalDatabase = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    private string _localSize = string.Empty;
+    /// <summary>Size on disk of the copy in the local database ("412.5 MB"). Empty when the study is not downloaded; C-FIND reports no size.</summary>
+    public string LocalSize
+    {
+        get => _localSize;
+        set
+        {
+            if (_localSize != value)
+            {
+                _localSize = value;
                 OnPropertyChanged();
             }
         }
@@ -204,7 +223,7 @@ public class PacsStudyResult : System.ComponentModel.INotifyPropertyChanged
         }
     }
 
-    private static string FormatDicomDate(string? d)
+    internal static string FormatDicomDate(string? d)
     {
         if (string.IsNullOrWhiteSpace(d)) return string.Empty;
         string digits = new string(d.Where(char.IsDigit).ToArray());
@@ -223,6 +242,10 @@ public class PacsSeriesResult
     public string SeriesNumber { get; set; } = "1";
     public string Modality { get; set; } = string.Empty;
     public string SeriesDescription { get; set; } = string.Empty;
+    public string SeriesDate { get; set; } = string.Empty;
+    public string SeriesTime { get; set; } = string.Empty;
+    public string FormattedDate => PacsStudyResult.FormatDicomDate(SeriesDate);
+    public string FormattedTime => PatientInfoHelper.FormatDicomTime(SeriesTime);
     public int InstanceCount { get; set; }
 }
 
@@ -236,6 +259,22 @@ public class PacsSearchFilter
     public DateTime? DateFrom { get; set; }
     public DateTime? DateTo { get; set; }
 
+    /// <summary>Words of a typed name, split on spaces, commas and the DICOM "^" separator.</summary>
+    public static string[] NameWords(string? text) =>
+        (text ?? string.Empty).Split(new[] { ' ', '^', ',', '-' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+    /// <summary>
+    /// True when every typed word appears in the patient name, in any order, so "popescu io" finds "POPESCU^IOANA".
+    /// </summary>
+    public static bool NameContainsAllWords(string? patientName, string? query)
+    {
+        var words = NameWords(query);
+        if (words.Length == 0) return true;
+        if (string.IsNullOrWhiteSpace(patientName)) return false;
+        string name = patientName.Replace('^', ' ');
+        return words.All(w => name.IndexOf(w, StringComparison.OrdinalIgnoreCase) >= 0);
+    }
+
     public bool Matches(PacsStudyResult study)
     {
         if (study == null) return false;
@@ -244,7 +283,7 @@ public class PacsSearchFilter
         if (!string.IsNullOrWhiteSpace(PatientName))
         {
             string q = PatientName.Trim();
-            bool nameMatch = !string.IsNullOrEmpty(study.PatientName) && study.PatientName.IndexOf(q, StringComparison.OrdinalIgnoreCase) >= 0;
+            bool nameMatch = NameContainsAllWords(study.PatientName, q);
             bool idMatch = !string.IsNullOrEmpty(study.PatientId) && study.PatientId.IndexOf(q, StringComparison.OrdinalIgnoreCase) >= 0;
             bool accMatch = !string.IsNullOrEmpty(study.AccessionNumber) && study.AccessionNumber.IndexOf(q, StringComparison.OrdinalIgnoreCase) >= 0;
             bool descMatch = !string.IsNullOrEmpty(study.StudyDescription) && study.StudyDescription.IndexOf(q, StringComparison.OrdinalIgnoreCase) >= 0;

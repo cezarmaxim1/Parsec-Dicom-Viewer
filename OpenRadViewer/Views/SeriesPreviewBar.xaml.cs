@@ -42,6 +42,7 @@ public partial class SeriesPreviewBar : UserControl
             var mainVm = DataContext as MainViewModel;
             if (mainVm?.ActiveViewport != null)
             {
+                mainVm.CancelTransientTools();
                 mainVm.ActiveViewport.LoadSeries(_pendingClickSeries);
             }
             _pendingClickSeries = null;

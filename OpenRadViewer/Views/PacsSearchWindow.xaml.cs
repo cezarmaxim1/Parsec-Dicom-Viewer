@@ -28,6 +28,7 @@ public partial class PacsSearchWindow : Window
         InitializeComponent();
         _mainWindow = mainWindow;
         DataContext = this;
+        CustomTitleBar.Attach(this, RootGrid, TitleBarBorder);
 
         DarkWindowHelper.ApplyDarkTitleBar(this);
         try
@@ -734,8 +735,16 @@ public partial class PacsSearchWindow : Window
         string q = TxtSearchQuery.Text.Trim();
         if (!string.IsNullOrEmpty(q))
         {
-            // Could be patient name, id, or accession
-            filter.PatientName = q;
+            // Digits only means a CNP / patient ID (whole or partial); anything else is a name
+            string digits = q.Replace(" ", string.Empty);
+            if (digits.All(char.IsDigit))
+            {
+                filter.PatientId = digits;
+            }
+            else
+            {
+                filter.PatientName = q;
+            }
         }
 
         string mod = GetSelectedModalitiesString();
@@ -960,6 +969,8 @@ public partial class PacsSearchWindow : Window
         _autoRefreshTimer.Tick += OnAutoRefreshTick;
         _autoRefreshTimer.Start();
 
+        DatabaseService.IndexFileChanged += OnIndexFileChanged;
+        Closed += (_, _) => DatabaseService.IndexFileChanged -= OnIndexFileChanged;
         Closed += (s, e) =>
         {
             _autoRefreshTimer?.Stop();
@@ -974,13 +985,13 @@ public partial class PacsSearchWindow : Window
         if (TxtAutoRefreshCountdown == null) return;
         if (_isAutoRefreshing)
         {
-            TxtAutoRefreshCountdown.Text = "🔄 Auto-refresh: se actualizează...";
+            TxtAutoRefreshCountdown.Text = "Auto-refresh: se actualizează...";
             TxtAutoRefreshCountdown.Foreground = (SolidColorBrush)new BrushConverter().ConvertFrom("#F5AF28")!;
         }
         else
         {
             string suffix = !string.IsNullOrEmpty(_lastAutoRefreshTime) ? $" • {_lastAutoRefreshTime}" : string.Empty;
-            TxtAutoRefreshCountdown.Text = $"🔄 Auto-refresh: {_secondsUntilRefresh}s{suffix}";
+            TxtAutoRefreshCountdown.Text = $"Auto-refresh: {_secondsUntilRefresh}s{suffix}";
             TxtAutoRefreshCountdown.Foreground = (SolidColorBrush)new BrushConverter().ConvertFrom("#888888")!;
         }
     }
@@ -1345,7 +1356,7 @@ public partial class PacsSearchWindow : Window
                 string? downloadedFolder = null;
                 try
                 {
-                    downloadedFolder = await PacsService.Instance.DownloadStudyAsync(server, study.StudyInstanceUid, expected, progress, ct);
+                    downloadedFolder = await PacsService.Instance.DownloadStudyAsync(server, study, expected, progress, ct);
                 }
                 catch (Exception dlEx)
                 {
@@ -1402,7 +1413,7 @@ public partial class PacsSearchWindow : Window
                             DatabaseService.ImportStudy(primaryStudy, study.DisplayPatientName, study.PatientId, study.BirthDate);
                             if (!string.IsNullOrWhiteSpace(study.PatientComments))
                                 DatabaseService.UpdatePatientComments(study.StudyInstanceUid, study.PatientComments);
-                            Dispatcher.Invoke(() => study.IsInLocalDatabase = true);
+                            Dispatcher.Invoke(() => EnrichStudyFromLocalDatabase(study));
                             Interlocked.Increment(ref imported);
                         }
                     });
@@ -1425,14 +1436,10 @@ public partial class PacsSearchWindow : Window
             }
 
             TxtTransferStatus.Text = $"Import finalizat: {imported}/{count} studii salvate în baza de date.";
-            if (count == 1)
+            // Success is shown in the status bar; only a partial import needs attention
+            if (imported < count)
             {
-                var study = selectedStudies[0];
-                MessageBox.Show($"Studiul '{study.DisplayPatientName}' a fost importat și indexat cu succes în baza locală!", "Import Bază de Date", MessageBoxButton.OK, MessageBoxImage.Information);
-            }
-            else
-            {
-                MessageBox.Show($"Au fost importate cu succes {imported} din cele {count} studii selectate în baza de date locală!", "Import Bază de Date", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show(this, $"Doar {imported} din {count} studii au fost importate în baza de date locală.", "Import Bază de Date", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
 
         }
@@ -1636,15 +1643,48 @@ public partial class PacsSearchWindow : Window
         }
     }
 
-    private void OnEditNotesClicked(object sender, RoutedEventArgs e)
+    private async void OnEditNotesClicked(object sender, RoutedEventArgs e)
     {
         if (GridStudies.SelectedItem is not PacsStudyResult study) return;
+        var hosts = ParsecPacsSyncService.GetNoteHosts(study.ServerId);
+
+        study.PatientComments = await Task.Run(() => ParsecPacsSyncService.LoadLatestNoteAsync(study.StudyInstanceUid, study.PatientComments, hosts));
+
         var dlg = new NotesEditDialog(study.DisplayPatientName, study.PatientComments) { Owner = this };
         if (dlg.ShowDialog() != true) return;
 
         string text = dlg.NotesText;
-        DatabaseService.SetLocalNote(study.StudyInstanceUid, text, study.PacsComments);
-        study.PatientComments = string.IsNullOrEmpty(text) ? study.PacsComments : text;
+        string previous = study.PatientComments;
+        var status = await Task.Run(() => ParsecPacsSyncService.SaveUserNoteAsync(study.StudyInstanceUid, text, previous, hosts));
+        if (status == NoteSaveStatus.LocalSaveFailed)
+        {
+            MessageBox.Show(this, "Notița NU a fost salvată: baza de date locală nu a putut fi actualizată. Încercați din nou.", "Notițe", MessageBoxButton.OK, MessageBoxImage.Error);
+            return;
+        }
+
+        study.PatientComments = text;
+        if (status == NoteSaveStatus.PacsUnreachable)
+        {
+            string detail = DatabaseService.GetRecord(study.StudyInstanceUid) != null
+                ? "Notița este salvată în baza de date locală, dar NU a ajuns în PACS: serverul nu răspunde.\n\nVa fi trimisă automat când serverul răspunde din nou, la următoarea deschidere a bazei de date sau reîmprospătare a listei."
+                : "Notița este salvată DOAR pe acest calculator și NU a ajuns în PACS: serverul nu răspunde.\n\nDeschideți notița și salvați-o din nou când serverul funcționează.";
+            MessageBox.Show(this, detail, "Notițe", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
+    /// <summary>Shows notes that changed in database_index.json. A note that exists only on this computer is left as is.</summary>
+    private void OnIndexFileChanged()
+    {
+        Dispatcher.BeginInvoke(() =>
+        {
+            var records = DatabaseService.LoadRecords();
+            foreach (var study in FoundStudies)
+            {
+                var record = records.FirstOrDefault(r => string.Equals(r.StudyInstanceUid, study.StudyInstanceUid, StringComparison.OrdinalIgnoreCase));
+                if (record == null || string.IsNullOrEmpty(record.PatientCommentsUpdatedAt) || DatabaseService.GetLocalNote(study.StudyInstanceUid) != null) continue;
+                if (study.PatientComments != record.PatientComments) study.PatientComments = record.PatientComments;
+            }
+        });
     }
 
     private static void EnrichStudyFromLocalDatabase(PacsStudyResult r)
@@ -1655,6 +1695,7 @@ public partial class PacsSearchWindow : Window
             if (local != null)
             {
                 r.IsInLocalDatabase = !string.IsNullOrWhiteSpace(local.FolderPath) && Directory.Exists(local.FolderPath);
+                ShowLocalSize(r, local);
                 if (string.IsNullOrWhiteSpace(r.ReadingPhysician) && !string.IsNullOrWhiteSpace(local.ReadingPhysician))
                     r.ReadingPhysician = local.ReadingPhysician;
                 if (string.IsNullOrWhiteSpace(r.PerformingPhysician) && !string.IsNullOrWhiteSpace(local.PerformingPhysician))
@@ -1664,21 +1705,90 @@ public partial class PacsSearchWindow : Window
                 if (string.IsNullOrWhiteSpace(r.AccessionNumber) && !string.IsNullOrWhiteSpace(local.AccessionNumber))
                     r.AccessionNumber = local.AccessionNumber;
 
-                // PACS is the source of truth for clinical notes: mirror them into the local database record.
-                if (!string.IsNullOrWhiteSpace(r.PatientComments) &&
-                    !string.Equals(local.PatientComments, r.PatientComments, StringComparison.Ordinal))
+                // C-FIND carries no edit time, so a different note is compared with PACS by time before it is shown.
+                if (!string.Equals(local.PatientComments ?? string.Empty, r.PatientComments ?? string.Empty, StringComparison.Ordinal))
                 {
                     string uid = r.StudyInstanceUid;
-                    string notes = r.PatientComments;
-                    Task.Run(() => DatabaseService.UpdatePatientComments(uid, notes));
+                    string? notes = r.PatientComments;
+                    var hosts = ParsecPacsSyncService.GetNoteHosts(r.ServerId);
+                    _ = Task.Run(async () =>
+                    {
+                        if (!string.IsNullOrWhiteSpace(notes)) DatabaseService.UpdatePatientComments(uid, notes);
+                        string? latest = await ParsecPacsSyncService.SyncRecordNoteAsync(uid, hosts);
+                        if (latest != null) Application.Current?.Dispatcher.BeginInvoke(() => r.PatientComments = latest);
+                    });
                 }
             }
             else
             {
                 r.IsInLocalDatabase = false;
+                r.LocalSize = string.Empty;
             }
         }
         catch { }
+    }
+
+    /// <summary>Shows the size of the local copy. Records without a stored size are measured in the background.</summary>
+    private static void ShowLocalSize(PacsStudyResult r, DatabaseRecordModel local)
+    {
+        if (!r.IsInLocalDatabase)
+        {
+            r.LocalSize = string.Empty;
+            return;
+        }
+        if (local.SizeBytes > 0)
+        {
+            r.LocalSize = local.FormattedSize;
+            return;
+        }
+
+        string folder = local.FolderPath;
+        _ = Task.Run(() =>
+        {
+            long bytes = DatabaseService.GetFolderSizeBytes(folder);
+            if (bytes <= 0) return;
+            string text = DatabaseService.FormatFileSize(bytes);
+            Application.Current?.Dispatcher.BeginInvoke(() => r.LocalSize = text);
+        });
+    }
+
+    private void OnStudyContextMenuOpened(object sender, RoutedEventArgs e)
+    {
+        // Offered only for studies that have a copy in the local database
+        bool anyLocal = GridStudies.SelectedItems.Cast<PacsStudyResult>().Any(s => s.IsInLocalDatabase);
+        MenuDeleteFromLocalDb.Visibility = anyLocal ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private async void OnDeleteFromLocalDatabaseClicked(object sender, RoutedEventArgs e)
+    {
+        var selected = GridStudies.SelectedItems.Cast<PacsStudyResult>().Where(s => s.IsInLocalDatabase).ToList();
+        if (selected.Count == 0) return;
+
+        string question = selected.Count == 1
+            ? $"Sigur doriți să ștergeți acest studiu din baza de date locală?\n\nPacient: {selected[0].DisplayPatientName}\nData: {selected[0].FormattedDateTime}\n\nStudiul rămâne în PACS."
+            : $"Sigur doriți să ștergeți cele {selected.Count} studii selectate din baza de date locală?\n\nStudiile rămân în PACS.";
+        if (MessageBox.Show(this, question, "Confirmare Ștergere din Baza de Date", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+            return;
+
+        var uids = selected.Select(s => s.StudyInstanceUid).ToList();
+        await Task.Run(() =>
+        {
+            var records = uids.Select(DatabaseService.GetRecord).Where(r => r != null).Select(r => r!).ToList();
+            DatabaseService.DeleteRecords(records);
+        });
+
+        int deleted = 0;
+        foreach (var study in selected)
+        {
+            if (DatabaseService.GetRecord(study.StudyInstanceUid) != null) continue;
+            study.IsInLocalDatabase = false;
+            study.LocalSize = string.Empty;
+            deleted++;
+        }
+
+        TxtTransferStatus.Text = deleted == selected.Count
+            ? (deleted == 1 ? "Studiul a fost șters din baza de date locală." : $"{deleted} studii au fost șterse din baza de date locală.")
+            : $"Doar {deleted} din {selected.Count} studii au putut fi șterse din baza de date locală.";
     }
 
     #endregion

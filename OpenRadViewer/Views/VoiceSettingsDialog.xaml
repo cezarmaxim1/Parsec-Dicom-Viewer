@@ -37,25 +37,26 @@
                             </Grid.ColumnDefinitions>
                             <TextBlock Text="Gemini Model:" FontSize="11.5" FontWeight="SemiBold" Foreground="#D0D0D0" VerticalAlignment="Center" Margin="0,0,14,0" />
                             <ComboBox Grid.Column="1" x:Name="ComboGeminiModel"
-                                      Height="27" IsEditable="True"
-                                      Background="#101010" Foreground="#FFFFFF" BorderBrush="#444444"
-                                      FontSize="11.5" ToolTip="Select from list or type any custom Gemini model (e.g. gemini-3.8-flash)">
-                                <ComboBox.Resources>
-                                    <!-- Explicit TextBox style ensuring visible bright white text on dark background -->
-                                    <Style TargetType="TextBox">
-                                        <Setter Property="Background" Value="#101010" />
-                                        <Setter Property="Foreground" Value="#FFFFFF" />
-                                        <Setter Property="CaretBrush" Value="#42A5F5" />
-                                        <Setter Property="VerticalContentAlignment" Value="Center" />
-                                        <Setter Property="Padding" Value="4,0" />
-                                        <Setter Property="FontSize" Value="11.5" />
-                                    </Style>
-                                </ComboBox.Resources>
-                            </ComboBox>
+                                      Height="27"
+                                      Background="#181818" Foreground="#FFFFFF" BorderBrush="#444444"
+                                      Padding="6,4" FontSize="11.5"
+                                      ToolTip="Selectează modelul Gemini AI (Implicit: gemini-3.8-flash)" />
                         </Grid>
 
                         <TextBlock Text="Gemini API Key:" FontSize="11.5" FontWeight="SemiBold" Foreground="#D0D0D0" Margin="0,4,0,4" />
                         <TextBox x:Name="TxtGeminiKey" Height="27" Background="#101010" Foreground="#FFFFFF" BorderBrush="#444444" Padding="6,3" FontSize="11.5" />
+
+                        <!-- Autoformat AI Toggle -->
+                        <Border Margin="0,10,0,0" Padding="10,8" Background="#15202B" BorderBrush="#1E3A5F" BorderThickness="1" CornerRadius="4">
+                            <CheckBox x:Name="ChkAutoformatAi" Foreground="#64B5F6" FontSize="11.5" FontWeight="SemiBold" VerticalContentAlignment="Center"
+                                      ToolTip="Când este activ, la oprirea dictării textul este integrat și formatat automat în protocol (fără a mai fi nevoie să apeși Format AI). Butonul manual Format AI va fi dezactivat.">
+                                <StackPanel Margin="6,0,0,0">
+                                    <TextBlock Text="⚡ Autoformat AI după dictare" FontWeight="Bold" Foreground="#90CAF9" />
+                                    <TextBlock Text="La finalul dictării, AI-ul formatează și integrează automat textul în raport (dezactivează butonul manual Format AI)"
+                                               FontSize="10.5" Foreground="#A0C4E8" Margin="0,2,0,0" TextWrapping="Wrap" />
+                                </StackPanel>
+                            </CheckBox>
+                        </Border>
                     </StackPanel>
                 </Border>
 

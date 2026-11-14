@@ -1,6 +1,6 @@
-// @purpose: Non-blocking HTTP client for ParsecPACS REST API (port 8042) to synchronize "Reviewed" study status bidirectionally.
-// @depends: System.Net.Http, System.Text.Json
-// @exports: ParsecPacsSyncService
+// @purpose: Non-blocking HTTP client for ParsecPACS REST API (port 8042) to synchronize "Reviewed" status and notes bidirectionally.
+// @depends: System.Net.Http, System.Text.Json, OpenRadViewer.Core.Services.DatabaseService
+// @exports: ParsecPacsSyncService, NoteSaveStatus
 
 using System.Collections.Concurrent;
 using System.Diagnostics;
@@ -10,6 +10,15 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace OpenRadViewer.Core.Services;
+
+public enum NoteSaveStatus
+{
+    Unchanged,
+    SavedInPacs,
+    NotInPacs,
+    PacsUnreachable,
+    LocalSaveFailed
+}
 
 /// <summary>
 /// Optional, best-effort bidirectional sync of the "Reviewed" marker with a ParsecPACS
@@ -216,6 +225,176 @@ public static class ParsecPacsSyncService
             }
         });
     }
+
+    #region Notes
+
+    private enum NoteRequestStatus { Found, NotFound, Failed }
+
+    private sealed record ServerNote(NoteRequestStatus Status, string Text, string? UpdatedAt);
+
+    private const int NoteSyncParallelism = 8;
+
+    /// <summary>
+    /// Hosts that may hold a study's note: the study's own server, or for a local study every
+    /// DICOM server plus the local ParsecPACS. PixelData web portals have no notes API.
+    /// </summary>
+    public static List<string> GetNoteHosts(string? serverId = null)
+    {
+        var servers = PacsService.Instance.Settings.Servers.Where(s => s.ServerType != "PixelDataWeb").ToList();
+        if (string.IsNullOrEmpty(serverId)) return GetCandidateHosts(servers);
+
+        var server = PacsService.Instance.Settings.Servers.FirstOrDefault(s => s.Id == serverId);
+        if (server == null) return GetCandidateHosts(servers);
+        return servers.Contains(server) ? new List<string> { NormalizeHost(server.IpAddress) } : new List<string>();
+    }
+
+    /// <summary>Saves a note the user edited: on the local record if there is one, and in PACS. Never throws.</summary>
+    public static async Task<NoteSaveStatus> SaveUserNoteAsync(string studyUid, string? text, string? displayedNote, IEnumerable<string> hosts)
+    {
+        string value = text?.Trim() ?? string.Empty;
+        var record = DatabaseService.GetRecord(studyUid);
+        string? localOnly = DatabaseService.GetLocalNote(studyUid);
+
+        string current = record?.PatientComments ?? displayedNote ?? string.Empty;
+        if (localOnly == null && string.Equals(current.Trim(), value, StringComparison.Ordinal)) return NoteSaveStatus.Unchanged;
+
+        if (record != null && !DatabaseService.ApplyUserNote(studyUid, value)) return NoteSaveStatus.LocalSaveFailed;
+
+        var result = await PostNoteAsync(studyUid, value, hosts).ConfigureAwait(false);
+        if (result.Status == NoteRequestStatus.Found && record != null)
+            DatabaseService.ApplyServerNote(studyUid, result.Text, result.UpdatedAt);
+
+        // A study with a local record carries its note there; otherwise the note stays here until PACS has it.
+        DatabaseService.SetLocalNote(studyUid, record != null || result.Status == NoteRequestStatus.Found ? null : value);
+
+        return result.Status switch
+        {
+            NoteRequestStatus.Found => NoteSaveStatus.SavedInPacs,
+            NoteRequestStatus.NotFound => NoteSaveStatus.NotInPacs,
+            _ => hosts.Any() ? NoteSaveStatus.PacsUnreachable : NoteSaveStatus.NotInPacs
+        };
+    }
+
+    /// <summary>Returns the most recent note to show for a study. Falls back to the local value if the server does not answer.</summary>
+    public static async Task<string> LoadLatestNoteAsync(string studyUid, string? displayedNote, IEnumerable<string> hosts)
+    {
+        if (DatabaseService.GetRecord(studyUid) != null)
+            return await SyncRecordNoteAsync(studyUid, hosts).ConfigureAwait(false) ?? displayedNote ?? string.Empty;
+
+        string? localOnly = DatabaseService.GetLocalNote(studyUid);
+        if (localOnly != null) return localOnly;
+
+        var server = await FetchNoteAsync(studyUid, hosts).ConfigureAwait(false);
+        return server.Status == NoteRequestStatus.Found ? server.Text : displayedNote ?? string.Empty;
+    }
+
+    /// <summary>
+    /// Compares a local record's note with PACS by edit time. A newer server note is stored locally
+    /// with its own time; a newer local note is sent to PACS. Notes without any time are left alone.
+    /// Returns the record's note, or null if the study has no local record.
+    /// </summary>
+    public static async Task<string?> SyncRecordNoteAsync(string studyUid, IEnumerable<string> hosts)
+    {
+        var record = DatabaseService.GetRecord(studyUid);
+        if (record == null) return null;
+
+        var server = await FetchNoteAsync(studyUid, hosts).ConfigureAwait(false);
+        if (server.Status != NoteRequestStatus.Found) return record.PatientComments;
+
+        if (IsNewer(server.UpdatedAt, record.PatientCommentsUpdatedAt))
+        {
+            DatabaseService.ApplyServerNote(studyUid, server.Text, server.UpdatedAt);
+            return server.Text;
+        }
+
+        string localText = record.PatientComments?.Trim() ?? string.Empty;
+        if (IsNewer(record.PatientCommentsUpdatedAt, server.UpdatedAt) && !string.Equals(localText, server.Text.Trim(), StringComparison.Ordinal))
+        {
+            var sent = await PostNoteAsync(studyUid, localText, hosts).ConfigureAwait(false);
+            if (sent.Status == NoteRequestStatus.Found)
+                DatabaseService.ApplyServerNote(studyUid, sent.Text, sent.UpdatedAt);
+        }
+        return record.PatientComments;
+    }
+
+    /// <summary>Compares every local record's note with PACS. Never throws.</summary>
+    public static async Task SyncAllRecordNotesAsync(IEnumerable<string> hosts, CancellationToken ct = default)
+    {
+        var hostList = hosts.ToList();
+        try
+        {
+            var options = new ParallelOptions { MaxDegreeOfParallelism = NoteSyncParallelism, CancellationToken = ct };
+            await Parallel.ForEachAsync(DatabaseService.LoadRecords(), options, async (record, _) =>
+                await SyncRecordNoteAsync(record.StudyInstanceUid, hostList).ConfigureAwait(false)).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"[ParsecPacsSync] Note sync failed: {ex.Message}");
+        }
+    }
+
+    private static async Task<ServerNote> FetchNoteAsync(string studyUid, IEnumerable<string> hosts)
+    {
+        var replies = await Task.WhenAll(hosts.Where(IsHostAvailable).Select(host => RequestNoteAsync(host, studyUid, null))).ConfigureAwait(false);
+        return BestReply(replies);
+    }
+
+    private static async Task<ServerNote> PostNoteAsync(string studyUid, string text, IEnumerable<string> hosts)
+    {
+        var replies = await Task.WhenAll(hosts.Select(host => RequestNoteAsync(host, studyUid, text))).ConfigureAwait(false);
+        return BestReply(replies);
+    }
+
+    private static ServerNote BestReply(ServerNote[] replies)
+    {
+        var found = replies.Where(r => r.Status == NoteRequestStatus.Found).ToList();
+        if (found.Count > 0) return found.Aggregate((a, b) => IsNewer(b.UpdatedAt, a.UpdatedAt) ? b : a);
+        return new ServerNote(replies.Any(r => r.Status == NoteRequestStatus.NotFound) ? NoteRequestStatus.NotFound : NoteRequestStatus.Failed, string.Empty, null);
+    }
+
+    /// <summary>GET details when text is null, otherwise POST the note. The POST sends only patient_comments, so StudyDescription is not changed.</summary>
+    private static async Task<ServerNote> RequestNoteAsync(string host, string studyUid, string? text)
+    {
+        try
+        {
+            string url = $"http://{host}:{ApiPort}/api/studies/{Uri.EscapeDataString(studyUid.Trim().TrimEnd('\0'))}/details";
+            using var cts = new CancellationTokenSource(RequestTimeout);
+            using var content = text == null ? null : new StringContent(JsonSerializer.Serialize(new { patient_comments = text }), Encoding.UTF8, "application/json");
+            using var resp = text == null
+                ? await _http.GetAsync(url, cts.Token).ConfigureAwait(false)
+                : await _http.PostAsync(url, content, cts.Token).ConfigureAwait(false);
+
+            MarkAvailable(host);
+            if (resp.StatusCode == System.Net.HttpStatusCode.NotFound) return new ServerNote(NoteRequestStatus.NotFound, string.Empty, null);
+            if (!resp.IsSuccessStatusCode) return new ServerNote(NoteRequestStatus.Failed, string.Empty, null);
+
+            using var doc = JsonDocument.Parse(await resp.Content.ReadAsStringAsync(cts.Token).ConfigureAwait(false));
+            return new ServerNote(NoteRequestStatus.Found, ReadString(doc.RootElement, "patient_comments") ?? string.Empty, ReadString(doc.RootElement, "notes_updated_at"));
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"[ParsecPacsSync] Note request failed on {host}: {ex.GetType().Name}");
+            MarkUnavailable(host);
+            return new ServerNote(NoteRequestStatus.Failed, string.Empty, null);
+        }
+    }
+
+    private static string? ReadString(JsonElement element, string name) =>
+        element.ValueKind == JsonValueKind.Object && element.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String
+            ? value.GetString()
+            : null;
+
+    private static bool IsNewer(string? time, string? other)
+    {
+        if (!TryParseTime(time, out var parsed)) return false;
+        return !TryParseTime(other, out var otherParsed) || parsed > otherParsed;
+    }
+
+    private static bool TryParseTime(string? time, out DateTimeOffset parsed) =>
+        DateTimeOffset.TryParse(time, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.AssumeUniversal, out parsed);
+
+    #endregion
 
     private static bool IsHostAvailable(string host)
     {

@@ -15,7 +15,7 @@ public class AiSettings
 {
     public string ApiKey { get; set; } = string.Empty;
     public string Provider { get; set; } = "Gemini"; // "Gemini" or "Claude"
-    public string Model { get; set; } = "gemini-3.6-flash";
+    public string Model { get; set; } = "gemini-3.8-flash";
     public string SystemInstructions { get; set; } = 
         "You are an expert subspecialist radiologist assistant. " +
         "Analyze the provided cropped radiological images (which may include multiple phases e.g., Native, Arterial, Portal Venous, Delayed). " +
@@ -44,7 +44,7 @@ public class AiSettings
                         settings.Model.Contains("2.0") || 
                         settings.Model.Contains("1.5"))
                     {
-                        settings.Model = "gemini-3.6-flash";
+                        settings.Model = "gemini-3.8-flash";
                     }
                     return settings;
                 }
@@ -157,9 +157,10 @@ public class AiService
     {
         string configuredModel = string.IsNullOrWhiteSpace(Settings.Model) || 
                                  Settings.Model.Contains("2.0") || 
-                                 Settings.Model.Contains("1.5") ? "gemini-3.6-flash" : Settings.Model.Trim();
+                                 Settings.Model.Contains("1.5") ? "gemini-3.8-flash" : Settings.Model.Trim();
 
         var candidateModels = new List<string> { configuredModel };
+        if (!candidateModels.Contains("gemini-3.8-flash")) candidateModels.Add("gemini-3.8-flash");
         if (!candidateModels.Contains("gemini-3.6-flash")) candidateModels.Add("gemini-3.6-flash");
         if (!candidateModels.Contains("gemini-3.5-flash")) candidateModels.Add("gemini-3.5-flash");
 
@@ -609,8 +610,8 @@ public class AiService
         else
         {
             // Sort models so gemini-3.6-flash (stable/fast), gemini-3.8-flash, gemini-3.5-flash rank at top
-            models = models.OrderByDescending(m => m.Equals("gemini-3.6-flash", StringComparison.OrdinalIgnoreCase))
-                           .ThenByDescending(m => m.Equals("gemini-3.8-flash", StringComparison.OrdinalIgnoreCase))
+            models = models.OrderByDescending(m => m.Equals("gemini-3.8-flash", StringComparison.OrdinalIgnoreCase))
+                           .ThenByDescending(m => m.Equals("gemini-3.6-flash", StringComparison.OrdinalIgnoreCase))
                            .ThenByDescending(m => m.Equals("gemini-3.5-flash", StringComparison.OrdinalIgnoreCase))
                            .ThenByDescending(m => m.Contains("flash"))
                            .ThenByDescending(m => m)

@@ -19,9 +19,19 @@ public static class PatientInfoHelper
         string cleaned = new string(cnp.Where(char.IsDigit).ToArray());
         if (cleaned.Length != 13) return (null, null, null);
 
+        if (!int.TryParse(cleaned.Substring(1, 2), out int yearPart) ||
+            !int.TryParse(cleaned.Substring(3, 2), out int monthPart) ||
+            !int.TryParse(cleaned.Substring(5, 2), out int dayPart))
+        {
+            return (null, null, null);
+        }
+
+        // 7, 8 (residents) and 9 (foreign citizens) carry no century: the most recent one that is not in the future is used
+        int residentCentury = 2000 + yearPart <= DateTime.Today.Year ? 2000 : 1900;
+
         char s = cleaned[0];
         int century;
-        string sex;
+        string? sex;
         switch (s)
         {
             case '1': century = 1900; sex = "M"; break;
@@ -30,16 +40,10 @@ public static class PatientInfoHelper
             case '4': century = 1800; sex = "F"; break;
             case '5': century = 2000; sex = "M"; break;
             case '6': century = 2000; sex = "F"; break;
-            case '7': century = 1900; sex = "M"; break;
-            case '8': century = 1900; sex = "F"; break;
+            case '7': century = residentCentury; sex = "M"; break;
+            case '8': century = residentCentury; sex = "F"; break;
+            case '9': century = residentCentury; sex = null; break;
             default: return (null, null, null);
-        }
-
-        if (!int.TryParse(cleaned.Substring(1, 2), out int yearPart) ||
-            !int.TryParse(cleaned.Substring(3, 2), out int monthPart) ||
-            !int.TryParse(cleaned.Substring(5, 2), out int dayPart))
-        {
-            return (null, null, null);
         }
 
         int fullYear = century + yearPart;
@@ -101,7 +105,7 @@ public static class PatientInfoHelper
     }
 
     /// <summary>
-    /// Returns formatted patient ID and calculated age (e.g. "1820322046285 (44 ani)").
+    /// Returns formatted patient ID and calculated age (e.g. "1800101123456 (44 ani)").
     /// </summary>
     public static string FormatIdAndAge(string? patientId, string? birthDateStr = null, string? patientAgeStr = null)
     {

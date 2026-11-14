@@ -1,0 +1,16 @@
+<UserControl x:Class="OpenRadViewer.Views.WindowControlsBar"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             VerticalAlignment="Top">
+    <StackPanel Orientation="Horizontal">
+        <Button Style="{StaticResource WindowControlButton}" Click="OnMinimize" ToolTip="Minimize">
+            <Path Style="{StaticResource WindowControlIcon}" Data="{StaticResource IconWindowMinimize}" />
+        </Button>
+        <Button x:Name="BtnMaxRestore" Style="{StaticResource WindowControlButton}" Click="OnMaximizeRestore" ToolTip="Maximize">
+            <Path x:Name="MaxRestoreIcon" Style="{StaticResource WindowControlIcon}" Data="{StaticResource IconWindowMaximize}" />
+        </Button>
+        <Button Style="{StaticResource WindowCloseButton}" Click="OnClose" ToolTip="Close">
+            <Path Style="{StaticResource WindowControlIcon}" Data="{StaticResource IconWindowClose}" />
+        </Button>
+    </StackPanel>
+</UserControl>

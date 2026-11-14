@@ -266,38 +266,67 @@
 
                 <TextBlock x:Name="TxtEditTitle" Grid.Row="0" Text="Add PACS Location" FontWeight="Bold" FontSize="12.5" Foreground="#F5AF28" Margin="0,0,0,8" />
 
-                <WrapPanel Grid.Row="1" Orientation="Horizontal">
-                    <StackPanel Margin="0,0,14,8">
-                        <TextBlock Text="Description:" Foreground="#AAAAAA" FontSize="11" Margin="0,0,0,3" />
-                        <TextBox x:Name="TxtEditDesc" Width="140" />
-                    </StackPanel>
-                    <StackPanel Margin="0,0,14,8">
-                        <TextBlock Text="IP Address:" Foreground="#AAAAAA" FontSize="11" Margin="0,0,0,3" />
-                        <TextBox x:Name="TxtEditIp" Width="130" />
-                    </StackPanel>
-                    <StackPanel Margin="0,0,14,8">
-                        <TextBlock Text="Port:" Foreground="#AAAAAA" FontSize="11" Margin="0,0,0,3" />
-                        <TextBox x:Name="TxtEditPort" Width="60" Text="4020" TextAlignment="Center" />
-                    </StackPanel>
-                    <StackPanel Margin="0,0,14,8">
-                        <TextBlock Text="PACS AE Title:" Foreground="#AAAAAA" FontSize="11" Margin="0,0,0,3" />
-                        <TextBox x:Name="TxtEditAe" Width="130" />
-                    </StackPanel>
-                    <StackPanel Margin="0,0,14,8">
-                        <TextBlock Text="Retrieve Mode:" Foreground="#AAAAAA" FontSize="11" Margin="0,0,0,3" />
-                        <ComboBox x:Name="CmbEditMode" Width="95">
-                            <ComboBoxItem Content="C-MOVE" IsSelected="True" />
-                            <ComboBoxItem Content="C-GET" />
-                        </ComboBox>
-                    </StackPanel>
-                    <StackPanel Margin="0,0,14,8">
-                        <TextBlock Text="Transfer Syntax:" Foreground="#AAAAAA" FontSize="11" Margin="0,0,0,3" />
-                        <ComboBox x:Name="CmbEditSyntax" Width="130">
-                            <ComboBoxItem Content="Explicit VR Little Endian" IsSelected="True" />
-                            <ComboBoxItem Content="Implicit VR Little Endian" />
-                        </ComboBox>
-                    </StackPanel>
-                </WrapPanel>
+                <StackPanel Grid.Row="1">
+                    <WrapPanel Orientation="Horizontal">
+                        <StackPanel Margin="0,0,14,8">
+                            <TextBlock Text="Description:" Foreground="#AAAAAA" FontSize="11" Margin="0,0,0,3" />
+                            <TextBox x:Name="TxtEditDesc" Width="180" />
+                        </StackPanel>
+                        <StackPanel Margin="0,0,14,8">
+                            <TextBlock Text="Server Type:" Foreground="#AAAAAA" FontSize="11" Margin="0,0,0,3" />
+                            <ComboBox x:Name="CmbServerType" Width="220" SelectionChanged="OnServerTypeChanged">
+                                <ComboBoxItem Content="DICOM DIMSE (LAN / Port 104)" IsSelected="True" />
+                                <ComboBoxItem Content="PixelData Web PACS (HTTPS)" />
+                            </ComboBox>
+                        </StackPanel>
+                    </WrapPanel>
+
+                    <!-- DICOM Fields -->
+                    <WrapPanel x:Name="DicomFieldsPanel" Orientation="Horizontal">
+                        <StackPanel Margin="0,0,14,8">
+                            <TextBlock Text="IP Address:" Foreground="#AAAAAA" FontSize="11" Margin="0,0,0,3" />
+                            <TextBox x:Name="TxtEditIp" Width="130" />
+                        </StackPanel>
+                        <StackPanel Margin="0,0,14,8">
+                            <TextBlock Text="Port:" Foreground="#AAAAAA" FontSize="11" Margin="0,0,0,3" />
+                            <TextBox x:Name="TxtEditPort" Width="60" Text="4020" TextAlignment="Center" />
+                        </StackPanel>
+                        <StackPanel Margin="0,0,14,8">
+                            <TextBlock Text="PACS AE Title:" Foreground="#AAAAAA" FontSize="11" Margin="0,0,0,3" />
+                            <TextBox x:Name="TxtEditAe" Width="130" />
+                        </StackPanel>
+                        <StackPanel Margin="0,0,14,8">
+                            <TextBlock Text="Retrieve Mode:" Foreground="#AAAAAA" FontSize="11" Margin="0,0,0,3" />
+                            <ComboBox x:Name="CmbEditMode" Width="95">
+                                <ComboBoxItem Content="C-MOVE" IsSelected="True" />
+                                <ComboBoxItem Content="C-GET" />
+                            </ComboBox>
+                        </StackPanel>
+                        <StackPanel Margin="0,0,14,8">
+                            <TextBlock Text="Transfer Syntax:" Foreground="#AAAAAA" FontSize="11" Margin="0,0,0,3" />
+                            <ComboBox x:Name="CmbEditSyntax" Width="130">
+                                <ComboBoxItem Content="Explicit VR Little Endian" IsSelected="True" />
+                                <ComboBoxItem Content="Implicit VR Little Endian" />
+                            </ComboBox>
+                        </StackPanel>
+                    </WrapPanel>
+
+                    <!-- Web PACS Fields -->
+                    <WrapPanel x:Name="WebFieldsPanel" Orientation="Horizontal" Visibility="Collapsed">
+                        <StackPanel Margin="0,0,14,8">
+                            <TextBlock Text="Web Portal URL:" Foreground="#AAAAAA" FontSize="11" Margin="0,0,0,3" />
+                            <TextBox x:Name="TxtWebUrl" Width="260" ToolTip="https://host:port" />
+                        </StackPanel>
+                        <StackPanel Margin="0,0,14,8">
+                            <TextBlock Text="Username / Cont:" Foreground="#AAAAAA" FontSize="11" Margin="0,0,0,3" />
+                            <TextBox x:Name="TxtWebUsername" Width="110" />
+                        </StackPanel>
+                        <StackPanel Margin="0,0,14,8">
+                            <TextBlock Text="Password / Parolă:" Foreground="#AAAAAA" FontSize="11" Margin="0,0,0,3" />
+                            <PasswordBox x:Name="TxtWebPassword" Width="110" Background="#222222" Foreground="#EEEEEE" BorderBrush="#3A3A3A" Padding="6,4" />
+                        </StackPanel>
+                    </WrapPanel>
+                </StackPanel>
 
                 <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,4,0,0">
                     <Button Style="{StaticResource DarkButton}" Content="Cancel" Margin="0,0,8,0" Click="OnCancelEditClicked" />

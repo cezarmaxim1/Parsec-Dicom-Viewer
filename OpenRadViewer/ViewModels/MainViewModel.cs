@@ -326,7 +326,7 @@ public partial class MainViewModel : ObservableObject
     private bool _showToolbars = true;
 
     [ObservableProperty]
-    private bool _showMenuBar = true;
+    private bool _showMenuBar = false;
 
     public bool IsMenuBarVisible => ShowMenuBar && !IsFullScreen;
 
@@ -379,10 +379,24 @@ public partial class MainViewModel : ObservableObject
                   MouseToolAction.AiLesionCrop or
                   MouseToolAction.PixelProbe;
 
+    public event Action? TransientToolsCancelled;
+
+    public bool CancelTransientTools()
+    {
+        bool wasTransient = IsTransientTool(LeftTool);
+        TransientToolsCancelled?.Invoke();
+        if (wasTransient)
+        {
+            AssignLeftTool(MouseToolAction.BrowseSeries);
+        }
+        return wasTransient;
+    }
+
     public void AssignLeftTool(MouseToolAction tool)
     {
         LeftTool = tool;
         CurrentTool = tool;
+        TransientToolsCancelled?.Invoke();
         if (!IsTransientTool(tool))
         {
             MouseConfig.SetActionFor(MouseInputTrigger.LeftDrag, tool);
@@ -463,6 +477,11 @@ public partial class MainViewModel : ObservableObject
     private string _aiFormatButtonText = "Format AI";
 
     [ObservableProperty]
+    private bool _isAutoformatAiEnabled = SpeechRecognitionService.Instance.AutoformatAiEnabled;
+
+    public void RefreshAutoformatAiState() => IsAutoformatAiEnabled = SpeechRecognitionService.Instance.AutoformatAiEnabled;
+
+    [ObservableProperty]
     private bool _isVoiceRefineRecording = false;
 
     [ObservableProperty]
@@ -471,11 +490,22 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private bool _isAiRefining = false;
 
+    public string SettingsPath => _settingsPath;
     private readonly string _protocolsPath;
 
     public MainViewModel()
     {
-        _settingsPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "mousesettings.json");
+        string appDataDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Parsec");
+        Directory.CreateDirectory(appDataDir);
+        _settingsPath = Path.Combine(appDataDir, "mousesettings.json");
+
+        // Migrate legacy mousesettings.json from application base directory if it exists and appdata does not
+        string legacyPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "mousesettings.json");
+        if (!File.Exists(_settingsPath) && File.Exists(legacyPath))
+        {
+            try { File.Copy(legacyPath, _settingsPath, overwrite: false); } catch { }
+        }
+
         MouseConfig = MouseSettings.LoadFromFile(_settingsPath);
         _measurementsCurrentSliceOnly = MouseConfig.MeasurementsCurrentSliceOnly;
         _invertScrolling = MouseConfig.InvertScrolling;
@@ -1428,15 +1458,16 @@ public partial class MainViewModel : ObservableObject
         }
         else if (remainingCount == 3)
         {
-            if (GridRows == 1 || GridColumns >= 3)
-            {
-                newRows = 1;
-                newCols = 3;
-            }
-            else
+            // Side by side, unless the panels were already stacked in a single column
+            if (GridColumns == 1)
             {
                 newRows = 3;
                 newCols = 1;
+            }
+            else
+            {
+                newRows = 1;
+                newCols = 3;
             }
         }
         else if (remainingCount == 4)
@@ -1462,6 +1493,21 @@ public partial class MainViewModel : ObservableObject
         {
             var (series, sliceIdx) = remainingSeries[i];
             Viewports[i].LoadSeries(series, sliceIdx);
+        }
+
+        // 4. Empty every panel after the remaining ones, so the closed series does not stay behind as a duplicate
+        //    (e.g. 6 panels in 2x3: closing one leaves 5 series and one empty cell)
+        for (int i = remainingSeries.Count; i < Viewports.Count; i++)
+        {
+            var leftover = Viewports[i];
+            if (leftover.IsCinePlaying) leftover.ToggleCine();
+            leftover.CurrentSeries = null;
+            leftover.OriginalSeries = null;
+            leftover.DisplayImage = null;
+            leftover.Measurements.Clear();
+            leftover.MprLines.Clear();
+            leftover.NotifyOverlayChanges();
+            leftover.NotifyMprLinesChanged();
         }
 
         if (Viewports.Count > 0)
@@ -1509,10 +1555,7 @@ public partial class MainViewModel : ObservableObject
         if (inputList.Count == 0) return;
 
         // Ensure we reset to normal browsing when opening a new study/patient
-        if (IsTransientTool(LeftTool))
-        {
-            AssignLeftTool(MouseToolAction.BrowseSeries);
-        }
+        CancelTransientTools();
 
         // Automatically extract any compressed medical archives (.zip, .rar, .7z, .tar, .gz)
         var extractedPaths = new List<string>();
@@ -1848,6 +1891,7 @@ public partial class MainViewModel : ObservableObject
     {
         if (batchIndex == 0 && !appendToCurrentStudy)
         {
+            CancelTransientTools();
             if (System.Windows.Application.Current?.Dispatcher != null &&
                 !System.Windows.Application.Current.Dispatcher.CheckAccess())
             {
@@ -2093,8 +2137,12 @@ public partial class MainViewModel : ObservableObject
             : (study.InstanceCount > 0 ? study.InstanceCount : (study.Series != null ? study.Series.Sum(s => s.InstanceCount) : 0));
         if (expectedCount <= 0) expectedCount = 50;
 
+        // Progress callbacks are posted to the UI thread and can arrive after the download ends;
+        // once it has ended they must not overwrite the final "Descărcare completă" message with live speeds
+        bool downloadEnded = false;
         var progress = new Progress<(int current, int total, string message)>(p =>
         {
+            if (Volatile.Read(ref downloadEnded)) return;
             double sec = sw.Elapsed.TotalSeconds;
             double ips = sec > 0.2 ? receivedImageCount / sec : 0;
             double mbps = sec > 0.2 ? (totalBytesDownloaded / (1024.0 * 1024.0)) / sec : 0;
@@ -2115,8 +2163,8 @@ public partial class MainViewModel : ObservableObject
 
         using var cts = new CancellationTokenSource();
         var downloadTask = seriesFilter != null && !string.IsNullOrWhiteSpace(seriesFilter.SeriesInstanceUid)
-            ? PacsService.Instance.DownloadSeriesAsync(server, study.StudyInstanceUid, seriesFilter.SeriesInstanceUid, expectedCount, progress, cts.Token)
-            : PacsService.Instance.DownloadStudyAsync(server, study.StudyInstanceUid, expectedCount, progress, cts.Token);
+            ? PacsService.Instance.DownloadSeriesAsync(server, study, seriesFilter.SeriesInstanceUid, expectedCount, progress, cts.Token)
+            : PacsService.Instance.DownloadStudyAsync(server, study, expectedCount, progress, cts.Token);
 
         // Flusher loop: pushes received items into the UI in smooth real-time batches (~35ms)
         // AI-NOTE: loop must not terminate while download is running OR active parsers are still decoding files in threadpool
@@ -2162,7 +2210,7 @@ public partial class MainViewModel : ObservableObject
 
                         // Live speed update during flusher
                         double sec = sw.Elapsed.TotalSeconds;
-                        if (sec > 0.2 && !downloadTask.IsCompleted)
+                        if (sec > 0.2 && !downloadTask.IsCompleted && !Volatile.Read(ref downloadEnded))
                         {
                             double ips = receivedImageCount / sec;
                             double mbps = (totalBytesDownloaded / (1024.0 * 1024.0)) / sec;
@@ -2196,6 +2244,7 @@ public partial class MainViewModel : ObservableObject
         try
         {
             await Task.WhenAll(downloadTask, flusherTask);
+            Volatile.Write(ref downloadEnded, true);
 
             // Wait briefly for any remaining background parsers just in case
             var parseTimeout = DateTime.UtcNow.AddSeconds(10);
@@ -2314,6 +2363,7 @@ public partial class MainViewModel : ObservableObject
         }
         catch (Exception ex)
         {
+            Volatile.Write(ref downloadEnded, true);
             await flusherTask;
             StatusMessage = $"PACS Download error ({study.DisplayPatientName}): {ex.Message}";
         }
@@ -3289,12 +3339,17 @@ public partial class MainViewModel : ObservableObject
 
     public void CloseAllPatients()
     {
+        CancelTransientTools();
         if (IsMprMode)
         {
             Exit3DMpr();
         }
         SetGridLayout(1, 1);
         CloseAllPanels();
+        foreach (var vp in Viewports)
+        {
+            vp.CurrentSeries = null;
+        }
         Patients.Clear();
         UpdateFilteredSeries();
         UpdateScoutLines();

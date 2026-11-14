@@ -3,6 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:views="clr-namespace:OpenRadViewer.Views"
         mc:Ignorable="d"
         Title="PACS Archive Search &amp; Retrieve (DICOM Query &amp; Retrieve)" 
         Height="800" Width="1440"
@@ -15,41 +16,18 @@
         <SolidColorBrush x:Key="HeaderBackground" Color="#222222" />
         <SolidColorBrush x:Key="AccentGold" Color="#F5AF28" />
 
-        <Style x:Key="DarkButton" TargetType="Button">
-            <Setter Property="Background" Value="#2A2A2A" />
-            <Setter Property="Foreground" Value="#E0E0E0" />
-            <Setter Property="BorderBrush" Value="#444444" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="Padding" Value="10,5" />
-            <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border x:Name="bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="3" Padding="{TemplateBinding Padding}">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="bd" Property="Background" Value="#383838" />
-                                <Setter TargetName="bd" Property="BorderBrush" Value="#666666" />
-                            </Trigger>
-                            <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="bd" Property="Background" Value="#1A1A1A" />
-                            </Trigger>
-                            <Trigger Property="IsEnabled" Value="False">
-                                <Setter Property="Opacity" Value="0.4" />
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
+        <Style x:Key="DarkButton" TargetType="Button" BasedOn="{StaticResource PanelButton}">
+            <Setter Property="Padding" Value="12,0" />
         </Style>
 
         <Style x:Key="GoldButton" TargetType="Button" BasedOn="{StaticResource DarkButton}">
-            <Setter Property="Background" Value="#D9971E" />
-            <Setter Property="Foreground" Value="#121212" />
-            <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="BorderBrush" Value="#F5AF28" />
+            <Setter Property="Background" Value="#F5AF28" />
+            <Setter Property="Foreground" Value="#17120A" />
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Foreground" Value="#17120A" />
+                </Trigger>
+            </Style.Triggers>
         </Style>
 
         <!-- Multi-Select Modality CheckBox Item Style -->
@@ -165,7 +143,7 @@
             <Setter Property="Foreground" Value="#CCCCCC" />
             <Style.Triggers>
                 <Trigger Property="IsSelected" Value="True">
-                    <Setter Property="Background" Value="#25384D" />
+                    <Setter Property="Background" Value="#3B2C0D" />
                     <Setter Property="Foreground" Value="#FFFFFF" />
                 </Trigger>
                 <MultiTrigger>
@@ -173,17 +151,17 @@
                         <Condition Property="IsSelected" Value="True" />
                         <Condition Property="Selector.IsSelectionActive" Value="False" />
                     </MultiTrigger.Conditions>
-                    <Setter Property="Background" Value="#25384D" />
+                    <Setter Property="Background" Value="#3B2C0D" />
                     <Setter Property="Foreground" Value="#FFFFFF" />
                 </MultiTrigger>
                 <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#202A36" />
+                    <Setter Property="Background" Value="#262626" />
                 </Trigger>
             </Style.Triggers>
         </Style>
     </Window.Resources>
 
-    <Grid>
+    <Grid x:Name="RootGrid">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" /> <!-- Top Search & Filter Bar -->
             <RowDefinition Height="*" MinHeight="180" /> <!-- Studies Table -->
@@ -192,15 +170,22 @@
             <RowDefinition Height="Auto" /> <!-- Bottom Action & Progress Bar -->
         </Grid.RowDefinitions>
 
-        <!-- 1. TOP SEARCH & FILTER BAR -->
-        <Border Grid.Row="0" Background="#181818" BorderBrush="#252525" BorderThickness="0,0,0,1" Padding="10,8">
-            <WrapPanel Orientation="Horizontal" VerticalAlignment="Center">
-                
+        <!-- 1. TOP SEARCH & FILTER BAR, also acts as the title bar -->
+        <Border x:Name="TitleBarBorder" Grid.Row="0" Background="#191919">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <Image Grid.Column="0" Source="/Parsec;component/app_icon.png" Width="22" Height="22" Margin="12,12,12,0" VerticalAlignment="Top" RenderOptions.BitmapScalingMode="HighQuality" />
+            <WrapPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top">
                 <!-- Server Location Selection -->
-                <StackPanel Orientation="Horizontal" Margin="0,0,12,0" VerticalAlignment="Center">
+                <Border Style="{StaticResource ToolbarCapsule}">
+                    <StackPanel Orientation="Horizontal" Margin="6,0" MinHeight="32" VerticalAlignment="Center">
                     <TextBlock Text="PACS Location:" Foreground="#AAAAAA" VerticalAlignment="Center" Margin="0,0,6,0" FontSize="11.5" />
                     <ComboBox x:Name="CmbServerLocation" Width="135" SelectionChanged="OnServerLocationChanged" />
-                    <Button x:Name="BtnSetDefaultLocation" Style="{StaticResource DarkButton}" Margin="4,0,0,0" Padding="5,3" 
+                    <Button x:Name="BtnSetDefaultLocation" Style="{StaticResource ToolbarButton}" Margin="4,0,0,0" Padding="6,0" 
                             Click="OnSetDefaultLocationClicked" ToolTip="Setează această locație ca implicită la deschidere">
                         <StackPanel Orientation="Horizontal">
                             <Path x:Name="IconDefaultStar" Stroke="#F5AF28" StrokeThickness="1.2" Fill="Transparent" 
@@ -209,10 +194,11 @@
                             <TextBlock x:Name="TxtDefaultBtn" Text=" Default" FontSize="11" Foreground="#AAAAAA" Margin="3,0,0,0" VerticalAlignment="Center" />
                         </StackPanel>
                     </Button>
-                </StackPanel>
-
+                    </StackPanel>
+                </Border>
                 <!-- Modality Filter (Multi-Select) -->
-                <StackPanel Orientation="Horizontal" Margin="0,0,12,0" VerticalAlignment="Center">
+                <Border Style="{StaticResource ToolbarCapsule}">
+                    <StackPanel Orientation="Horizontal" Margin="6,0" MinHeight="32" VerticalAlignment="Center">
                     <TextBlock Text="Modality:" Foreground="#AAAAAA" VerticalAlignment="Center" Margin="0,0,6,0" FontSize="11.5" />
                     <Grid MinWidth="90" MaxWidth="200">
                         <ToggleButton x:Name="BtnModalityDropDown"
@@ -259,10 +245,11 @@
                             </Border>
                         </Popup>
                     </Grid>
-                </StackPanel>
-
+                    </StackPanel>
+                </Border>
                 <!-- Date Filter Presets -->
-                <StackPanel Orientation="Horizontal" Margin="0,0,12,0" VerticalAlignment="Center">
+                <Border Style="{StaticResource ToolbarCapsule}">
+                    <StackPanel Orientation="Horizontal" Margin="6,0" MinHeight="32" VerticalAlignment="Center">
                     <TextBlock Text="Date Range:" Foreground="#AAAAAA" VerticalAlignment="Center" Margin="0,0,6,0" FontSize="11.5" />
                     <ComboBox x:Name="CmbDatePreset" Width="110" SelectionChanged="OnDatePresetChanged">
                         <ComboBoxItem Content="Any time" IsSelected="True" />
@@ -273,33 +260,37 @@
                         <ComboBoxItem Content="Last month" />
                         <ComboBoxItem Content="Custom..." />
                     </ComboBox>
-                </StackPanel>
-
+                    </StackPanel>
+                </Border>
                 <!-- Custom Date Range (Visible when Custom... is selected) -->
-                <StackPanel x:Name="PnlCustomDate" Orientation="Horizontal" Margin="0,0,12,0" VerticalAlignment="Center" Visibility="Collapsed">
+                <Border x:Name="PnlCustomDate" Style="{StaticResource ToolbarCapsule}" Visibility="Collapsed">
+                    <StackPanel Orientation="Horizontal" Margin="6,0" MinHeight="32" VerticalAlignment="Center">
                     <TextBlock Text="From:" Foreground="#AAAAAA" VerticalAlignment="Center" Margin="0,0,4,0" FontSize="11" />
                     <DatePicker x:Name="DpFrom" Width="100" Margin="0,0,5,0" SelectedDateChanged="OnCustomDateChanged" />
                     <TextBlock Text="To:" Foreground="#AAAAAA" VerticalAlignment="Center" Margin="0,0,4,0" FontSize="11" />
                     <DatePicker x:Name="DpTo" Width="100" SelectedDateChanged="OnCustomDateChanged" />
-                </StackPanel>
-
+                    </StackPanel>
+                </Border>
                 <!-- Patient / Text Search Box -->
-                <StackPanel Orientation="Horizontal" Margin="0,0,10,0" VerticalAlignment="Center">
+                <Border Style="{StaticResource ToolbarCapsule}">
+                    <StackPanel Orientation="Horizontal" Margin="6,0" MinHeight="32" VerticalAlignment="Center">
                     <TextBlock Text="Search:" Foreground="#AAAAAA" VerticalAlignment="Center" Margin="0,0,6,0" FontSize="11.5" />
                     <TextBox x:Name="TxtSearchQuery" Width="160" ToolTip="Enter Patient Name, Patient ID, or Accession Number" KeyDown="OnSearchKeyDown" />
-                </StackPanel>
-
+                    </StackPanel>
+                </Border>
                 <!-- Action Buttons: Search, Stop & Reset -->
-                <StackPanel Orientation="Horizontal" Margin="0,0,10,0" VerticalAlignment="Center">
-                    <Button x:Name="BtnSearch" Style="{StaticResource GoldButton}" Content="🔍 Search PACS" Padding="10,5" Margin="0,0,5,0" Click="OnSearchClicked" />
-                    <Button x:Name="BtnStopSearch" Style="{StaticResource DarkButton}" Content="⏹ Stop" Padding="8,5" Margin="0,0,5,0" Click="OnStopSearchClicked" 
-                            Visibility="Collapsed" Background="#8A2323" BorderBrush="#FF5252" Foreground="#FFFFFF" FontWeight="SemiBold" ToolTip="Oprește căutarea în curs (sau tasta Escape)" />
-                    <Button Style="{StaticResource DarkButton}" Content="Reset" Padding="8,5" Click="OnResetFiltersClicked" />
-                </StackPanel>
-
-                <!-- PACS Configuration Button -->
-                <Button Style="{StaticResource DarkButton}" Content="⚙ Settings..." Margin="4,0,0,0" VerticalAlignment="Center" Click="OnOpenConfigClicked" ToolTip="Configure PACS servers and local C-STORE listener" />
+                <Border Style="{StaticResource ToolbarCapsule}">
+                    <StackPanel Orientation="Horizontal">
+                        <Button x:Name="BtnSearch" Style="{StaticResource GoldButton}" Height="32" Margin="0,0,3,0" Click="OnSearchClicked"><StackPanel Orientation="Horizontal"><Path Style="{StaticResource ToolIcon}" Data="{StaticResource IconSearch}" /><TextBlock Text="Search PACS" Margin="6,0,0,0" VerticalAlignment="Center" /></StackPanel></Button>
+                        <Button x:Name="BtnStopSearch" Style="{StaticResource DarkButton}" Height="32" Content="Stop" Margin="0,0,3,0" Click="OnStopSearchClicked"
+                                Visibility="Collapsed" Background="#8A2323" Foreground="#FFFFFF" ToolTip="Oprește căutarea în curs (sau tasta Escape)" />
+                        <Button Style="{StaticResource ToolbarButton}" Content="Reset" Click="OnResetFiltersClicked" />
+                        <Button Style="{StaticResource ToolbarButton}" Click="OnOpenConfigClicked" ToolTip="Configure PACS servers and local C-STORE listener"><StackPanel Orientation="Horizontal"><Path Style="{StaticResource ToolIcon}" Data="{StaticResource IconSettings}" /><TextBlock Text="Settings..." Margin="6,0,0,0" VerticalAlignment="Center" /></StackPanel></Button>
+                    </StackPanel>
+                </Border>
             </WrapPanel>
+                <views:WindowControlsBar Grid.Column="2" />
+            </Grid>
         </Border>
 
         <!-- 2. STUDIES DATAGRID (UPPER) -->
@@ -316,7 +307,7 @@
                         <TextBlock x:Name="TxtStudiesCount" Text="Studies found: 0" FontWeight="SemiBold" FontSize="12" Foreground="#F5AF28" VerticalAlignment="Center" />
                         <Border Background="#242424" BorderBrush="#343434" BorderThickness="1" CornerRadius="3" Padding="7,2" Margin="14,0,0,0" VerticalAlignment="Center"
                                 ToolTip="Tabelul PACS se actualizează automat la fiecare 60 de secunde cât timp fereastra este deschisă">
-                            <TextBlock x:Name="TxtAutoRefreshCountdown" Text="🔄 Auto-refresh: 60s" FontSize="10.5" Foreground="#888888" VerticalAlignment="Center" />
+                            <TextBlock x:Name="TxtAutoRefreshCountdown" Text="Auto-refresh: 60s" FontSize="10.5" Foreground="#888888" VerticalAlignment="Center" />
                         </Border>
                     </StackPanel>
                     <TextBlock Text="Double-click a study to download and open immediately" HorizontalAlignment="Right" Foreground="#777777" FontSize="11" VerticalAlignment="Center" FontStyle="Italic" />
@@ -328,13 +319,14 @@
                       SelectionChanged="OnStudySelectionChanged" MouseDoubleClick="OnStudyDoubleClick"
                       KeyDown="OnGridStudiesKeyDown">
                 <DataGrid.ContextMenu>
-                    <ContextMenu>
+                    <ContextMenu Opened="OnStudyContextMenuOpened">
                         <MenuItem Header="Open in Viewer" Click="OnDownloadAndOpenClicked" FontWeight="Bold" />
                         <MenuItem Header="Add to current study" Click="OnAddStudyToCurrentStudyClicked" />
                         <MenuItem Header="Toggle Reviewed (Space)" Click="OnToggleReviewedContextMenu" />
                         <MenuItem Header="Edit Notes..." Click="OnEditNotesClicked" Foreground="#F5AF28" />
                         <Separator Background="#333333" />
                         <MenuItem Header="Import into Local Database" Click="OnImportToDatabaseClicked" />
+                        <MenuItem x:Name="MenuDeleteFromLocalDb" Header="Delete from Local Database" Click="OnDeleteFromLocalDatabaseClicked" Foreground="#FF5252" />
                         <MenuItem Header="Find all studies for this patient" Click="OnFindAllPatientStudiesClicked" />
                         <Separator Background="#333333" />
                         <MenuItem Header="Send study to PACS..." Click="OnSendStudyToPacsClicked" />
@@ -412,6 +404,7 @@
                     <DataGridTextColumn Header="Reading Physician" Binding="{Binding ReadingPhysician}" Width="140" />
                     <DataGridTextColumn Header="Performing Physician" Binding="{Binding PerformingPhysician}" Width="140" />
                     <DataGridTextColumn Header="Referring Physician" Binding="{Binding ReferringPhysician}" Width="140" />
+                    <DataGridTextColumn Header="Size" Binding="{Binding LocalSize}" Width="80" MinWidth="70" />
                     <DataGridTextColumn Header="Accession #" Binding="{Binding AccessionNumber}" Width="95" />
                     <DataGridTextColumn Header="Series" Binding="{Binding SeriesCount}" Width="50" />
                     <DataGridTextColumn Header="Instances" Binding="{Binding InstanceCount}" Width="65" />
@@ -451,6 +444,8 @@
                 </DataGrid.ContextMenu>
                 <DataGrid.Columns>
                     <DataGridTextColumn Header="Series #" Binding="{Binding SeriesNumber}" Width="70" FontWeight="SemiBold" />
+                    <DataGridTextColumn Header="Date" Binding="{Binding FormattedDate}" Width="90" />
+                    <DataGridTextColumn Header="Time" Binding="{Binding FormattedTime}" Width="70" />
 
                     <!-- Soft Pale Modality Pill Badge -->
                     <DataGridTemplateColumn Header="Modality" Width="70">
@@ -475,7 +470,7 @@
         </Grid>
 
         <!-- 5. BOTTOM ACTION & STATUS / PROGRESS BAR -->
-        <Border Grid.Row="4" Background="#141414" BorderBrush="#282828" BorderThickness="0,1,0,0" Padding="12,8">
+        <Border Grid.Row="4" Background="#191919" BorderBrush="#282828" BorderThickness="0,1,0,0" Padding="12,8">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
@@ -486,18 +481,18 @@
                 <StackPanel Grid.Column="0" VerticalAlignment="Center">
                     <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
                         <TextBlock x:Name="TxtTransferStatus" Text="Ready to search." Foreground="#AAAAAA" FontSize="11.5" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" />
-                        <Button x:Name="BtnBottomStop" Content="⏹ Stop" Click="OnStopSearchClicked" Visibility="Collapsed"
-                                Style="{StaticResource DarkButton}" Background="#752020" BorderBrush="#FF4545" Foreground="#FFFFFF"
-                                FontSize="10.5" Padding="6,1" Margin="8,0,0,0" VerticalAlignment="Center" ToolTip="Oprește căutarea în curs (sau tasta Escape)" />
+                        <Button x:Name="BtnBottomStop" Content="Stop" Click="OnStopSearchClicked" Visibility="Collapsed"
+                                Style="{StaticResource DarkButton}" Background="#752020" Foreground="#FFFFFF"
+                                Height="22" FontSize="11" Padding="8,0" Margin="8,0,0,0" VerticalAlignment="Center" ToolTip="Oprește căutarea în curs (sau tasta Escape)" />
                     </StackPanel>
                     <ProgressBar x:Name="PbTransfer" Height="6" Maximum="100" Value="0" Background="#222222" Foreground="#F5AF28" BorderThickness="0" Visibility="Collapsed" />
                 </StackPanel>
 
                 <!-- Right: Action Buttons -->
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="16,0,0,0">
-                    <Button x:Name="BtnSendStudyToPacs" Style="{StaticResource DarkButton}" Content="⬆ Send to PACS..." Margin="0,0,8,0" Click="OnSendActiveStudyToPacsClicked" ToolTip="Send active study or series to the selected PACS server" />
+                    <Button x:Name="BtnSendStudyToPacs" Style="{StaticResource DarkButton}" Content="Send to PACS..." Margin="0,0,8,0" Click="OnSendActiveStudyToPacsClicked" ToolTip="Send active study or series to the selected PACS server" />
                     <Button x:Name="BtnImportToDb" Style="{StaticResource DarkButton}" Content="Import to Database" Margin="0,0,8,0" Click="OnImportToDatabaseClicked" IsEnabled="False" />
-                    <Button x:Name="BtnDownloadAndOpen" Style="{StaticResource GoldButton}" Content="Open" Padding="18,6" Click="OnDownloadAndOpenClicked" IsEnabled="False" ToolTip="Download and open selected study in the viewer with live streaming" />
+                    <Button x:Name="BtnDownloadAndOpen" Style="{StaticResource GoldButton}" Content="Open" Padding="20,0" Click="OnDownloadAndOpenClicked" IsEnabled="False" ToolTip="Download and open selected study in the viewer with live streaming" />
                 </StackPanel>
             </Grid>
         </Border>

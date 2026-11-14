@@ -21,6 +21,8 @@ public partial class ViewportControl : UserControl
     private Point _dragStartPos;
     private bool _hasActuallyDragged;
     private bool _isDragging;
+    // The 3D cursor is shown only while its mouse button is held
+    private bool _isCursor3DDrag;
     private MouseInputTrigger _currentDragTrigger;
     private MeasurementItem? _activeMeasurement;
     private MeasurementItem? _selectedMeasurement;
@@ -147,26 +149,16 @@ public partial class ViewportControl : UserControl
         else if (e.Key == Key.Escape)
         {
             var mainVm = GetMainViewModel();
-            if (_activeMeasurement != null || _angleCreationStep > 0)
-            {
-                _activeMeasurement = null;
-                _angleCreationStep = 0;
-                RedrawMeasurements();
-                if (mainVm != null && MainViewModel.IsTransientTool(mainVm.LeftTool))
-                {
-                    mainVm.AssignLeftTool(MouseToolAction.BrowseSeries);
-                    mainVm.StatusMessage = "Măsurătoare anulată. Revenit la Browse Series.";
-                }
-                e.Handled = true;
-                return;
-            }
+            _activeMeasurement = null;
+            _angleCreationStep = 0;
+            _isDragging = false;
+            ReleaseMouseCapture();
+            RedrawMeasurements();
 
-            if (mainVm != null && MainViewModel.IsTransientTool(mainVm.LeftTool))
+            if (mainVm != null)
             {
-                mainVm.AssignLeftTool(MouseToolAction.BrowseSeries);
+                mainVm.CancelTransientTools();
                 mainVm.StatusMessage = "Instrument măsură anulat. Revenit la Browse Series.";
-                e.Handled = true;
-                return;
             }
 
             bool changed = false;
@@ -175,17 +167,16 @@ public partial class ViewportControl : UserControl
             _selectedMeasurement = null;
             _draggedVertebra = null;
             if (changed) RedrawMeasurements();
-            if (changed)
-            {
-                e.Handled = true;
-                return;
-            }
+            e.Handled = true;
+            return;
         }
     }
 
     private void OnViewModelPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
-        if (e.PropertyName is nameof(ViewportViewModel.CurrentSeries) or nameof(ViewportViewModel.CurrentSliceIndex))
+        if (e.PropertyName is nameof(ViewportViewModel.CurrentSeries) or 
+                              nameof(ViewportViewModel.CurrentSliceIndex) or 
+                              nameof(ViewportViewModel.DisplayImage))
         {
             if (_angleCreationStep > 0 || _activeMeasurement != null)
             {
@@ -235,6 +226,8 @@ public partial class ViewportControl : UserControl
         {
             mainVm.PropertyChanged -= OnMainViewModelPropertyChanged;
             mainVm.PropertyChanged += OnMainViewModelPropertyChanged;
+            mainVm.TransientToolsCancelled -= OnTransientToolsCancelled;
+            mainVm.TransientToolsCancelled += OnTransientToolsCancelled;
         }
 
         if (ViewModel?.NeedsAutoFit == true)
@@ -255,7 +248,31 @@ public partial class ViewportControl : UserControl
         if (mainVm != null)
         {
             mainVm.PropertyChanged -= OnMainViewModelPropertyChanged;
+            mainVm.TransientToolsCancelled -= OnTransientToolsCancelled;
         }
+    }
+
+    public bool CancelActiveMeasurement()
+    {
+        if (_activeMeasurement != null || _angleCreationStep > 0)
+        {
+            _activeMeasurement = null;
+            _angleCreationStep = 0;
+            _isDragging = false;
+            ReleaseMouseCapture();
+            RedrawMeasurements();
+            return true;
+        }
+        return false;
+    }
+
+    private void OnTransientToolsCancelled()
+    {
+        _activeMeasurement = null;
+        _angleCreationStep = 0;
+        _isDragging = false;
+        ReleaseMouseCapture();
+        RedrawMeasurements();
     }
 
     private void OnMainViewModelPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
@@ -263,6 +280,17 @@ public partial class ViewportControl : UserControl
         if (e.PropertyName == nameof(MainViewModel.MeasurementsCurrentSliceOnly))
         {
             Dispatcher.InvokeAsync(RedrawMeasurements);
+        }
+        else if (e.PropertyName == nameof(MainViewModel.LeftTool))
+        {
+            var mainVm = GetMainViewModel();
+            if (mainVm != null && !MainViewModel.IsTransientTool(mainVm.LeftTool))
+            {
+                _activeMeasurement = null;
+                _angleCreationStep = 0;
+                _isDragging = false;
+                Dispatcher.InvokeAsync(RedrawMeasurements);
+            }
         }
     }
 
@@ -323,6 +351,7 @@ public partial class ViewportControl : UserControl
 
                     if (mainVm != null)
                     {
+                        mainVm.CancelTransientTools();
                         mainVm.IsSyncSuspended = true;
                         try
                         {
@@ -709,12 +738,14 @@ public partial class ViewportControl : UserControl
         }
 
         // Right click cancels in-progress measurement or resets transient tool
-        if (e.ChangedButton == MouseButton.Right && (_activeMeasurement != null || _angleCreationStep > 0))
+        if (e.ChangedButton == MouseButton.Right && (_activeMeasurement != null || _angleCreationStep > 0 || (mainVm != null && MainViewModel.IsTransientTool(mainVm.LeftTool))))
         {
             _activeMeasurement = null;
             _angleCreationStep = 0;
+            _isDragging = false;
+            ReleaseMouseCapture();
             RedrawMeasurements();
-            if (MainViewModel.IsTransientTool(mainVm.LeftTool))
+            if (mainVm != null && MainViewModel.IsTransientTool(mainVm.LeftTool))
             {
                 mainVm.AssignLeftTool(MouseToolAction.BrowseSeries);
                 mainVm.StatusMessage = "Măsurătoare anulată. Revenit la Browse Series.";
@@ -730,6 +761,9 @@ public partial class ViewportControl : UserControl
         if (isCursor3DTrigger)
         {
             _isDragging = true;
+            _isCursor3DDrag = true;
+            // Only the crosshair marks the point while the button is held
+            Cursor = Cursors.None;
             CaptureMouse();
             _currentDragTrigger = e.ChangedButton switch
             {
@@ -752,7 +786,6 @@ public partial class ViewportControl : UserControl
 
         // 2. Angle and Insall-Salvati multi-step placement (Click 1: Pt 0, Click 2: Pt 1, Click 3: Pt 2)
         if (e.ChangedButton == MouseButton.Left && 
-            (mainVm.CurrentTool is MouseToolAction.MeasureAngle or MouseToolAction.MeasureInsallSalvati) && 
             _angleCreationStep > 0 && _activeMeasurement != null)
         {
             if (_angleCreationStep == 1)
@@ -760,7 +793,7 @@ public partial class ViewportControl : UserControl
                 _activeMeasurement.Points[1] = imgPt;
                 _activeMeasurement.Points[2] = imgPt;
                 _angleCreationStep = 2;
-                if (mainVm.CurrentTool == MouseToolAction.MeasureInsallSalvati)
+                if (_activeMeasurement.Type == MeasurementType.InsallSalvati)
                 {
                     mainVm.StatusMessage = "Insall-Salvati: Click 3 for superior patellar pole (base)...";
                 }
@@ -789,10 +822,7 @@ public partial class ViewportControl : UserControl
                 _selectedMeasurement = _activeMeasurement;
                 _activeMeasurement = null;
                 _angleCreationStep = 0;
-                if (mainVm.CurrentTool == MouseToolAction.MeasureInsallSalvati || mainVm.LeftTool == MouseToolAction.MeasureInsallSalvati)
-                {
-                    mainVm.AssignLeftTool(MouseToolAction.BrowseSeries);
-                }
+                mainVm.AssignLeftTool(MouseToolAction.BrowseSeries);
                 RedrawMeasurements();
                 e.Handled = true;
                 return;
@@ -832,8 +862,8 @@ public partial class ViewportControl : UserControl
             _ => MouseToolAction.None
         };
 
-        // 3. Interactive Handle Resizing on currently selected measurement (only when NOT holding an active drawing tool)
-        if (e.ChangedButton == MouseButton.Left && _selectedMeasurement != null && !IsMeasurementTool(buttonAction) && buttonAction != MouseToolAction.VertebraLabel)
+        // 3. Interactive Handle Resizing on the selected measurement, also while a drawing tool stays active after drawing
+        if (e.ChangedButton == MouseButton.Left && _selectedMeasurement != null && vm.Measurements.Contains(_selectedMeasurement))
         {
             int handleIndex = HitTestHandles(_selectedMeasurement, _lastMousePos);
             if (handleIndex >= 0)
@@ -848,11 +878,12 @@ public partial class ViewportControl : UserControl
             }
         }
 
-        // 4. Interactive Selection & Moving of existing measurements (when not holding an active drawing tool)
+        // 4. Interactive Selection & Moving of existing measurements. With a drawing tool active only the outline
+        // is hit, so a new ROI can still be drawn inside an existing one.
         if (e.ChangedButton == MouseButton.Left)
         {
             bool isDrawingTool = IsMeasurementTool(buttonAction) || buttonAction == MouseToolAction.VertebraLabel;
-            var hit = !isDrawingTool ? FindMeasurementAt(_lastMousePos) : null;
+            var hit = FindMeasurementAt(_lastMousePos, outlineOnly: isDrawingTool);
             if (hit != null)
             {
                 foreach (var m in vm.Measurements) m.IsSelected = false;
@@ -1017,6 +1048,15 @@ public partial class ViewportControl : UserControl
 
         Point currentPos = e.GetPosition(this);
         Point currentImgPt = ScreenToImageCoords(currentPos);
+
+        // Safety net: a release that never reached this control (lost capture, another window) must not leave the cursor on screen
+        if (vm.ShowCrosshair3D && e.LeftButton == MouseButtonState.Released && e.RightButton == MouseButtonState.Released &&
+            e.MiddleButton == MouseButtonState.Released)
+        {
+            _isCursor3DDrag = false;
+            mainVm.Clear3DCursor();
+            if (Cursor == Cursors.None) Cursor = Cursors.Arrow;
+        }
 
         if (_isDraggingMeasurementText && _selectedMeasurement != null)
         {
@@ -1317,6 +1357,12 @@ public partial class ViewportControl : UserControl
     {
         try
         {
+            if (_isCursor3DDrag)
+            {
+                _isCursor3DDrag = false;
+                GetMainViewModel()?.Clear3DCursor();
+            }
+
             if (_mprDragTarget != MprDragTarget.None)
             {
                 _mprDragTarget = MprDragTarget.None;
@@ -1554,9 +1600,16 @@ public partial class ViewportControl : UserControl
             return;
         }
 
-        if (_selectedMeasurement != null && !IsMeasurementTool(mainVm.CurrentTool) && HitTestHandles(_selectedMeasurement, currentPos) >= 0)
+        if (_selectedMeasurement != null && vm.Measurements.Contains(_selectedMeasurement) && HitTestHandles(_selectedMeasurement, currentPos) >= 0)
         {
             Cursor = Cursors.Cross;
+            return;
+        }
+
+        bool drawingTool = IsMeasurementTool(mainVm.LeftTool) || mainVm.LeftTool == MouseToolAction.VertebraLabel;
+        if (FindMeasurementAt(currentPos, outlineOnly: drawingTool) != null)
+        {
+            Cursor = Cursors.SizeAll;
             return;
         }
 
@@ -1566,6 +1619,11 @@ public partial class ViewportControl : UserControl
     protected override void OnLostMouseCapture(MouseEventArgs e)
     {
         base.OnLostMouseCapture(e);
+        if (_isCursor3DDrag)
+        {
+            _isCursor3DDrag = false;
+            GetMainViewModel()?.Clear3DCursor();
+        }
         _isDragging = false;
         _isDraggingMeasurementText = false;
         _isResizingHandle = false;
@@ -1622,8 +1680,11 @@ public partial class ViewportControl : UserControl
         switch (action)
         {
             case MouseToolAction.BrowseSeries:
-                if (steps > 0) vm.PreviousImage();
-                else vm.NextImage();
+                // Dragging down (deltaY > 0) executes vm.StepImages(-steps).
+                // Rolling wheel down (e.Delta < 0) gives steps = -1 (or +1 if inverted).
+                // Calling vm.StepImages(steps) guarantees wheel scroll and drag browse always move in the exact same direction.
+                vm.StepImages(steps);
+                RedrawMeasurements();
                 break;
 
             case MouseToolAction.Zoom:
@@ -1637,13 +1698,13 @@ public partial class ViewportControl : UserControl
                 break;
 
             case MouseToolAction.NextImage:
-                if (steps > 0) vm.NextImage();
-                else vm.PreviousImage();
+                vm.StepImages(steps);
+                RedrawMeasurements();
                 break;
 
             case MouseToolAction.PreviousImage:
-                if (steps > 0) vm.PreviousImage();
-                else vm.NextImage();
+                vm.StepImages(-steps);
+                RedrawMeasurements();
                 break;
         }
 
@@ -1716,7 +1777,28 @@ public partial class ViewportControl : UserControl
     #endregion
 
     #region Measurements Hit Testing & Redraw
-    private MeasurementItem? FindMeasurementAt(Point screenPt)
+    private const double OutlineHitTolerance = 8.0;
+
+    // ROI style: thin Parsec-orange outline, corner brackets when selected, outlined text without a box joined by a dotted leader.
+    // Length style: white line that turns Parsec orange when selected, with a dark pill label.
+    private static readonly Brush RoiBrush = FrozenBrush(Color.FromRgb(0xF5, 0xAF, 0x28));
+    private static readonly Brush OverlayEdgeBrush = FrozenBrush(Color.FromArgb(200, 0, 0, 0));
+    private static readonly Brush RoiSecondaryTextBrush = FrozenBrush(Color.FromRgb(0xBB, 0xBB, 0xBB));
+    private static readonly Brush LengthBrush = FrozenBrush(Color.FromArgb(191, 255, 255, 255));
+    private static readonly Brush LengthSelectedBrush = FrozenBrush(Color.FromRgb(0xF5, 0xAF, 0x28));
+    private static readonly Brush PillBackgroundBrush = FrozenBrush(Color.FromArgb(230, 0x19, 0x19, 0x19));
+    private static readonly Brush PillBorderBrush = FrozenBrush(Color.FromRgb(0x3A, 0x3A, 0x3A));
+    private static readonly Brush PillTextBrush = FrozenBrush(Color.FromRgb(0xDD, 0xDD, 0xDD));
+
+    private static Brush FrozenBrush(Color color)
+    {
+        var brush = new SolidColorBrush(color);
+        brush.Freeze();
+        return brush;
+    }
+    private const double CenterGripRadius = 10.0;
+
+    private MeasurementItem? FindMeasurementAt(Point screenPt, bool outlineOnly = false)
     {
         var vm = ViewModel;
         var mainVm = GetMainViewModel();
@@ -1739,7 +1821,12 @@ public partial class ViewportControl : UserControl
 
                 double dx = (screenPt.X - cx) / rx;
                 double dy = (screenPt.Y - cy) / ry;
-                if (dx * dx + dy * dy <= 1.3)
+                double r = Math.Sqrt(dx * dx + dy * dy);
+                bool onCenter = (screenPt - new Point(cx, cy)).Length <= CenterGripRadius;
+                bool hitEllipse = outlineOnly
+                    ? onCenter || Math.Abs(r - 1.0) * Math.Min(rx, ry) <= OutlineHitTolerance
+                    : r * r <= 1.3;
+                if (hitEllipse)
                     return m;
             }
             else if (m.Type == MeasurementType.Rectangle)
@@ -1751,7 +1838,11 @@ public partial class ViewportControl : UserControl
                 double minY = Math.Min(s0.Y, s1.Y) - 6;
                 double maxY = Math.Max(s0.Y, s1.Y) + 6;
 
-                if (screenPt.X >= minX && screenPt.X <= maxX && screenPt.Y >= minY && screenPt.Y <= maxY)
+                bool insideOuter = screenPt.X >= minX && screenPt.X <= maxX && screenPt.Y >= minY && screenPt.Y <= maxY;
+                bool insideInner = screenPt.X > minX + 6 + OutlineHitTolerance && screenPt.X < maxX - 6 - OutlineHitTolerance &&
+                                   screenPt.Y > minY + 6 + OutlineHitTolerance && screenPt.Y < maxY - 6 - OutlineHitTolerance;
+                bool onCenter = (screenPt - new Point((s0.X + s1.X) / 2, (s0.Y + s1.Y) / 2)).Length <= CenterGripRadius;
+                if (insideOuter && (!outlineOnly || !insideInner || onCenter))
                     return m;
             }
             else if (m.Type is MeasurementType.Length or MeasurementType.Arrow)
@@ -1899,6 +1990,64 @@ public partial class ViewportControl : UserControl
         return -1;
     }
 
+    /// <summary>Small cross at the centre of a selected ROI, marking where it can be grabbed to move it.</summary>
+    private void DrawMoveGrip(Point center, Brush brush)
+    {
+        const double arm = 5;
+        MeasurementCanvas.Children.Add(new Line { X1 = center.X - arm, Y1 = center.Y, X2 = center.X + arm, Y2 = center.Y, Stroke = brush, StrokeThickness = 1 });
+        MeasurementCanvas.Children.Add(new Line { X1 = center.X, Y1 = center.Y - arm, X2 = center.X, Y2 = center.Y + arm, Stroke = brush, StrokeThickness = 1 });
+    }
+
+    /// <summary>Adds a shape, optionally over a wider dark edge that keeps it visible on bone or contrast.</summary>
+    private void AddEdgedShape(Func<Shape> create, Brush brush, double thickness, bool withEdge = true)
+    {
+        if (withEdge)
+        {
+            var edge = create();
+            edge.Stroke = OverlayEdgeBrush;
+            edge.StrokeThickness = thickness + 2;
+            MeasurementCanvas.Children.Add(edge);
+        }
+
+        var shape = create();
+        shape.Stroke = brush;
+        shape.StrokeThickness = thickness;
+        MeasurementCanvas.Children.Add(shape);
+    }
+
+    /// <summary>L-shaped marks just outside the corners of a selected ROI, where it is resized.</summary>
+    private void DrawCornerBrackets(double left, double top, double width, double height)
+    {
+        const double gap = 3;
+        double arm = Math.Clamp(Math.Min(width, height) / 3, 4, 8);
+        double l = left - gap, t = top - gap, r = left + width + gap, b = top + height + gap;
+        var geometry = Geometry.Parse(FormattableString.Invariant(
+            $"M{l},{t + arm} V{t} H{l + arm} M{r - arm},{t} H{r} V{t + arm} M{r},{b - arm} V{b} H{r - arm} M{l + arm},{b} H{l} V{b - arm}"));
+        geometry.Freeze();
+        AddEdgedShape(() => new Path { Data = geometry }, RoiBrush, 1.0, withEdge: false);
+    }
+
+    private void DrawRoundHandle(Point p, Brush brush)
+    {
+        var handle = new Ellipse { Width = 7, Height = 7, Fill = brush, Stroke = Brushes.Black, StrokeThickness = 1 };
+        Canvas.SetLeft(handle, p.X - 3.5);
+        Canvas.SetTop(handle, p.Y - 3.5);
+        MeasurementCanvas.Children.Add(handle);
+    }
+
+    /// <summary>Draws text with a dark outline instead of a background box. Returns its screen bounds.</summary>
+    private Rect DrawOutlinedText(string text, Point origin, double fontSize, Brush fill, FontWeight weight)
+    {
+        var formatted = new FormattedText(text, System.Globalization.CultureInfo.CurrentUICulture, FlowDirection.LeftToRight,
+            new Typeface(new FontFamily("Segoe UI"), FontStyles.Normal, weight, FontStretches.Normal),
+            fontSize, fill, VisualTreeHelper.GetDpi(this).PixelsPerDip);
+        var geometry = formatted.BuildGeometry(origin);
+        geometry.Freeze();
+        MeasurementCanvas.Children.Add(new Path { Data = geometry, Stroke = OverlayEdgeBrush, StrokeThickness = 3, StrokeLineJoin = PenLineJoin.Round });
+        MeasurementCanvas.Children.Add(new Path { Data = geometry, Fill = fill });
+        return new Rect(origin, new Size(formatted.WidthIncludingTrailingWhitespace, formatted.Height));
+    }
+
     private void DrawHandleBox(Point p, Brush brush)
     {
         var handle = new Rectangle
@@ -1927,73 +2076,43 @@ public partial class ViewportControl : UserControl
         double width = Math.Abs(p2.X - p1.X);
         double height = Math.Abs(p2.Y - p1.Y);
 
-        double defaultTextX = left + width + 8;
-        double defaultTextY = top;
-
-        var vm = ViewModel;
-        double zoom = vm?.Zoom ?? 1.0;
-
-        double textX = defaultTextX;
-        double textY = defaultTextY;
-
-        bool hasCustomOffset = false;
+        double zoom = ViewModel?.Zoom ?? 1.0;
+        double textX = left + width + 14;
+        double textY = top - 8;
         if (m.TextOffset != null)
         {
             textX += m.TextOffset.Value.X * zoom;
             textY += m.TextOffset.Value.Y * zoom;
-            if (Math.Abs(m.TextOffset.Value.X) > 4 || Math.Abs(m.TextOffset.Value.Y) > 4)
-            {
-                hasCustomOffset = true;
-            }
         }
 
-        var border = new Border
+        // The leader starts on the outline: the upper-right point of an ellipse, or the corner of a rectangle
+        Point anchor = m.Type == MeasurementType.Ellipse
+            ? new Point(left + width / 2 + width / 2 * 0.7071, top + height / 2 - height / 2 * 0.7071)
+            : new Point(left + width, top);
+        Point labelPoint = new Point(textX - 3, textY + 8);
+        MeasurementCanvas.Children.Add(new Line
         {
-            Background = textBgBrush,
-            BorderBrush = strokeBrush,
-            BorderThickness = new Thickness(m.IsSelected ? 1.5 : 1.0),
-            CornerRadius = new CornerRadius(3),
-            Padding = new Thickness(6, 4, 6, 4),
-            Cursor = Cursors.SizeAll,
-            Child = new TextBlock
-            {
-                Text = m.Details,
-                Foreground = strokeBrush,
-                FontSize = 10.5,
-                FontWeight = m.IsSelected ? FontWeights.Bold : FontWeights.Normal,
-                LineHeight = 14
-            }
-        };
+            X1 = anchor.X, Y1 = anchor.Y, X2 = labelPoint.X, Y2 = labelPoint.Y,
+            Stroke = strokeBrush,
+            StrokeThickness = 0.6,
+            StrokeDashArray = new DoubleCollection { 2, 3 },
+            Opacity = 0.8
+        });
 
-        border.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
-        double badgeW = Math.Max(border.DesiredSize.Width, 115);
-        double badgeH = Math.Max(border.DesiredSize.Height, 44);
-
-        m.LastTextScreenRect = new Rect(textX, textY, badgeW, badgeH);
-
-        // If moved away from ROI, draw a subtle leader line connecting to the ROI center
-        if (hasCustomOffset)
+        var lines = m.Details.Split('\n');
+        Rect bounds = Rect.Empty;
+        double y = textY;
+        for (int i = 0; i < lines.Length; i++)
         {
-            Point roiCenter = new Point(left + width / 2.0, top + height / 2.0);
-            Point badgeCenter = new Point(textX + badgeW / 2.0, textY + badgeH / 2.0);
-
-            var leaderLine = new Line
-            {
-                X1 = roiCenter.X,
-                Y1 = roiCenter.Y,
-                X2 = badgeCenter.X,
-                Y2 = badgeCenter.Y,
-                Stroke = strokeBrush,
-                StrokeThickness = 1.0,
-                StrokeDashArray = new DoubleCollection { 3, 2 },
-                Opacity = 0.65
-            };
-            MeasurementCanvas.Children.Add(leaderLine);
+            bool first = i == 0;
+            var lineRect = DrawOutlinedText(lines[i].Trim(), new Point(textX, y), first ? 12 : 11,
+                first ? Brushes.White : RoiSecondaryTextBrush, first && m.IsSelected ? FontWeights.SemiBold : FontWeights.Normal);
+            bounds.Union(lineRect);
+            y += first ? 16 : 14;
         }
 
-        Canvas.SetLeft(border, textX);
-        Canvas.SetTop(border, textY);
-        MeasurementCanvas.Children.Add(border);
+        bounds.Inflate(3, 3);
+        m.LastTextScreenRect = bounds;
     }
 
     private void RenderMeasurementTextBadge(
@@ -2003,7 +2122,8 @@ public partial class ViewportControl : UserControl
         double defaultOffsetY,
         Brush strokeBrush,
         Brush textBgBrush,
-        bool isBold = false)
+        bool isBold = false,
+        bool pill = false)
     {
         if (string.IsNullOrEmpty(m.Details))
         {
@@ -2027,27 +2147,44 @@ public partial class ViewportControl : UserControl
             }
         }
 
-        var border = new Border
-        {
-            Background = textBgBrush,
-            BorderBrush = strokeBrush,
-            BorderThickness = new Thickness(m.IsSelected ? 1.2 : 0.8),
-            CornerRadius = new CornerRadius(3),
-            Padding = new Thickness(5, 2, 5, 2),
-            Cursor = Cursors.SizeAll,
-            Child = new TextBlock
+        var border = pill
+            ? new Border
             {
-                Text = m.Details,
-                Foreground = strokeBrush,
-                FontSize = 11,
-                FontWeight = (m.IsSelected || isBold) ? FontWeights.Bold : FontWeights.SemiBold
+                Background = PillBackgroundBrush,
+                BorderBrush = m.IsSelected ? strokeBrush : PillBorderBrush,
+                BorderThickness = new Thickness(m.IsSelected ? 1.0 : 0.6),
+                CornerRadius = new CornerRadius(6),
+                Padding = new Thickness(7, 3, 7, 3),
+                Cursor = Cursors.SizeAll,
+                Child = new TextBlock
+                {
+                    Text = m.Details,
+                    Foreground = m.IsSelected ? Brushes.White : PillTextBrush,
+                    FontSize = 11,
+                    FontWeight = m.IsSelected ? FontWeights.SemiBold : FontWeights.Normal
+                }
             }
-        };
+            : new Border
+            {
+                Background = textBgBrush,
+                BorderBrush = strokeBrush,
+                BorderThickness = new Thickness(m.IsSelected ? 1.2 : 0.8),
+                CornerRadius = new CornerRadius(3),
+                Padding = new Thickness(5, 2, 5, 2),
+                Cursor = Cursors.SizeAll,
+                Child = new TextBlock
+                {
+                    Text = m.Details,
+                    Foreground = strokeBrush,
+                    FontSize = 11,
+                    FontWeight = (m.IsSelected || isBold) ? FontWeights.Bold : FontWeights.SemiBold
+                }
+            };
 
         border.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
-        double minTextW = Math.Max(50.0, (m.Details?.Length ?? 5) * 8.0 + 16.0);
+        double minTextW = pill ? 0 : Math.Max(50.0, (m.Details?.Length ?? 5) * 8.0 + 16.0);
         double badgeW = Math.Max(border.DesiredSize.Width, minTextW);
-        double badgeH = Math.Max(border.DesiredSize.Height, 22.0);
+        double badgeH = pill ? border.DesiredSize.Height : Math.Max(border.DesiredSize.Height, 22.0);
         m.LastTextScreenRect = new Rect(textX, textY, badgeW, badgeH);
 
         if (hasCustomOffset)
@@ -2181,23 +2318,19 @@ public partial class ViewportControl : UserControl
                 Point p1 = ImageToScreenCoords(m.Points[0]);
                 Point p2 = ImageToScreenCoords(m.Points[1]);
 
-                var line = new Line
+                Brush lineBrush = m.IsSelected ? LengthSelectedBrush : LengthBrush;
+                MeasurementCanvas.Children.Add(new Line
                 {
                     X1 = p1.X, Y1 = p1.Y,
                     X2 = p2.X, Y2 = p2.Y,
-                    Stroke = strokeBrush,
-                    StrokeThickness = strokeThickness
-                };
-                MeasurementCanvas.Children.Add(line);
-
-                // Small tick marks at endpoints
-                DrawEndpointDot(p1, strokeBrush);
-                DrawEndpointDot(p2, strokeBrush);
+                    Stroke = lineBrush,
+                    StrokeThickness = m.IsSelected ? 1.4 : 1.0
+                });
 
                 if (!string.IsNullOrEmpty(m.Details))
                 {
                     Point midPoint = new Point((p1.X + p2.X) / 2.0, (p1.Y + p2.Y) / 2.0);
-                    RenderMeasurementTextBadge(m, midPoint, 6, 6, strokeBrush, textBgBrush);
+                    RenderMeasurementTextBadge(m, midPoint, 6, 6, lineBrush, textBgBrush, pill: true);
                 }
                 else
                 {
@@ -2206,8 +2339,13 @@ public partial class ViewportControl : UserControl
 
                 if (m.IsSelected)
                 {
-                    DrawHandleBox(p1, selectedBrush);
-                    DrawHandleBox(p2, selectedBrush);
+                    DrawRoundHandle(p1, lineBrush);
+                    DrawRoundHandle(p2, lineBrush);
+                }
+                else
+                {
+                    DrawEndpointDot(p1, lineBrush);
+                    DrawEndpointDot(p2, lineBrush);
                 }
             }
             else if (m.Type == MeasurementType.Arrow)
@@ -2351,17 +2489,30 @@ public partial class ViewportControl : UserControl
                     bool isAi = m.Type == MeasurementType.AiCrop;
                     var stroke = isAi ? new SolidColorBrush(Color.FromRgb(0, 229, 255)) : strokeBrush;
 
-                    var rect = new Rectangle
+                    if (isAi)
                     {
-                        Width = width,
-                        Height = height,
-                        Stroke = stroke,
-                        StrokeThickness = isAi ? 2.0 : strokeThickness,
-                        StrokeDashArray = isAi ? new DoubleCollection { 3, 2 } : (m.IsSelected ? null : new DoubleCollection { 4, 2 })
-                    };
-                    Canvas.SetLeft(rect, left);
-                    Canvas.SetTop(rect, top);
-                    MeasurementCanvas.Children.Add(rect);
+                        var rect = new Rectangle
+                        {
+                            Width = width,
+                            Height = height,
+                            Stroke = stroke,
+                            StrokeThickness = 2.0,
+                            StrokeDashArray = new DoubleCollection { 3, 2 }
+                        };
+                        Canvas.SetLeft(rect, left);
+                        Canvas.SetTop(rect, top);
+                        MeasurementCanvas.Children.Add(rect);
+                    }
+                    else
+                    {
+                        AddEdgedShape(() =>
+                        {
+                            var rect = new Rectangle { Width = width, Height = height };
+                            Canvas.SetLeft(rect, left);
+                            Canvas.SetTop(rect, top);
+                            return rect;
+                        }, RoiBrush, m.IsSelected ? 1.3 : 1.0, withEdge: false);
+                    }
 
                     if (isAi)
                     {
@@ -2383,17 +2534,22 @@ public partial class ViewportControl : UserControl
                         MeasurementCanvas.Children.Add(badge);
                     }
 
-                    if (m.IsSelected)
+                    if (m.IsSelected && isAi)
                     {
                         DrawHandleBox(new Point(left, top), selectedBrush);
                         DrawHandleBox(new Point(left + width, top), selectedBrush);
                         DrawHandleBox(new Point(left + width, top + height), selectedBrush);
                         DrawHandleBox(new Point(left, top + height), selectedBrush);
                     }
+                    else if (m.IsSelected)
+                    {
+                        DrawCornerBrackets(left, top, width, height);
+                        DrawMoveGrip(new Point(left + width / 2, top + height / 2), RoiBrush);
+                    }
 
                     if (!string.IsNullOrEmpty(m.Details))
                     {
-                        RenderRoiBadge(m, p1, p2, strokeBrush, textBgBrush);
+                        RenderRoiBadge(m, p1, p2, RoiBrush, textBgBrush);
                     }
                     else
                     {
@@ -2413,29 +2569,23 @@ public partial class ViewportControl : UserControl
 
                 if (width > 2 && height > 2)
                 {
-                    var ellipse = new Ellipse
+                    AddEdgedShape(() =>
                     {
-                        Width = width,
-                        Height = height,
-                        Stroke = strokeBrush,
-                        StrokeThickness = strokeThickness,
-                        StrokeDashArray = m.IsSelected ? null : new DoubleCollection { 4, 2 }
-                    };
-                    Canvas.SetLeft(ellipse, left);
-                    Canvas.SetTop(ellipse, top);
-                    MeasurementCanvas.Children.Add(ellipse);
+                        var ellipse = new Ellipse { Width = width, Height = height };
+                        Canvas.SetLeft(ellipse, left);
+                        Canvas.SetTop(ellipse, top);
+                        return ellipse;
+                    }, RoiBrush, m.IsSelected ? 1.3 : 1.0, withEdge: false);
 
                     if (m.IsSelected)
                     {
-                        DrawHandleBox(new Point(left, top), selectedBrush);
-                        DrawHandleBox(new Point(left + width, top), selectedBrush);
-                        DrawHandleBox(new Point(left + width, top + height), selectedBrush);
-                        DrawHandleBox(new Point(left, top + height), selectedBrush);
+                        DrawCornerBrackets(left, top, width, height);
+                        DrawMoveGrip(new Point(left + width / 2, top + height / 2), RoiBrush);
                     }
 
                     if (!string.IsNullOrEmpty(m.Details))
                     {
-                        RenderRoiBadge(m, p1, p2, strokeBrush, textBgBrush);
+                        RenderRoiBadge(m, p1, p2, RoiBrush, textBgBrush);
                     }
                     else
                     {

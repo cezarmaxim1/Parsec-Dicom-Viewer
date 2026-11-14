@@ -1,9 +1,10 @@
-// @purpose: Local JSON database catalog for indexed DICOM studies, import history, and local "Reviewed" status storage.
+// @purpose: Local JSON database catalog for indexed DICOM studies, import history, notes, and local "Reviewed" status storage. Other processes may write the index, so every change re-reads it and replaces it atomically.
 // @depends: System.Text.Json, OpenRadViewer.Core.Models
 // @exports: DatabaseService, DatabaseRecordModel
 
 using System.IO;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using FellowOakDicom;
 using OpenRadViewer.Core.Models;
 
@@ -35,6 +36,11 @@ public class DatabaseRecordModel
     }
     public string Modality { get; set; } = "CT";
     public string StudyDate { get; set; } = string.Empty;
+    public string StudyTime { get; set; } = string.Empty;
+    [JsonIgnore]
+    public string FormattedTime => PatientInfoHelper.FormatDicomTime(StudyTime);
+    /// <summary>False on records imported before times were stored; see <see cref="DatabaseService.BackfillTimes"/>.</summary>
+    public bool TimesBackfilled { get; set; }
     public string StudyDescription { get; set; } = string.Empty;
     public string ReadingPhysician { get; set; } = string.Empty;
     public string PerformingPhysician { get; set; } = string.Empty;
@@ -42,13 +48,33 @@ public class DatabaseRecordModel
     public string AccessionNumber { get; set; } = string.Empty;
     /// <summary>Clinical notes synced from the PACS server (ParsecPACS patient_comments).</summary>
     public string PatientComments { get; set; } = string.Empty;
+    /// <summary>Time of the last note edit (ISO 8601 UTC), shared with ParsecPACS. The newest edit wins.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? PatientCommentsUpdatedAt { get; set; }
     public bool MetadataBackfilled { get; set; }
     public string FolderPath { get; set; } = string.Empty;
     public bool IsReviewed { get; set; }
     public DateTime ImportDate { get; set; } = DateTime.Now;
     public int SeriesCount { get; set; }
     public int TotalImages { get; set; }
+    /// <summary>Size of the study folder on disk. 0 on records imported before sizes were stored; see <see cref="DatabaseService.BackfillSizes"/>.</summary>
+    public long SizeBytes { get; set; }
+    [JsonIgnore]
+    public string FormattedSize => SizeBytes > 0 ? DatabaseService.FormatFileSize(SizeBytes) : string.Empty;
     public List<DatabaseSeriesRecord> Series { get; set; } = new();
+    /// <summary>Fields written by other applications, kept when the record is saved.</summary>
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? ExtraFields { get; set; }
+}
+
+/// <summary>Outcome of <see cref="DatabaseService.DeleteRecords"/>.</summary>
+public class DeleteResult
+{
+    /// <summary>False when database_index.json could not be read or written; nothing was deleted.</summary>
+    public bool IndexUpdated { get; set; }
+    public int RemovedCount { get; set; }
+    /// <summary>Folders that are no longer listed but could not be deleted, usually because a file is in use.</summary>
+    public List<string> FoldersLeft { get; } = new();
 }
 
 public class DatabaseSeriesRecord
@@ -58,7 +84,12 @@ public class DatabaseSeriesRecord
     public string Modality { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
     public string Date { get; set; } = string.Empty;
+    public string Time { get; set; } = string.Empty;
+    [JsonIgnore]
+    public string FormattedTime => PatientInfoHelper.FormatDicomTime(Time);
     public int ImageCount { get; set; }
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? ExtraFields { get; set; }
 }
 
 public class DatabaseService
@@ -66,6 +97,13 @@ public class DatabaseService
     private static readonly string DbDirectory = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ParsecDatabase");
     private static readonly string IndexFile = Path.Combine(DbDirectory, "database_index.json");
     private static readonly object _fileLock = new();
+    private const int IndexFileAttempts = 10;
+    private const int IndexFileRetryDelayMs = 100;
+    private const int IndexChangeDebounceMs = 400;
+    private static readonly object _watcherLock = new();
+    private static FileSystemWatcher? _indexWatcher;
+    private static Timer? _indexDebounce;
+    private static Action? _indexFileChanged;
 
     public static event Action<string, bool>? OnStudyReviewedChanged;
 
@@ -96,12 +134,9 @@ public class DatabaseService
         lock (_fileLock)
         {
             GetDatabaseFolder();
-            if (!File.Exists(IndexFile)) return new List<DatabaseRecordModel>();
+            if (!TryReadRecords(out var records)) return new List<DatabaseRecordModel>();
             try
             {
-                string json = File.ReadAllText(IndexFile);
-                var records = JsonSerializer.Deserialize<List<DatabaseRecordModel>>(json) ?? new List<DatabaseRecordModel>();
-
                 bool anyUpdated = false;
                 foreach (var rec in records)
                 {
@@ -133,15 +168,7 @@ public class DatabaseService
                     }
                 }
 
-                if (anyUpdated)
-                {
-                    try
-                    {
-                        string updatedJson = JsonSerializer.Serialize(records, new JsonSerializerOptions { WriteIndented = true });
-                        File.WriteAllText(IndexFile, updatedJson);
-                    }
-                    catch { }
-                }
+                if (anyUpdated) WriteRecords(records);
 
                 return records;
             }
@@ -152,19 +179,165 @@ public class DatabaseService
         }
     }
 
-    public static void SaveRecords(List<DatabaseRecordModel> records)
+    /// <summary>
+    /// Reads study and series times from the stored DICOM files of records imported before times were saved.
+    /// Reads files, so call it off the UI thread. Returns true if any record was updated.
+    /// </summary>
+    public static bool BackfillTimes()
     {
-        lock (_fileLock)
+        var pending = LoadRecords()
+            .Where(r => !r.TimesBackfilled && !string.IsNullOrWhiteSpace(r.FolderPath) && Directory.Exists(r.FolderPath))
+            .ToList();
+        if (pending.Count == 0) return false;
+
+        foreach (var rec in pending) ReadTimesFromFiles(rec);
+
+        UpdateRecords(all =>
         {
-            GetDatabaseFolder();
+            foreach (var rec in pending)
+            {
+                var current = all.FirstOrDefault(r => r.StudyInstanceUid == rec.StudyInstanceUid);
+                if (current == null || current.TimesBackfilled) continue;
+
+                current.StudyTime = rec.StudyTime;
+                foreach (var series in current.Series)
+                {
+                    var source = rec.Series.FirstOrDefault(s => s.SeriesInstanceUid == series.SeriesInstanceUid);
+                    if (source != null) series.Time = source.Time;
+                }
+                current.TimesBackfilled = true;
+            }
+            return true;
+        });
+        return true;
+    }
+
+    private static void ReadTimesFromFiles(DatabaseRecordModel rec)
+    {
+        foreach (string dir in Directory.EnumerateDirectories(rec.FolderPath))
+        {
             try
             {
-                string json = JsonSerializer.Serialize(records, new JsonSerializerOptions { WriteIndented = true });
-                File.WriteAllText(IndexFile, json);
+                string? file = Directory.EnumerateFiles(dir).FirstOrDefault();
+                if (file == null) continue;
+
+                var ds = DicomFile.Open(file, FileReadOption.SkipLargeTags).Dataset;
+                if (string.IsNullOrWhiteSpace(rec.StudyTime))
+                    rec.StudyTime = ds.GetSingleValueOrDefault(DicomTag.StudyTime, "");
+
+                string time = ds.GetSingleValueOrDefault(DicomTag.SeriesTime, "");
+                if (string.IsNullOrWhiteSpace(time))
+                    time = ds.GetSingleValueOrDefault(DicomTag.AcquisitionTime, "");
+
+                string uid = ds.GetSingleValueOrDefault(DicomTag.SeriesInstanceUID, "");
+                string folderName = Path.GetFileName(dir);
+                var series = rec.Series.FirstOrDefault(s => s.SeriesInstanceUid == uid)
+                    ?? rec.Series.FirstOrDefault(s => string.IsNullOrEmpty(s.Time) && folderName == $"Series_{s.SeriesNumber}");
+                if (series != null) series.Time = time;
             }
             catch { }
         }
     }
+
+    public static void SaveRecords(List<DatabaseRecordModel> records)
+    {
+        lock (_fileLock)
+        {
+            WriteRecords(records);
+        }
+    }
+
+    /// <summary>
+    /// Re-reads the index, applies a change, and saves it, so values written by ParsecPACS are kept.
+    /// Nothing is written if the file cannot be read or the change returns false. Returns false only on a read or write failure.
+    /// </summary>
+    private static bool UpdateRecords(Func<List<DatabaseRecordModel>, bool> change)
+    {
+        lock (_fileLock)
+        {
+            GetDatabaseFolder();
+            if (!TryReadRecords(out var records)) return false;
+            return !change(records) || WriteRecords(records);
+        }
+    }
+
+    private static bool TryReadRecords(out List<DatabaseRecordModel> records)
+    {
+        records = new List<DatabaseRecordModel>();
+        if (!File.Exists(IndexFile)) return true;
+
+        for (int attempt = 0; attempt < IndexFileAttempts; attempt++)
+        {
+            try
+            {
+                using var stream = new FileStream(IndexFile, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+                using var reader = new StreamReader(stream);
+                records = JsonSerializer.Deserialize<List<DatabaseRecordModel>>(reader.ReadToEnd()) ?? new List<DatabaseRecordModel>();
+                return true;
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
+            {
+                Thread.Sleep(IndexFileRetryDelayMs);
+            }
+        }
+        return false;
+    }
+
+    private static bool WriteRecords(List<DatabaseRecordModel> records)
+    {
+        string tempFile = $"{IndexFile}.{Environment.ProcessId}.tmp";
+        try
+        {
+            GetDatabaseFolder();
+            File.WriteAllText(tempFile, JsonSerializer.Serialize(records, new JsonSerializerOptions { WriteIndented = true }));
+            for (int attempt = 0; attempt < IndexFileAttempts; attempt++)
+            {
+                try
+                {
+                    File.Move(tempFile, IndexFile, true);
+                    return true;
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    Thread.Sleep(IndexFileRetryDelayMs);
+                }
+            }
+        }
+        catch { }
+
+        try { File.Delete(tempFile); } catch { }
+        return false;
+    }
+
+    /// <summary>Raised on a background thread after database_index.json changes on disk.</summary>
+    public static event Action? IndexFileChanged
+    {
+        add
+        {
+            lock (_watcherLock)
+            {
+                _indexFileChanged += value;
+                if (_indexWatcher != null) return;
+
+                GetDatabaseFolder();
+                _indexDebounce = new Timer(_ => _indexFileChanged?.Invoke());
+                _indexWatcher = new FileSystemWatcher(DbDirectory, Path.GetFileName(IndexFile))
+                {
+                    NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.FileName | NotifyFilters.Size
+                };
+                _indexWatcher.Changed += OnIndexFileEvent;
+                _indexWatcher.Created += OnIndexFileEvent;
+                _indexWatcher.Renamed += OnIndexFileEvent;
+                _indexWatcher.EnableRaisingEvents = true;
+            }
+        }
+        remove
+        {
+            lock (_watcherLock) _indexFileChanged -= value;
+        }
+    }
+
+    private static void OnIndexFileEvent(object sender, FileSystemEventArgs e) => _indexDebounce?.Change(IndexChangeDebounceMs, Timeout.Infinite);
 
     public static DatabaseRecordModel ImportStudy(StudyModel study, string? patientName, string? patientId, string? birthDate)
     {
@@ -219,6 +392,7 @@ public class DatabaseService
                 Modality = series.Modality,
                 Description = series.SeriesDescription,
                 Date = series.StudyDate,
+                Time = series.SeriesTime,
                 ImageCount = seriesTotalImages
             });
         }
@@ -231,6 +405,8 @@ public class DatabaseService
             DateOfBirth = birthDate ?? "",
             Modality = study.Series.FirstOrDefault()?.Modality ?? "CT",
             StudyDate = study.StudyDate,
+            StudyTime = study.StudyTime,
+            TimesBackfilled = true,
             StudyDescription = study.StudyDescription,
             ReadingPhysician = study.ReadingPhysician ?? "",
             PerformingPhysician = !string.IsNullOrWhiteSpace(study.PerformingPhysician) ? study.PerformingPhysician : (study.InstitutionName ?? ""),
@@ -242,44 +418,87 @@ public class DatabaseService
             ImportDate = DateTime.Now,
             SeriesCount = study.Series.Count,
             TotalImages = totalCopied,
+            SizeBytes = GetFolderSizeBytes(targetDir),
             Series = seriesRecords
         };
 
-        var all = LoadRecords();
-        var previous = all.FirstOrDefault(r => r.StudyInstanceUid == record.StudyInstanceUid);
-        if (previous != null && !string.IsNullOrWhiteSpace(previous.PatientComments))
-            record.PatientComments = previous.PatientComments;
         string? userNote = GetLocalNote(record.StudyInstanceUid);
-        if (userNote != null) record.PatientComments = userNote;
-        all.RemoveAll(r => r.StudyInstanceUid == record.StudyInstanceUid);
-        all.Insert(0, record);
-        SaveRecords(all);
+        UpdateRecords(all =>
+        {
+            var previous = all.FirstOrDefault(r => r.StudyInstanceUid == record.StudyInstanceUid);
+            if (previous != null)
+            {
+                record.PatientComments = previous.PatientComments;
+                record.PatientCommentsUpdatedAt = previous.PatientCommentsUpdatedAt;
+                record.ExtraFields = previous.ExtraFields;
+            }
+            if (userNote != null) record.PatientComments = userNote;
+            all.RemoveAll(r => r.StudyInstanceUid == record.StudyInstanceUid);
+            all.Insert(0, record);
+            return true;
+        });
 
         return record;
     }
 
     /// <summary>
-    /// Stores PACS clinical notes on an existing local record. Returns true if the record was updated.
-    /// A user-edited local note (see <see cref="SetLocalNote"/>) always takes precedence over PACS notes.
+    /// Stores a note received through C-FIND on a record that has no edit time. C-FIND carries no time,
+    /// so it cannot replace a timed note; those are compared by <see cref="ParsecPacsSyncService"/>.
+    /// Returns true if the record was updated.
     /// </summary>
     public static bool UpdatePatientComments(string studyUid, string? comments)
     {
         if (string.IsNullOrWhiteSpace(studyUid)) return false;
         string? localOverride = GetLocalNote(studyUid);
         if (localOverride != null) comments = localOverride;
-        lock (_fileLock)
+        string value = comments?.Trim() ?? string.Empty;
+
+        bool updated = false;
+        UpdateRecords(all =>
         {
-            var all = LoadRecords();
-            var rec = all.FirstOrDefault(r => string.Equals(r.StudyInstanceUid, studyUid, StringComparison.OrdinalIgnoreCase));
-            string value = comments?.Trim() ?? string.Empty;
-            if (rec == null || string.Equals(rec.PatientComments ?? string.Empty, value, StringComparison.Ordinal)) return false;
+            var rec = FindRecord(all, studyUid);
+            if (rec == null || !string.IsNullOrEmpty(rec.PatientCommentsUpdatedAt)) return false;
+            if (string.Equals(rec.PatientComments ?? string.Empty, value, StringComparison.Ordinal)) return false;
             rec.PatientComments = value;
-            SaveRecords(all);
+            updated = true;
             return true;
-        }
+        });
+        return updated;
     }
 
-    // ---------------- Local (user-edited) notes, never sent to PACS ----------------
+    /// <summary>Saves a note the user changed on a local record, stamped with the current UTC time. Returns false if the index could not be updated.</summary>
+    public static bool ApplyUserNote(string studyUid, string text)
+    {
+        return UpdateRecords(all =>
+        {
+            var rec = FindRecord(all, studyUid);
+            if (rec == null) return false;
+            rec.PatientComments = text;
+            rec.PatientCommentsUpdatedAt = DateTime.UtcNow.ToString("O", System.Globalization.CultureInfo.InvariantCulture);
+            return true;
+        });
+    }
+
+    /// <summary>Stores a note and its edit time as reported by ParsecPACS. Does not stamp the current time.</summary>
+    public static bool ApplyServerNote(string studyUid, string? text, string? updatedAt)
+    {
+        return UpdateRecords(all =>
+        {
+            var rec = FindRecord(all, studyUid);
+            if (rec == null) return false;
+            rec.PatientComments = text ?? string.Empty;
+            if (updatedAt != null) rec.PatientCommentsUpdatedAt = updatedAt;
+            return true;
+        });
+    }
+
+    private static DatabaseRecordModel? FindRecord(List<DatabaseRecordModel> records, string studyUid)
+    {
+        string cleanUid = studyUid.Trim().TrimEnd('\0');
+        return records.FirstOrDefault(r => string.Equals(r.StudyInstanceUid?.Trim().TrimEnd('\0'), cleanUid, StringComparison.OrdinalIgnoreCase));
+    }
+
+    // ---------------- Notes kept only on this computer: studies without a local record whose note is not in PACS ----------------
     private static readonly string LocalNotesFile = Path.Combine(DbDirectory, "local_notes.json");
     private static readonly object _notesLock = new();
     private static Dictionary<string, string>? _localNotes;
@@ -302,7 +521,7 @@ public class DatabaseService
         return dict;
     }
 
-    /// <summary>Returns the user-edited local note for a study, or null if none was set.</summary>
+    /// <summary>Returns the note kept only on this computer for a study, or null if there is none.</summary>
     public static string? GetLocalNote(string studyUid)
     {
         if (string.IsNullOrWhiteSpace(studyUid)) return null;
@@ -312,20 +531,17 @@ public class DatabaseService
         }
     }
 
-    /// <summary>
-    /// Saves a user-edited local note (empty/whitespace removes the override, reverting to PACS notes).
-    /// Also updates the local database record if the study is stored locally.
-    /// </summary>
-    public static void SetLocalNote(string studyUid, string? text, string? fallbackPacsNotes = null)
+    /// <summary>Stores a note kept only on this computer. An empty text is a deletion PACS has not received; null removes the entry.</summary>
+    public static void SetLocalNote(string studyUid, string? text)
     {
         if (string.IsNullOrWhiteSpace(studyUid)) return;
         string key = studyUid.Trim().TrimEnd('\0');
-        string value = text?.Trim() ?? string.Empty;
         lock (_notesLock)
         {
             var dict = EnsureLocalNotesLoaded();
-            if (string.IsNullOrEmpty(value)) dict.Remove(key);
-            else dict[key] = value;
+            if (text == null && !dict.ContainsKey(key)) return;
+            if (text == null) dict.Remove(key);
+            else dict[key] = text;
             try
             {
                 GetDatabaseFolder();
@@ -333,43 +549,42 @@ public class DatabaseService
             }
             catch { }
         }
-
-        lock (_fileLock)
-        {
-            var all = LoadRecords();
-            var rec = all.FirstOrDefault(r => string.Equals(r.StudyInstanceUid, key, StringComparison.OrdinalIgnoreCase));
-            if (rec != null)
-            {
-                rec.PatientComments = string.IsNullOrEmpty(value) ? (fallbackPacsNotes?.Trim() ?? string.Empty) : value;
-                SaveRecords(all);
-            }
-        }
     }
 
-    public static void DeleteRecord(DatabaseRecordModel record)
+    public static DeleteResult DeleteRecord(DatabaseRecordModel record)
     {
-        DeleteRecords(new[] { record });
+        return DeleteRecords(new[] { record });
     }
 
-    public static void DeleteRecords(IEnumerable<DatabaseRecordModel> records)
+    /// <summary>
+    /// Removes records from the index, then deletes their folders. Reads and deletes files, so call it off the UI thread.
+    /// If the index cannot be updated nothing is deleted, so a study never loses its files while still listed.
+    /// </summary>
+    public static DeleteResult DeleteRecords(IEnumerable<DatabaseRecordModel> records)
     {
         var recordList = records.ToList();
-        if (recordList.Count == 0) return;
+        var result = new DeleteResult();
+        if (recordList.Count == 0) return result;
 
-        var uids = new HashSet<string>(recordList.Select(r => r.StudyInstanceUid));
-        var all = LoadRecords();
-        all.RemoveAll(r => uids.Contains(r.StudyInstanceUid));
-        SaveRecords(all);
+        var uids = new HashSet<string>(recordList.Select(r => r.StudyInstanceUid), StringComparer.OrdinalIgnoreCase);
+        int removed = 0;
+        result.IndexUpdated = UpdateRecords(all =>
+        {
+            removed = all.RemoveAll(r => uids.Contains(r.StudyInstanceUid));
+            return removed > 0;
+        });
+        if (!result.IndexUpdated) return result;
+        result.RemovedCount = removed;
 
         foreach (var r in recordList)
         {
-            if (!string.IsNullOrEmpty(r.FolderPath) && Directory.Exists(r.FolderPath))
-            {
-                ForceDeleteDirectory(r.FolderPath);
-            }
+            if (string.IsNullOrEmpty(r.FolderPath) || !Directory.Exists(r.FolderPath)) continue;
+            ForceDeleteDirectory(r.FolderPath);
+            if (Directory.Exists(r.FolderPath)) result.FoldersLeft.Add(r.FolderPath);
         }
 
         CleanOrphanDatabaseFolders();
+        return result;
     }
 
     public static void ClearAllDatabase()
@@ -457,22 +672,22 @@ public class DatabaseService
         var recordList = records.ToList();
         if (recordList.Count == 0) return;
 
-        var all = LoadRecords();
-        var allDict = all.ToDictionary(r => r.StudyInstanceUid);
-
         // If any record is NOT reviewed, mark all as reviewed. If all are reviewed, mark all as unreviewed.
         bool targetState = recordList.Any(r => !r.IsReviewed);
 
-        foreach (var r in recordList)
+        UpdateRecords(all =>
         {
-            r.IsReviewed = targetState;
-            if (allDict.TryGetValue(r.StudyInstanceUid, out var item))
+            var allDict = all.ToDictionary(r => r.StudyInstanceUid);
+            foreach (var r in recordList)
             {
-                item.IsReviewed = targetState;
+                r.IsReviewed = targetState;
+                if (allDict.TryGetValue(r.StudyInstanceUid, out var item))
+                {
+                    item.IsReviewed = targetState;
+                }
             }
-        }
-
-        SaveRecords(all);
+            return true;
+        });
 
         EnsureReviewedPacsLoaded();
         lock (_fileLock)
@@ -623,13 +838,13 @@ public class DatabaseService
             }
             SaveReviewedPacs();
 
-            var records = LoadRecords();
-            var match = records.FirstOrDefault(r => string.Equals(r.StudyInstanceUid?.Trim().TrimEnd('\0'), cleanUid, StringComparison.OrdinalIgnoreCase));
-            if (match != null)
+            UpdateRecords(records =>
             {
+                var match = FindRecord(records, cleanUid);
+                if (match == null) return false;
                 match.IsReviewed = newState;
-                SaveRecords(records);
-            }
+                return true;
+            });
         }
         OnStudyReviewedChanged?.Invoke(cleanUid, newState);
         return newState;
@@ -653,16 +868,60 @@ public class DatabaseService
             else _reviewedPacsCache.Remove(cleanUid);
             SaveReviewedPacs();
 
-            var records = LoadRecords();
-            var match = records.FirstOrDefault(r => string.Equals(r.StudyInstanceUid?.Trim().TrimEnd('\0'), cleanUid, StringComparison.OrdinalIgnoreCase));
-            if (match != null && match.IsReviewed != isReviewed)
+            UpdateRecords(records =>
             {
+                var match = FindRecord(records, cleanUid);
+                if (match == null || match.IsReviewed == isReviewed) return false;
                 match.IsReviewed = isReviewed;
-                SaveRecords(records);
-            }
+                return true;
+            });
         }
         OnStudyReviewedChanged?.Invoke(cleanUid, isReviewed);
         return true;
+    }
+
+    /// <summary>Total size of the files in a folder, or 0 if it cannot be read. Reads the disk, so call it off the UI thread.</summary>
+    public static long GetFolderSizeBytes(string? folderPath)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(folderPath) || !Directory.Exists(folderPath)) return 0;
+            return new DirectoryInfo(folderPath).EnumerateFiles("*", SearchOption.AllDirectories).Sum(fi => fi.Length);
+        }
+        catch
+        {
+            return 0;
+        }
+    }
+
+    /// <summary>
+    /// Measures the study folder of records that have no stored size. Reads the disk, so call it off the UI thread.
+    /// Returns true if any record was updated.
+    /// </summary>
+    public static bool BackfillSizes()
+    {
+        var sizes = new Dictionary<string, long>();
+        foreach (var rec in LoadRecords().Where(r => r.SizeBytes <= 0))
+        {
+            long bytes = GetFolderSizeBytes(rec.FolderPath);
+            if (bytes > 0) sizes[rec.StudyInstanceUid] = bytes;
+        }
+        if (sizes.Count == 0) return false;
+
+        bool updated = false;
+        UpdateRecords(all =>
+        {
+            foreach (var rec in all)
+            {
+                if (rec.SizeBytes <= 0 && sizes.TryGetValue(rec.StudyInstanceUid, out long bytes))
+                {
+                    rec.SizeBytes = bytes;
+                    updated = true;
+                }
+            }
+            return updated;
+        });
+        return updated;
     }
 
     public static long GetDatabaseTotalSizeBytes()
