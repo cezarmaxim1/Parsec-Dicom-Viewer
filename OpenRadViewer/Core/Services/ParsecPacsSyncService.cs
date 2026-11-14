@@ -236,16 +236,16 @@ public static class ParsecPacsSyncService
 
     /// <summary>
     /// Hosts that may hold a study's note: the study's own server, or for a local study every
-    /// DICOM server plus the local ParsecPACS. PixelData web portals have no notes API.
+    /// configured DICOM server plus the local ParsecPACS.
     /// </summary>
     public static List<string> GetNoteHosts(string? serverId = null)
     {
-        var servers = PacsService.Instance.Settings.Servers.Where(s => s.ServerType != "PixelDataWeb").ToList();
+        var servers = PacsService.Instance.Settings.Servers.ToList();
         if (string.IsNullOrEmpty(serverId)) return GetCandidateHosts(servers);
 
-        var server = PacsService.Instance.Settings.Servers.FirstOrDefault(s => s.Id == serverId);
+        var server = servers.FirstOrDefault(s => s.Id == serverId);
         if (server == null) return GetCandidateHosts(servers);
-        return servers.Contains(server) ? new List<string> { NormalizeHost(server.IpAddress) } : new List<string>();
+        return new List<string> { NormalizeHost(server.IpAddress) };
     }
 
     /// <summary>Saves a note the user edited: on the local record if there is one, and in PACS. Never throws.</summary>

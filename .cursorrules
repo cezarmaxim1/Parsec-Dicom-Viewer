@@ -43,3 +43,13 @@ Before modifying or creating any code in this repository:
 - After making changes, always verify by building Release:
   `dotnet build -c Release "F:\Rad\OpenRadViewer\OpenRadViewer.csproj"`
 - Ensure `0 Error(s)`.
+
+---
+
+## Local vs. Public (GitHub) Edition Directive
+- **NEVER** push to GitHub unless explicitly instructed by the user. `F:\Rad` remains on the **Local Edition**.
+- The **Public Edition** (`origin/main` + public installer) differs from the Local Edition in 4 exact points:
+  1. `URG.docx` signature table removes the two doctor names (keeps `Medic rezident:` and `Medic examinator:` blank underneath).
+  2. `URG.docx` default filename uses `URG <nume_pacient>.docx` (removes `CM`).
+  3. Standard `.docx` header (`cfr_header_template.docx` / `DocxExportService.cs`) is completely empty (`antet gol`), keeping body and patient fields intact.
+  4. `AboutWindow` includes a **Check for Updates** button (`AppUpdateService.cs` + `version.json`) targeting GitHub `cezarmaxim1/Parsec-Dicom-Viewer`.

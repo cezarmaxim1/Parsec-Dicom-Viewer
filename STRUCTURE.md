@@ -13,6 +13,7 @@ F:\Rad\
 ├── CLAUDE.md                      # Claude Code reference manual and known issues
 ├── STRUCTURE.md                   # This directory architecture map
 ├── README.md                      # Project overview
+├── version.json                   # (Public Edition on origin/main) Latest release metadata for AppUpdateService
 ├── .cursorrules                   # Cursor / Windsurf / Copilot AI IDE rules
 ├── Parsec_Setup_v1.3_*.exe        # Compiled installers (git-ignored)
 ├── Dist/                          # Download page + installer served on the LAN (untracked)
@@ -39,8 +40,8 @@ F:\Rad\
     │
     ├── Assets\                    # Flat folder; git-ignored except the two files marked below
     │   ├── .gitkeep               # Tracked
-    │   ├── cfr_header_template.docx # Tracked: CFR hospital Word header
-    │   ├── antet_ct_urgente.docx  # Emergency CT Word header
+    │   ├── cfr_header_template.docx # Tracked: CFR hospital header locally; empty header (antet gol) on Public/GitHub edition
+    │   ├── antet_ct_urgente.docx  # Emergency CT template (local includes doctor names; Public/GitHub edition leaves signatures blank)
     │   ├── *_classification.*, *.png, *.jpg # Classification and reference images
     │   ├── modele_rezultate.txt   # Classic report examples
     │   ├── URGENTE CT.txt, REZULTATELE MELE URGENTE CT .txt # Emergency report examples
@@ -65,7 +66,6 @@ F:\Rad\
     │       ├── SynchronizationService.cs # 3D spatial coordinate projection & cursor
     │       ├── PacsService.cs          # DICOM DIMSE client & C-STORE SCP listener
     │       ├── PacsModels.cs           # PACS configs, filter matching, SCP service
-    │       ├── PixelDataPacsService.cs # PixelData web portal login, search, ZIP & slice download
     │       ├── ParsecPacsSyncService.cs# HTTP sync with ParsecPACS: notes (newest edit wins) and reviewed status
     │       ├── ArchiveExtractionService.cs # Opens .zip, .rar, .7z, .tar, .gz archives
     │       ├── D3D11VolumeRenderer.cs  # Direct3D 11 GPU raymarching engine
@@ -75,6 +75,7 @@ F:\Rad\
     │       ├── SpeechRecognitionService.cs # Dictation (MCI capture, Gemini, Whisper), F5 format, F6 refine
     │       ├── ClinicalProtocolsService.cs # CT/MRI report templates and auto-fill
     │       ├── DocxExportService.cs    # Word reports with CFR and emergency headers
+    │       ├── AppUpdateService.cs     # (Public Edition on origin/main) GitHub self-updater service
     │       ├── DatabaseService.cs      # Local JSON study catalog: atomic updates, notes, sizes, delete
     │       ├── SplitSeriesService.cs   # Auto-splits DWI, multi-echo, dynamic phases
     │       ├── ExportService.cs        # Image/series encoder (PNG, JPG, TIF, BMP)
@@ -97,7 +98,7 @@ F:\Rad\
         ├── CustomTitleBar.cs      # Toolbar as title bar: chrome, maximized inset, caption drag
         ├── WindowControlsBar.xaml / .cs # Minimize, maximize/restore, and close buttons
         ├── PacsSearchWindow.xaml / .cs # PACS Query & Retrieve window + auto-refresh
-        ├── PacsConfigurationWindow.xaml / .cs # DICOM and PixelData server setup & connection test
+        ├── PacsConfigurationWindow.xaml / .cs # DICOM server setup & C-ECHO connection test
         ├── DatabaseWindow.xaml / .cs   # Local study catalog browser
         ├── VolumeRenderingWindow.xaml / .cs # 3D interactive volume rendering viewer
         ├── AiConsultationWindow.xaml / .cs # Multi-phase AI second opinion dialog

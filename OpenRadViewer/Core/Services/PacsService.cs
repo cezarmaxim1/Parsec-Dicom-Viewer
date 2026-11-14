@@ -270,15 +270,6 @@ public class PacsService
 
     public async Task<(bool Success, long LatencyMs, string Message)> TestEchoAsync(PacsServerConfig server)
     {
-        if (server.ServerType == "PixelDataWeb")
-        {
-            var webRes = await PixelDataPacsService.Instance.TestConnectionAsync(server);
-            server.Status = webRes.status;
-            server.LastPingMs = webRes.pingMs;
-            server.LastChecked = DateTime.Now;
-            return (webRes.success, webRes.pingMs ?? 0, webRes.status);
-        }
-
         var sw = Stopwatch.StartNew();
         try
         {
@@ -357,11 +348,6 @@ public class PacsService
 
     public async Task<List<PacsStudyResult>> QueryStudiesAsync(PacsServerConfig server, PacsSearchFilter filter, CancellationToken ct = default)
     {
-        if (server.ServerType == "PixelDataWeb")
-        {
-            return await PixelDataPacsService.Instance.QueryStudiesAsync(server, filter, ct);
-        }
-
         var results = new List<PacsStudyResult>();
         try
         {
@@ -652,11 +638,6 @@ public class PacsService
         IProgress<(int current, int total, string message)>? progress = null,
         CancellationToken ct = default)
     {
-        if (server.ServerType == "PixelDataWeb")
-        {
-            return await PixelDataPacsService.Instance.DownloadStudyAsync(server, study, expectedTotalInstances, progress, ct);
-        }
-
         return await DownloadStudyAsync(server, study.StudyInstanceUid, expectedTotalInstances, progress, ct);
     }
 
@@ -667,16 +648,6 @@ public class PacsService
         IProgress<(int current, int total, string message)>? progress = null,
         CancellationToken ct = default)
     {
-        if (server.ServerType == "PixelDataWeb")
-        {
-            var fallbackStudy = new PacsStudyResult
-            {
-                StudyInstanceUid = studyInstanceUid,
-                InstanceCount = expectedTotalInstances
-            };
-            return await PixelDataPacsService.Instance.DownloadStudyAsync(server, fallbackStudy, expectedTotalInstances, progress, ct);
-        }
-
         string studyDir = Path.Combine(Settings.CacheDirectory, Sanitize(studyInstanceUid));
         Directory.CreateDirectory(studyDir);
 
@@ -745,11 +716,6 @@ public class PacsService
         IProgress<(int current, int total, string message)>? progress = null,
         CancellationToken ct = default)
     {
-        if (server.ServerType == "PixelDataWeb")
-        {
-            return await PixelDataPacsService.Instance.DownloadStudyAsync(server, study, expectedTotalInstances, progress, ct, seriesInstanceUid);
-        }
-
         return await DownloadSeriesAsync(server, study.StudyInstanceUid, seriesInstanceUid, expectedTotalInstances, progress, ct);
     }
 
@@ -761,16 +727,6 @@ public class PacsService
         IProgress<(int current, int total, string message)>? progress = null,
         CancellationToken ct = default)
     {
-        if (server.ServerType == "PixelDataWeb")
-        {
-            var fallbackStudy = new PacsStudyResult
-            {
-                StudyInstanceUid = studyInstanceUid,
-                InstanceCount = expectedTotalInstances
-            };
-            return await PixelDataPacsService.Instance.DownloadStudyAsync(server, fallbackStudy, expectedTotalInstances, progress, ct, seriesInstanceUid);
-        }
-
         string studyDir = Path.Combine(Settings.CacheDirectory, Sanitize(studyInstanceUid));
         string seriesDir = Path.Combine(studyDir, Sanitize(seriesInstanceUid));
         Directory.CreateDirectory(seriesDir);

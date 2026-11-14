@@ -22,7 +22,7 @@ Version: **v1.3 Beta (1.3.0-beta)** | Target Framework: **.NET 8.0-windows / C# 
 
 
 
-**Parsec Medical DICOM Viewer** is a high-performance, enterprise-grade, hardware-accelerated radiological desktop application built on **C# 12, .NET 8.0-windows, and WPF**. It provides professional multi-modality viewing (**CT, MRI, CR, DX, XA, US, PET/NM, SC**), real-time Multi-Planar Reconstruction (**MPR** Axial/Coronal/Sagittal/Oblique with MIP/MinIP/AVG slab thickness 2–50 mm), real-time GPU 3D Volume Rendering (**Direct3D 11 / HLSL raymarching**), dual PACS integration (Local DICOM DIMSE C-FIND/C-MOVE/C-STORE SCP and PixelData Web PACS direct ZIP archiving), and Gemini 3.8 Flash Clinical Voice Reporting (Voice dictation, F5 autoformatting, F6 conversational refine, and .docx export).
+**Parsec Medical DICOM Viewer** is a high-performance, enterprise-grade, hardware-accelerated radiological desktop application built on **C# 12, .NET 8.0-windows, and WPF**. It provides professional multi-modality viewing (**CT, MRI, CR, DX, XA, US, PET/NM, SC**), real-time Multi-Planar Reconstruction (**MPR** Axial/Coronal/Sagittal/Oblique with MIP/MinIP/AVG slab thickness 2–50 mm), real-time GPU 3D Volume Rendering (**Direct3D 11 / HLSL raymarching**), DICOM DIMSE PACS integration (C-FIND/C-MOVE/C-GET/C-STORE SCP + HTTP sync with ParsecPACS), and Gemini 3.8 Flash Clinical Voice Reporting (Voice dictation, F5 autoformatting, F6 conversational refine, and .docx export).
 
 
 
@@ -210,8 +210,6 @@ When starting a task, go directly to the relevant file:
 
 | **`PacsService.cs`** | `OpenRadViewer\Core\Services\PacsService.cs` | Full PACS client engine: C-ECHO, C-FIND, C-MOVE, pipelined C-STORE SCU, background auto-refresh, and C-STORE SCP listener. |
 
-| **`PixelDataPacsService.cs`** | `OpenRadViewer\Core\Services\PixelDataPacsService.cs` | PixelData Web PACS gateway: ASP.NET session login, DevExpress scraping, and direct study ZIP packaging & download (`MakeZip`). |
-
 | **`SpeechRecognitionService.cs`** | `OpenRadViewer\Core\Services\SpeechRecognitionService.cs` | AI voice dictation (NAudio), Gemini 3.8 Flash structured report formatter (F5), autoformat, and conversational voice refine (F6). |
 
 | **`PacsModels.cs`** | `OpenRadViewer\Core\Services\PacsModels.cs` | PACS data models, filter criteria (`Matches`), server configs, and the `PacsCStoreScpService` presentation context negotiator. |
@@ -221,6 +219,8 @@ When starting a task, go directly to the relevant file:
 | **`DatabaseService.cs`** | `OpenRadViewer\Core\Services\DatabaseService.cs` | Local study index (`database_index.json`): atomic re-read-and-replace updates shared with ParsecPACS, notes with edit times, size and time backfill, delete with a `DeleteResult`. |
 | **`ParsecPacsSyncService.cs`** | `OpenRadViewer\Core\Services\ParsecPacsSyncService.cs` | Notes and reviewed state sync with ParsecPACS over HTTP (port 8042). The newest edit wins. |
 | **`ClinicalProtocolsService.cs`** | `OpenRadViewer\Core\Services\ClinicalProtocolsService.cs` | Report templates and header fields: exam name with laterality (`AppendLaterality`), contrast (`ResolveContrast`), demographics. |
+| **`DocxExportService.cs`** | `OpenRadViewer\Core\Services\DocxExportService.cs` | Word `.docx` & `URG.docx` export using `cfr_header_template.docx` and `antet_ct_urgente.docx`. |
+| **`AppUpdateService.cs`** *(Public Edition)* | `OpenRadViewer\Core\Services\AppUpdateService.cs` | Checks GitHub (`version.json` / Releases) for updates from `AboutWindow` and launches silent installer update. |
 | **`build_installer.ps1`** | `Installer\build_installer.ps1` | Automated packaging script producing the standalone `Parsec_Setup_v1.3_Beta.exe` installer with registry integration. |
 
 
@@ -259,13 +259,22 @@ When starting a task, go directly to the relevant file:
 
 5. **Privacy & Credentials:**
    - No real patient or doctor names, CNPs, or record numbers in code, docs, tests, or commit messages. Use made-up examples.
-   - No portal URLs, accounts, passwords, or API keys in code. They are entered in the app and saved in `%AppData%\Parsec`.
+   - No accounts, passwords, or API keys in code. They are entered in the app and saved in `%AppData%\Parsec`.
    - Build the installer only when the user asks for one. It ships the local `Assets` files, so check them for names first.
 6. **Thread Safety & UI Responsiveness:**
 
    - CPU-heavy loops (pixel transcoding, MPR matrix slicing) must execute on background threads via `Parallel.ForEach` or `Task.Run`.
 
    - Dispatcher updates must be throttled or batched to avoid UI stutter.
+
+7. **Local Edition vs. Public (GitHub) Edition:**
+   - **Never push to GitHub** unless the user explicitly asks to publish. `F:\Rad` stays on the **Local Edition** (`main` branch).
+   - The **Public Edition** (on `origin/main` and public installers) differs from the Local Edition in exactly 4 ways:
+     1. **URG `.docx` signatures:** Local doctor names and resident title are removed; only `Medic rezident:` and `Medic examinator:` appear with blank space underneath.
+     2. **URG `.docx` filename:** `URG <nume_pacient>.docx` (without `CM`).
+     3. **Standard `.docx` header:** Empty header (`antet gol`, no CFR hospital logos/text); body and demographic fields stay identical.
+     4. **About Parsec updater:** `Check for Updates` button in `AboutWindow` backed by `AppUpdateService.cs` + `version.json` pointing to `cezarmaxim1/Parsec-Dicom-Viewer`.
+   - Always push Public Edition updates as a single squashed commit parented on `origin/main` so local-only history is never exposed, then restore `F:\Rad` to the Local Edition.
 
 
 

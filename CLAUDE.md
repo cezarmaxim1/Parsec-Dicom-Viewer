@@ -8,7 +8,7 @@ Version: **v1.3 Beta (1.3.0-beta)** | Target Framework: **.NET 8.0-windows / C# 
 
 ## 1. Project Mission & Overview
 
-**Parsec** is an ultra-fast, diagnostic-grade medical workstation desktop application built for clinical radiologists and hospital emergency departments. It is a private tool used only by its authors and is not distributed to anyone else. It combines:
+**Parsec** is an ultra-fast, diagnostic-grade medical workstation desktop application built for clinical radiologists and hospital emergency departments. It is maintained in two distinct editions: **Aplicația Locală (Local Edition)** in `F:\Rad` for private clinical workflow, and **Aplicația Publică (Public / GitHub Edition)** on `origin/main` (`https://github.com/cezarmaxim1/Parsec-Dicom-Viewer.git`). It combines:
 
 - **Instantaneous Multi-Modality 2D DICOM Viewing** (CT, MRI, CR, DX, XA, US, PET/NM, SC) with 65,536-entry LUT windowing and unmanaged pointer blitting.
 
@@ -16,11 +16,7 @@ Version: **v1.3 Beta (1.3.0-beta)** | Target Framework: **.NET 8.0-windows / C# 
 
 - **GPU 3D Volume Rendering (3D VR)**: Direct3D 11 / HLSL raymarching using `Vortice.Direct3D11` with transfer function presets for Bones, Angio, Skin, MIP, and Airways.
 
-- **Dual PACS Subsystems**:
-
-  1. *Local PACS DIMSE Engine*: Standard DICOM C-FIND, C-MOVE, and high-performance background C-STORE SCP server.
-
-  2. *PixelData Hospital Web PACS Gateway*: Direct scraping of ASP.NET / DevExpress hospital web portals, supporting direct multi-series `.ZIP` archive downloading (`MakeZip`) with automated streaming de-archiving into cache.
+- **Local PACS DIMSE Engine**: Standard DICOM C-FIND, C-MOVE, C-GET, and high-performance background C-STORE SCP server (plus optional HTTP ZIP / notes sync with ParsecPACS on port 8042).
 
 - **AI Clinical Reporting & Voice Dictation**:
 
@@ -154,7 +150,7 @@ There is no automated test project. Verify changes with a Release build (`0 Erro
 
                          [ DICOM Sources ]
 
-              (Local Folder / DIMSE PACS / PixelData Web PACS)
+              (Local Folder / DIMSE PACS)
 
                                     │
 
@@ -224,9 +220,9 @@ There is no automated test project. Verify changes with a Release build (`0 Erro
 
 ---
 
-## 5. PACS Subsystems Architecture
+## 5. PACS Architecture
 
-### A. Local PACS (Standard DIMSE C-FIND / C-MOVE / C-STORE)
+### Local PACS (Standard DIMSE C-FIND / C-MOVE / C-GET / C-STORE)
 
 - Implemented in `OpenRadViewer\Core\Services\PacsService.cs`.
 
@@ -247,81 +243,9 @@ There is no automated test project. Verify changes with a Release build (`0 Erro
 ### PACS Search Window (`PacsSearchWindow`)
 
 - **Search box:** digits only (spaces ignored) search the Patient ID. A full 13-digit CNP is matched exactly and a shorter one as a prefix (`276*`), because many PACS ignore a leading `*` on Patient ID.
-- **Names:** any other text searches the name. Each word must appear, in any order: `popescu io` becomes `*popescu*io*` in C-FIND, matching the stored `POPESCU^IOANA`. The web portal is searched by the first word and the rest are filtered locally.
+- **Names:** any other text searches the name. Each word must appear, in any order: `popescu io` becomes `*popescu*io*` in C-FIND, matching the stored `POPESCU^IOANA`.
 - **Size column:** shows the size of the local copy only. C-FIND does not report a study size.
 - **Right-click menu:** "Delete from Local Database" appears only for studies with a local copy. It removes the copy, and the study stays in PACS.
-
-### B. PixelData Hospital Web PACS Gateway (`PixelDataPacsService.cs`)
-
-- Handles hospital web portals running ASP.NET WebForms + DevExpress. The portal URL and login are entered in PACS Settings and saved in `pacs_config.json`; none are built into the code.
-
-- **Session Authentication:** Authenticates against `Login.aspx`, maintains ASP.NET cookies and `ASP.NET_SessionId`.
-
-- **Search & Pagination:** Scrapes `PatientHistory2.aspx`, parses DevExpress `gvPatients` grid rows, and decodes patient demographics, modality, image count, and archive status.
-
-- **Direct ZIP Archive Download (`MakeZip`):**
-
-  - Parsec queries `DownloadStudyCallback` with the study row index to obtain `cpSeries` metadata.
-
-  - Sends sequential requests to `api/images/MakeZip` for each series index.
-
-  - The final series call returns `{"fileName":"...zip","fileURL":"ImagesD\\...\\...zip"}`.
-
-  - Parsec downloads the single compressed study `.zip` at maximum line speed, extracts it directly into the local study cache, and streams the images into the viewer.
-
-- **Fallback (`CopySeries`):** If the ZIP path fails, Parsec opens `ViewerPacs.aspx?sid=...` through the row's `ImageButtonView` postback, then calls `api/images/CopySeries` to list images and downloads them in parallel from `ImagesD/{sid}/...`. If that returns nothing, it scans the `ImagesD/{sid}/` folders directly.
-
-#### Current Status
-
-| Capability | Status | Notes |
-
-|---|---|---|
-
-| Login and session | Works | `Login.aspx` postback with WebForms tokens, kept by the `ASP.NET_SessionId` cookie. |
-
-| Search and grid parsing | Works | `txtPatientName`, `txtPID`, date filters, and `__EVENTTARGET=Search` on `PatientHistory2.aspx`. |
-
-| Studies with files on the web server | Works | Both paths work; `MakeZip` is about 10–20x faster than per-slice download. |
-
-| Some large or older studies | **Fails, cause unconfirmed** | See below. |
-
-#### Unresolved: Studies That Return 0 Images
-
-**What was observed** on an affected CT study (13 series, 6,490 images in the database):
-
-- `CopySeries` returns HTTP 200 with `numImages: 0` and `instanceList: []`.
-
-- `MakeZip` returns a `.zip` of exactly 22 bytes (`PK\x05\x06...`), which is an empty archive.
-
-- Per-series `MakeZip` (`DownloadPerStudy = null`) returns HTTP 200 with an empty body.
-
-- `StudiesWithSeriesJSON` exposes series IDs but no instance IDs.
-
-- A different study on the local PACS retrieved completely over DIMSE C-MOVE (2,117 images). That is a different server, so it does not explain this failure, but it shows the DIMSE path works.
-
-**Working hypothesis, not proven:** the files have left the web cache (`ImagesD/`) for cold storage, and `Arhivă: DA` marks this. Treat it as a hypothesis because:
-
-- The affected study was only two days old when tested.
-
-- There is no recorded test of that study in the official web viewer.
-
-- `CopySeries` may run asynchronously, and Parsec never polls it. Parsec also sends it with an empty body, so it may omit a step the official viewer performs.
-
-- All recorded tests appear to use one departmental account, so permissions are not ruled out.
-
-- It is not established whether `Arhivă` correlates with failure across studies.
-
-**Next steps:**
-
-1. Open an affected study in the official viewer with the same account, wait 5–10 minutes, and compare its network calls with Parsec's.
-
-2. Compare `Arhivă`, age, size, and download result across 5–10 studies.
-
-3. Ask hospital IT or PixelData what `Arhivă: DA` means, how a restore works, and whether Parsec can be registered as a DICOM node for C-MOVE.
-
-Do not probe for hidden endpoints or force access to `ImagesD/`: this is a production hospital system accessed with a departmental account.
-
-**Current behavior:** A ZIP of 1 KB or less is discarded and the fallback runs. If that finds no files, `DownloadStudyAsync` throws a Romanian error: an archive message when the row is flagged `Arhivă: DA`, otherwise a generic "no active images" message.
 
 ---
 
@@ -378,9 +302,13 @@ Located in `OpenRadViewer\Core\Services\SpeechRecognitionService.cs` and `MainWi
 
 ### Word (.docx) & Emergency Export
 
-- **Save as .docx (Ctrl+S):** Exports a formatted Microsoft Word document with patient name, CNP, date, and exam description, using the CFR hospital header (`cfr_header_template.docx`).
+- **Save as .docx (Ctrl+S):** Exports a formatted Microsoft Word document with patient name, CNP, date, and exam description.
+  - *Local Edition:* Uses the CFR hospital header (`cfr_header_template.docx`).
+  - *Public (GitHub) Edition:* Uses an empty header (`antet gol` — all hospital logos, lines, and header text removed), keeping the body and demographic fields intact.
 
-- **Save as URG.docx:** Uses the official Emergency Department template (`antet_ct_urgente.docx`) containing the hospital header, priority badges, and legal formatting.
+- **Save as URG.docx:** Uses the Emergency Department template (`antet_ct_urgente.docx`).
+  - *Local Edition:* Default filename `URG CM <nume_pacient>.docx`; bottom table includes the two local doctor names (`Medic examinator` and `Medic rezident` names).
+  - *Public (GitHub) Edition:* Default filename `URG <nume_pacient>.docx` (no `CM`); bottom table keeps `Medic rezident:` and `Medic examinator:` with blank space underneath (no doctor names).
 
 ### Custom Persistent Rules (`ai_custom_rules.txt`)
 
@@ -598,8 +526,18 @@ Used by `MainWindow`, `DatabaseWindow`, and `PacsSearchWindow`. Their toolbars r
 
 8. **No Credentials in Code:**
 
-   - No portal URLs, accounts, passwords, or API keys as defaults. They are entered in the app and stored in `%AppData%\Parsec` (`pacs_config.json`, `gemini_key.txt`).
-   - The repository has a GitHub remote, so a push publishes everything in history. Nothing has been pushed since these were removed.
+   - No accounts, passwords, or API keys as defaults. API keys are entered in the app and stored in `%AppData%\Parsec` (`gemini_key.txt`).
+   - The repository has a GitHub remote, so a push publishes everything in history.
+
+9. **Dual-Edition Architecture: Local Application vs. Public (GitHub) Application:**
+
+   - **Explicit User Request Only:** **NEVER** push to GitHub (`origin/main`) or create a GitHub Release unless the user explicitly instructs you to do so. Local `F:\Rad` (`main` branch) always remains on the **Local Edition**.
+   - **Exact 4 Differences in the Public (GitHub) Edition:**
+     1. **Save as URG (`.docx`) Signatures (`Assets\antet_ct_urgente.docx` & `DocxExportService.cs`):** Remove the two doctor names and resident title from the bottom signature table, leaving `Medic rezident:` and `Medic examinator:` with blank space underneath.
+     2. **Save as URG (`.docx`) Default Filename (`Views\MainWindow.xaml.cs`):** Use `URG <nume_pacient>.docx` instead of `URG CM <nume_pacient>.docx`.
+     3. **Save as `.docx` Header (`Assets\cfr_header_template.docx` & `DocxExportService.cs`):** Remove the entire CFR hospital header (all 3 logos, separator lines, and `MINISTERUL TRANSPORTURILOR ȘI INFRASTRUCTURII SPITALUL CLINIC CĂI FERATE IAȘI...`), leaving an empty header (`antet gol`) while preserving the body text and all patient/study demographic fields (`Nume`, `Prenume`, `CNP`, `Vârsta`, `Zona examinată`, `Contrast`, `DLP`, `DATA`, `MEDIC EXAMINATOR`).
+     4. **About Parsec Self-Updater (`Views\AboutWindow.xaml/.cs`, `Core\Services\AppUpdateService.cs`, `version.json`):** Include a **Check for Updates** button in `AboutWindow` that checks GitHub (`cezarmaxim1/Parsec-Dicom-Viewer`) via `version.json` / GitHub Releases and downloads/installs the newer setup if accepted by the user.
+   - **Git Isolation Procedure:** When publishing to GitHub, apply the 4 Public Edition changes, build the public installer if requested, create a **single squashed commit** parented directly on `origin/main` (e.g. via `git commit-tree`) so intermediate local commits are never exposed, push to `origin/main`, upload the public installer to GitHub Releases, and immediately restore `F:\Rad` to the Local Edition.
 
 ---
 
@@ -607,25 +545,7 @@ Used by `MainWindow`, `DatabaseWindow`, and `PacsSearchWindow`. Their toolbars r
 
 Found by reading the code on 2026-11-01. None of these has been reproduced at runtime.
 
-### Patient Safety
-
-- **A download can open the wrong study** (`PixelDataPacsService.DownloadStudyAsync`):
-
-  - The re-search matches `StudyInstanceUid` **or** `PatientId` and takes the first row, so it can pick another study of the same patient.
-
-  - If no button is found, it falls back to the first grid row (`gvPatients$ctl02$ImageButtonView`).
-
-  - `DownloadStudyCallback` derives its row index from the same stored `ctlNN` target, which may be stale after a newer search.
-
-  - Downloaded images are not checked against the requested study before being saved under its `StudyInstanceUid` folder.
-
-- **A study can load incomplete:** Failed `MakeZip` calls for individual series are ignored, and the extracted image count is not compared with the expected count.
-
 ### Reliability
-
-- `QueryStudiesAsync` swallows exceptions, so a failed login looks like "no studies found". `DownloadStudyAsync` ignores the result of `EnsureAuthenticatedAsync`.
-
-- `EnsureAuthenticatedAsync` trusts its session for 25 minutes without checking whether the server has expired it.
 
 - `PixelRenderer.RenderThumbnail` does not check buffer lengths, unlike `RenderToBitmap`. `RenderToBitmap` also leaves the previous slice's pixels in a reused bitmap if a buffer is short.
 
@@ -638,10 +558,6 @@ Found by reading the code on 2026-11-01. None of these has been reproduced at ru
 - A comment in `MainWindow.xaml.cs` says `Ctrl+M` opens 3D MPR, but it maximizes the panel.
 
 ### Accepted Because the App Is Private
-
-- The web portal password is saved in plain text in `%AppData%\Parsec\pacs_config.json`.
-
-- TLS certificate validation is disabled for the PixelData portal.
 
 - The Gemini key is stored in plain text in `gemini_key.txt` and sent in the request URL.
 

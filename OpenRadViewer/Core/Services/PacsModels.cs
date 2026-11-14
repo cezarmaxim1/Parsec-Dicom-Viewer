@@ -23,10 +23,6 @@ public class PacsServerConfig
     public string AeTitle { get; set; } = "REMOTE_PACS";
     public string RetrievalMode { get; set; } = "C-MOVE"; // "C-MOVE" or "C-GET"
     public string TransferSyntax { get; set; } = "Explicit VR Little Endian";
-    public string ServerType { get; set; } = "DICOM"; // "DICOM" or "PixelDataWeb"
-    public string WebUrl { get; set; } = "";
-    public string WebUsername { get; set; } = "";
-    public string WebPassword { get; set; } = "";
     public bool IsEnabled { get; set; } = true;
     public string Status { get; set; } = "Not Tested";
     public long? LastPingMs { get; set; }
