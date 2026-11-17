@@ -548,6 +548,19 @@ public partial class ViewportControl : UserControl
         return new Point(ix, iy);
     }
 
+    /// <summary>
+    /// A new ellipse or rectangle ROI is kept when it has some area in the image and the mouse moved a few
+    /// screen pixels, so a plain click is ignored but a small ROI drawn on purpose is kept, at any zoom.
+    /// Resizing an existing ROI has no minimum.
+    /// </summary>
+    private bool IsDeliberateRoiDrag(Point imgP1, Point imgP2, double imgDx, double imgDy)
+    {
+        if (imgDx <= 0 || imgDy <= 0) return false;
+        Point s1 = ImageToScreenCoords(imgP1);
+        Point s2 = ImageToScreenCoords(imgP2);
+        return (s2 - s1).Length >= 3.0;
+    }
+
     private Point ImageToScreenCoords(Point imgPt)
     {
         var vm = ViewModel;
@@ -1452,7 +1465,7 @@ public partial class ViewportControl : UserControl
                                 {
                                     double dx = Math.Abs(_activeMeasurement.Points[1].X - _activeMeasurement.Points[0].X);
                                     double dy = Math.Abs(_activeMeasurement.Points[1].Y - _activeMeasurement.Points[0].Y);
-                                    if (dx >= 3 && dy >= 3)
+                                    if (IsDeliberateRoiDrag(_activeMeasurement.Points[0], _activeMeasurement.Points[1], dx, dy))
                                     {
                                         _activeMeasurement.ComputeEllipseStatistics(vm.CurrentSlice);
                                         isValidMeasurement = true;
@@ -1465,7 +1478,7 @@ public partial class ViewportControl : UserControl
                                 {
                                     double dx = Math.Abs(_activeMeasurement.Points[1].X - _activeMeasurement.Points[0].X);
                                     double dy = Math.Abs(_activeMeasurement.Points[1].Y - _activeMeasurement.Points[0].Y);
-                                    if (dx >= 3 && dy >= 3)
+                                    if (IsDeliberateRoiDrag(_activeMeasurement.Points[0], _activeMeasurement.Points[1], dx, dy))
                                     {
                                         _activeMeasurement.ComputeRectangleStatistics(vm.CurrentSlice);
                                         isValidMeasurement = true;

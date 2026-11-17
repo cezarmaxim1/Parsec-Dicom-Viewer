@@ -109,7 +109,8 @@ public class MeasurementItem
         double rx = (x1 - x0) / 2.0;
         double ry = (y1 - y0) / 2.0;
 
-        if (rx < 1 || ry < 1) return;
+        // Small ROIs are allowed; only a zero-size one has nothing to measure
+        if (rx <= 0 || ry <= 0) return;
 
         // Area in cm^2
         double rxMm = rx * slice.PixelSpacingX;
@@ -162,6 +163,23 @@ public class MeasurementItem
             }
         }
 
+        // An ellipse smaller than one pixel may contain no pixel centre; it then measures the pixel it sits on
+        if (count == 0 && width > 0 && height > 0)
+        {
+            int px = Math.Clamp((int)Math.Round(cx), 0, width - 1);
+            int py = Math.Clamp((int)Math.Round(cy), 0, height - 1);
+            int pixelIndex = py * width + px;
+            double pixelValue = 0;
+            if (slice.RawPixelsUnsigned != null && pixelIndex < slice.RawPixelsUnsigned.Length)
+                pixelValue = slice.RawPixelsUnsigned[pixelIndex] * slice.RescaleSlope + slice.RescaleIntercept;
+            else if (slice.RawPixelsSigned != null && pixelIndex < slice.RawPixelsSigned.Length)
+                pixelValue = slice.RawPixelsSigned[pixelIndex] * slice.RescaleSlope + slice.RescaleIntercept;
+            sum = pixelValue;
+            sumSq = pixelValue * pixelValue;
+            minVal = maxVal = pixelValue;
+            count = 1;
+        }
+
         if (count > 0)
         {
             MeanHu = sum / count;
@@ -184,7 +202,7 @@ public class MeasurementItem
 
         double w = x1 - x0;
         double h = y1 - y0;
-        if (w < 1 || h < 1) return;
+        if (w <= 0 || h <= 0) return;
 
         double wMm = w * slice.PixelSpacingX;
         double hMm = h * slice.PixelSpacingY;
