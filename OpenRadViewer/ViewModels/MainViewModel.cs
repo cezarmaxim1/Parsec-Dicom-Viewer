@@ -2408,8 +2408,10 @@ public partial class MainViewModel : ObservableObject
             }
 
             // 2. Study
+            // AI-NOTE: series of another study (for example an older exam added for comparison) keep their own study,
+            // so they get their own group and date in the series bar. Only series without a study UID join the open study.
             var study = patient.Studies.FirstOrDefault(s => string.Equals(s.StudyInstanceUid, item.StudyUid, StringComparison.OrdinalIgnoreCase))
-                        ?? _appendTargetStudy;
+                        ?? (string.IsNullOrWhiteSpace(item.StudyUid) ? _appendTargetStudy : null);
             if (study == null)
             {
                 study = new StudyModel
@@ -3628,10 +3630,16 @@ public partial class MainViewModel : ObservableObject
                 }
                 else if (CurrentSyncMode == SyncMode.Manual)
                 {
-                    if (_manualSliceOffsets.TryGetValue(other.ViewportIndex, out int offset))
+                    // AI-NOTE: offsets were taken relative to the panel active at lock time. Clicking another panel
+                    // (for example to pan) makes it the source, so the gap is the difference of the two offsets.
+                    if (_manualSliceOffsets.TryGetValue(other.ViewportIndex, out int otherOffset))
                     {
-                        int targetIndex = source.CurrentSliceIndex + offset;
-                        other.SetSliceIndex(targetIndex);
+                        _manualSliceOffsets.TryGetValue(source.ViewportIndex, out int sourceOffset);
+                        int targetIndex = source.CurrentSliceIndex + (otherOffset - sourceOffset);
+                        if (targetIndex != other.CurrentSliceIndex)
+                        {
+                            other.SetSliceIndex(targetIndex);
+                        }
                     }
                 }
             }
