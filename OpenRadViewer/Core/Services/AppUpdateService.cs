@@ -21,13 +21,13 @@ public record UpdateCheckResult(
 
 public static class AppUpdateService
 {
-    public const string CurrentVersion = "1.3.0";
-    public const int CurrentBuildNumber = 130;
-    public const string CurrentDisplayVersion = "v1.3 Beta";
+    public const string CurrentVersion = "1.3.1";
+    public const int CurrentBuildNumber = 131;
+    public const string CurrentDisplayVersion = "v1.3.1 Beta";
 
     private const string VersionJsonUrl = "https://raw.githubusercontent.com/cezarmaxim1/Parsec-Dicom-Viewer/main/version.json";
     private const string ReleasesApiUrl = "https://api.github.com/repos/cezarmaxim1/Parsec-Dicom-Viewer/releases/latest";
-    private const string DefaultDownloadUrl = "https://github.com/cezarmaxim1/Parsec-Dicom-Viewer/releases/latest/download/Parsec_Setup_v1.3_Beta.exe";
+    private const string DefaultDownloadUrl = "https://github.com/cezarmaxim1/Parsec-Dicom-Viewer/releases/latest/download/Parsec_Setup_v1.3.1_Beta.exe";
 
     private static readonly HttpClient HttpClient = CreateHttpClient();
 

@@ -1,8 +1,8 @@
 {
-  "version": "1.3.0",
-  "buildNumber": 130,
-  "displayVersion": "v1.3 Beta",
-  "publishedAt": "2026-11-14T15:30:00Z",
-  "releaseNotes": "Parsec v1.3 Beta — Public Release",
-  "downloadUrl": "https://github.com/cezarmaxim1/Parsec-Dicom-Viewer/releases/latest/download/Parsec_Setup_v1.3_Beta.exe"
+  "version": "1.3.1",
+  "buildNumber": 131,
+  "displayVersion": "v1.3.1 Beta",
+  "publishedAt": "2026-11-18T07:42:41Z",
+  "releaseNotes": "Parsec v1.3.1 Beta: ROI-uri mici păstrate, sincronizare Manual reparată, studii adăugate afișate separat cu data lor, bara de unelte pe un rând, portalul web eliminat.",
+  "downloadUrl": "https://github.com/cezarmaxim1/Parsec-Dicom-Viewer/releases/download/v1.3.1-beta/Parsec_Setup_v1.3.1_Beta.exe"
 }
