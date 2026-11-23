@@ -380,7 +380,8 @@
                             <MenuItem Header="Sagittal (Alt+2)" Click="OnMprSagittal" />
                             <MenuItem Header="Axial (Alt+3)" Click="OnMprAxial" />
                             <Separator Background="#333333" />
-                            <MenuItem Header="Show / Hide MPR Axes (H)" Click="OnToggleMprAxes" IsChecked="{Binding ShowMprAxes, Mode=OneWay}" />
+                            <MenuItem Header="Show scout lines (Ctrl+F12)" Click="OnToggleScoutLines" IsChecked="{Binding ShowScoutLines, Mode=OneWay}" />
+                            <MenuItem Header="Show MPR axes (H)" Click="OnToggleMprAxes" IsChecked="{Binding ShowMprAxes, Mode=OneWay}" />
                         </ContextMenu>
                                 </Button.ContextMenu>
                             </Button>
