@@ -141,6 +141,9 @@ public partial class MainWindow : Window
             }
             catch { }
         });
+
+        // Announce a newer public release once per start (Install / Later / Don't remind me)
+        _ = AppUpdateService.CheckOnStartupAsync(this);
     }
 
     private async void OnLoadSampleStudy(object sender, RoutedEventArgs e)

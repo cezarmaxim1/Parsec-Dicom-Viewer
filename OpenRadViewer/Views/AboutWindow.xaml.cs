@@ -13,6 +13,12 @@ public partial class AboutWindow : Window
     {
         InitializeComponent();
         DarkWindowHelper.ApplyDarkTitleBar(this);
+        ChkAnnounceUpdates.IsChecked = AppUpdateService.AnnounceOnStartup;
+    }
+
+    private void OnAnnounceUpdatesChanged(object sender, RoutedEventArgs e)
+    {
+        AppUpdateService.AnnounceOnStartup = ChkAnnounceUpdates.IsChecked == true;
     }
 
     private void OnToggleShortcuts(object sender, RoutedEventArgs e)

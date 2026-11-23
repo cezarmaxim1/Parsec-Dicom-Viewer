@@ -2,7 +2,7 @@
 
 Universal AI Agent Architecture Guide & Reference Manual
 
-Version: **v1.3.1 Beta (1.3.1-beta)** | Target Framework: **.NET 8.0-windows / C# 12 / WPF**
+Version: **v1.3.2 Beta (1.3.2-beta)** | Target Framework: **.NET 8.0-windows / C# 12 / WPF**
 
 
 

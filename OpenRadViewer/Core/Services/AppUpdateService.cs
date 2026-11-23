@@ -1,4 +1,4 @@
-// @purpose: Checks GitHub (cezarmaxim1/Parsec-Dicom-Viewer) for newer releases and downloads/installs updates seamlessly.
+// @purpose: Checks GitHub (cezarmaxim1/Parsec-Dicom-Viewer) for newer releases, announces them at startup, and downloads/installs updates.
 // @depends: System.Net.Http, System.Text.Json, System.Diagnostics
 // @exports: AppUpdateService, UpdateCheckResult
 
@@ -9,6 +9,8 @@ using System.Net.Http;
 using System.Text.Json;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Media;
 
 namespace OpenRadViewer.Core.Services;
 
@@ -21,13 +23,13 @@ public record UpdateCheckResult(
 
 public static class AppUpdateService
 {
-    public const string CurrentVersion = "1.3.1";
-    public const int CurrentBuildNumber = 131;
-    public const string CurrentDisplayVersion = "v1.3.1 Beta";
+    public const string CurrentVersion = "1.3.2";
+    public const int CurrentBuildNumber = 132;
+    public const string CurrentDisplayVersion = "v1.3.2 Beta";
 
     private const string VersionJsonUrl = "https://raw.githubusercontent.com/cezarmaxim1/Parsec-Dicom-Viewer/main/version.json";
     private const string ReleasesApiUrl = "https://api.github.com/repos/cezarmaxim1/Parsec-Dicom-Viewer/releases/latest";
-    private const string DefaultDownloadUrl = "https://github.com/cezarmaxim1/Parsec-Dicom-Viewer/releases/latest/download/Parsec_Setup_v1.3.1_Beta.exe";
+    private const string DefaultDownloadUrl = "https://github.com/cezarmaxim1/Parsec-Dicom-Viewer/releases/latest/download/Parsec_Setup_v1.3.2_Beta.exe";
 
     private static readonly HttpClient HttpClient = CreateHttpClient();
 
@@ -157,6 +159,131 @@ public static class AppUpdateService
             releaseNotes,
             downloadUrl,
             null);
+    }
+
+    private static readonly string PrefsFile = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Parsec", "update_prefs.json");
+
+    /// <summary>Whether a new version is announced when Parsec starts. Turned off by "Nu mai anunța", back on in About.</summary>
+    public static bool AnnounceOnStartup
+    {
+        get
+        {
+            try
+            {
+                if (!File.Exists(PrefsFile)) return true;
+                using var doc = JsonDocument.Parse(File.ReadAllText(PrefsFile));
+                return !doc.RootElement.TryGetProperty("announceOnStartup", out var p) || p.ValueKind != JsonValueKind.False;
+            }
+            catch
+            {
+                return true;
+            }
+        }
+        set
+        {
+            try
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(PrefsFile)!);
+                File.WriteAllText(PrefsFile, JsonSerializer.Serialize(new { announceOnStartup = value }));
+            }
+            catch { }
+        }
+    }
+
+    /// <summary>
+    /// Checks GitHub once, a few seconds after start, and offers a newer version: install now, later (asked again at the
+    /// next start), or never announce again. Silent when offline, up to date, or turned off.
+    /// </summary>
+    public static async Task CheckOnStartupAsync(Window owner)
+    {
+        if (!AnnounceOnStartup) return;
+        try
+        {
+            await Task.Delay(TimeSpan.FromSeconds(5));
+            var res = await CheckForUpdatesAsync();
+            if (!res.IsUpdateAvailable || !string.IsNullOrWhiteSpace(res.ErrorMessage)) return;
+            if (!owner.IsLoaded) return;
+            ShowUpdatePrompt(owner, res);
+        }
+        catch { }
+    }
+
+    private static void ShowUpdatePrompt(Window owner, UpdateCheckResult res)
+    {
+        var accent = new SolidColorBrush(Color.FromRgb(0xF5, 0xAF, 0x28));
+        var text = new SolidColorBrush(Color.FromRgb(0xE0, 0xE0, 0xE0));
+        var muted = new SolidColorBrush(Color.FromRgb(0xA0, 0xA0, 0xA0));
+
+        var dlg = new Window
+        {
+            Title = "Actualizare Parsec",
+            Owner = owner,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            SizeToContent = SizeToContent.WidthAndHeight,
+            ResizeMode = ResizeMode.NoResize,
+            ShowInTaskbar = false,
+            Background = new SolidColorBrush(Color.FromRgb(0x1E, 0x1E, 0x1E))
+        };
+
+        var status = new TextBlock { Foreground = muted, FontSize = 12, Margin = new Thickness(0, 10, 0, 0), Visibility = Visibility.Collapsed, TextWrapping = TextWrapping.Wrap };
+        var panel = new StackPanel { Margin = new Thickness(22), MaxWidth = 460 };
+        panel.Children.Add(new TextBlock { Text = $"Este disponibilă o versiune nouă: {res.LatestVersion}", Foreground = accent, FontSize = 15, FontWeight = FontWeights.SemiBold });
+        panel.Children.Add(new TextBlock { Text = $"Versiunea instalată: {CurrentDisplayVersion}", Foreground = muted, FontSize = 12, Margin = new Thickness(0, 4, 0, 0) });
+        if (!string.IsNullOrWhiteSpace(res.ReleaseNotes))
+            panel.Children.Add(new TextBlock { Text = res.ReleaseNotes, Foreground = text, FontSize = 12.5, Margin = new Thickness(0, 12, 0, 0), TextWrapping = TextWrapping.Wrap });
+        panel.Children.Add(status);
+
+        Button MakeButton(string label, bool primary) => new Button
+        {
+            Content = label,
+            Padding = new Thickness(14, 6, 14, 6),
+            Margin = new Thickness(8, 0, 0, 0),
+            Foreground = primary ? Brushes.Black : text,
+            Background = primary ? accent : new SolidColorBrush(Color.FromRgb(0x2E, 0x2E, 0x2E)),
+            BorderThickness = new Thickness(0),
+            Cursor = System.Windows.Input.Cursors.Hand
+        };
+
+        var install = MakeButton("Instalează acum", true);
+        var later = MakeButton("Mai târziu", false);
+        var never = MakeButton("Nu mai anunța", false);
+        install.IsDefault = true;
+        later.IsCancel = true;
+
+        var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 18, 0, 0) };
+        buttons.Children.Add(never);
+        buttons.Children.Add(later);
+        buttons.Children.Add(install);
+        panel.Children.Add(buttons);
+        dlg.Content = panel;
+
+        later.Click += (_, _) => dlg.Close();
+        never.Click += (_, _) =>
+        {
+            AnnounceOnStartup = false;
+            MessageBox.Show(dlg,
+                "Parsec nu va mai anunța versiunile noi la pornire.\n\nPuteți verifica oricând din About → Check for Updates, unde puteți și reactiva anunțul.",
+                "Actualizare Parsec", MessageBoxButton.OK, MessageBoxImage.Information);
+            dlg.Close();
+        };
+        install.Click += async (_, _) =>
+        {
+            install.IsEnabled = later.IsEnabled = never.IsEnabled = false;
+            status.Visibility = Visibility.Visible;
+            var progress = new Progress<(double percent, string status)>(p => status.Text = p.status);
+            try
+            {
+                await DownloadAndInstallUpdateAsync(res.DownloadUrl, progress);
+            }
+            catch (Exception ex)
+            {
+                status.Text = $"Eroare la descărcare: {ex.Message}";
+                install.IsEnabled = later.IsEnabled = never.IsEnabled = true;
+            }
+        };
+
+        dlg.ShowDialog();
     }
 
     public static async Task DownloadAndInstallUpdateAsync(

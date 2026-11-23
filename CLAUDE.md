@@ -2,7 +2,7 @@
 
 Comprehensive Developer, Architecture & AI Agent Reference Manual
 
-Version: **v1.3.1 Beta (1.3.1-beta)** | Target Framework: **.NET 8.0-windows / C# 12 / WPF**
+Version: **v1.3.2 Beta (1.3.2-beta)** | Target Framework: **.NET 8.0-windows / C# 12 / WPF**
 
 ---
 
@@ -82,7 +82,7 @@ The complete stand-alone, self-contained desktop installer (with bundled .NET ru
 
 powershell -ExecutionPolicy Bypass -File "F:\Rad\Installer\build_installer.ps1"
 
-# Outputs: F:\Rad\Parsec_Setup_v1.3.1_Beta.exe
+# Outputs: F:\Rad\Parsec_Setup_v1.3.2_Beta.exe
 
 ```
 
@@ -536,7 +536,7 @@ Used by `MainWindow`, `DatabaseWindow`, and `PacsSearchWindow`. Their toolbars r
      1. **Save as URG (`.docx`) Signatures (`Assets\antet_ct_urgente.docx` & `DocxExportService.cs`):** Remove the two doctor names and resident title from the bottom signature table, leaving `Medic rezident:` and `Medic examinator:` with blank space underneath.
      2. **Save as URG (`.docx`) Default Filename (`Views\MainWindow.xaml.cs`):** Use `URG <nume_pacient>.docx` instead of `URG CM <nume_pacient>.docx`.
      3. **Save as `.docx` Header (`Assets\cfr_header_template.docx` & `DocxExportService.cs`):** Remove the entire CFR hospital header (all 3 logos, separator lines, and `MINISTERUL TRANSPORTURILOR ȘI INFRASTRUCTURII SPITALUL CLINIC CĂI FERATE IAȘI...`), leaving an empty header (`antet gol`) while preserving the body text and all patient/study demographic fields (`Nume`, `Prenume`, `CNP`, `Vârsta`, `Zona examinată`, `Contrast`, `DLP`, `DATA`, `MEDIC EXAMINATOR`).
-     4. **About Parsec Self-Updater (`Views\AboutWindow.xaml/.cs`, `Core\Services\AppUpdateService.cs`, `version.json`):** Include a **Check for Updates** button in `AboutWindow` that checks GitHub (`cezarmaxim1/Parsec-Dicom-Viewer`) via `version.json` / GitHub Releases and downloads/installs the newer setup if accepted by the user.
+     4. **About Parsec Self-Updater (`Views\AboutWindow.xaml/.cs`, `Core\Services\AppUpdateService.cs`, `version.json`):** Include a **Check for Updates** button in `AboutWindow` that checks GitHub (`cezarmaxim1/Parsec-Dicom-Viewer`) via `version.json` / GitHub Releases and downloads/installs the newer setup if accepted by the user. About 5 seconds after start, `AppUpdateService.CheckOnStartupAsync` checks once and offers Install, Later (asks again at the next start), or Don't remind me (turns the startup check off; a checkbox in About turns it back on). The choice is saved in `%AppData%\Parsec\update_prefs.json`. The startup call in `MainWindow.OnWindowLoaded` exists only in the public edition.
    - **Git Isolation Procedure:** When publishing to GitHub, apply the 4 Public Edition changes, build the public installer if requested, create a **single squashed commit** parented directly on `origin/main` (e.g. via `git commit-tree`) so intermediate local commits are never exposed, push to `origin/main`, upload the public installer to GitHub Releases, and immediately restore `F:\Rad` to the Local Edition.
 
 ---
