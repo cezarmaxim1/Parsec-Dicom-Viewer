@@ -47,8 +47,8 @@ public partial class AboutWindow : Window
                 TxtUpdateStatus.Text = "Update check failed";
                 MessageBox.Show(
                     this,
-                    $"Nu s-a putut verifica actualizarea pe GitHub:\n{res.ErrorMessage}",
-                    "Actualizare Parsec",
+                    $"Could not check GitHub for updates:\n{res.ErrorMessage}",
+                    "Parsec Update",
                     MessageBoxButton.OK,
                     MessageBoxImage.Warning);
                 return;
@@ -60,8 +60,8 @@ public partial class AboutWindow : Window
                 TxtUpdateStatus.Text = $"Up to date ({AppUpdateService.CurrentDisplayVersion})";
                 MessageBox.Show(
                     this,
-                    $"Aplicația Parsec este deja la cea mai recentă versiune ({AppUpdateService.CurrentDisplayVersion}).",
-                    "Actualizare Parsec",
+                    $"Parsec is up to date ({AppUpdateService.CurrentDisplayVersion}).",
+                    "Parsec Update",
                     MessageBoxButton.OK,
                     MessageBoxImage.Information);
                 return;
@@ -73,8 +73,8 @@ public partial class AboutWindow : Window
             string notes = string.IsNullOrWhiteSpace(res.ReleaseNotes) ? "" : $"\n\n{res.ReleaseNotes}";
             var answer = MessageBox.Show(
                 this,
-                $"Este disponibilă o versiune nouă pe GitHub ({res.LatestVersion}).{notes}\n\nDoriți să descărcați și să instalați actualizarea acum?",
-                "Actualizare Disponibilă",
+                $"A new version is available on GitHub ({res.LatestVersion}).{notes}\n\nDownload and install it now?",
+                "Update Available",
                 MessageBoxButton.YesNo,
                 MessageBoxImage.Question);
 
@@ -97,8 +97,8 @@ public partial class AboutWindow : Window
             TxtUpdateStatus.Text = "Update error";
             MessageBox.Show(
                 this,
-                $"Eroare în timpul actualizării:\n{ex.Message}",
-                "Eroare Actualizare",
+                $"The update failed:\n{ex.Message}",
+                "Update Error",
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);
         }

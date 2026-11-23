@@ -141,7 +141,7 @@ public static class AppUpdateService
                 CurrentDisplayVersion,
                 string.Empty,
                 DefaultDownloadUrl,
-                lastError ?? "Nu s-a putut contacta serverul GitHub.");
+                lastError ?? "Could not reach GitHub.");
         }
 
         bool isNewer = remoteBuild > CurrentBuildNumber;
