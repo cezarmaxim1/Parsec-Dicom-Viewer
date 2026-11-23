@@ -1,8 +1,8 @@
 {
-  "version": "1.3.2",
-  "buildNumber": 132,
-  "displayVersion": "v1.3.2 Beta",
-  "publishedAt": "2026-11-23T08:03:30Z",
-  "releaseNotes": "Parsec v1.3.2 Beta: anunț automat la pornire pentru versiuni noi, opțiuni separate pentru scout lines și axele MPR, medicii completați în lista PACS din studiile descărcate.",
-  "downloadUrl": "https://github.com/cezarmaxim1/Parsec-Dicom-Viewer/releases/download/v1.3.2-beta/Parsec_Setup_v1.3.2_Beta.exe"
+  "version": "1.3.3",
+  "buildNumber": 133,
+  "displayVersion": "v1.3.3 Beta",
+  "publishedAt": "2026-11-23T08:09:59Z",
+  "releaseNotes": "Parsec v1.3.3 Beta: the update prompt and its About option are now in English.",
+  "downloadUrl": "https://github.com/cezarmaxim1/Parsec-Dicom-Viewer/releases/download/v1.3.3-beta/Parsec_Setup_v1.3.3_Beta.exe"
 }

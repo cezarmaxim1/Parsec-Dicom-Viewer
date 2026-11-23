@@ -2,7 +2,7 @@
 
 Comprehensive Developer, Architecture & AI Agent Reference Manual
 
-Version: **v1.3.2 Beta (1.3.2-beta)** | Target Framework: **.NET 8.0-windows / C# 12 / WPF**
+Version: **v1.3.3 Beta (1.3.3-beta)** | Target Framework: **.NET 8.0-windows / C# 12 / WPF**
 
 ---
 
@@ -82,7 +82,7 @@ The complete stand-alone, self-contained desktop installer (with bundled .NET ru
 
 powershell -ExecutionPolicy Bypass -File "F:\Rad\Installer\build_installer.ps1"
 
-# Outputs: F:\Rad\Parsec_Setup_v1.3.2_Beta.exe
+# Outputs: F:\Rad\Parsec_Setup_v1.3.3_Beta.exe
 
 ```
 

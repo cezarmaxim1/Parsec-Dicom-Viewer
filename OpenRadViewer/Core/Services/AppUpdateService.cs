@@ -23,13 +23,13 @@ public record UpdateCheckResult(
 
 public static class AppUpdateService
 {
-    public const string CurrentVersion = "1.3.2";
-    public const int CurrentBuildNumber = 132;
-    public const string CurrentDisplayVersion = "v1.3.2 Beta";
+    public const string CurrentVersion = "1.3.3";
+    public const int CurrentBuildNumber = 133;
+    public const string CurrentDisplayVersion = "v1.3.3 Beta";
 
     private const string VersionJsonUrl = "https://raw.githubusercontent.com/cezarmaxim1/Parsec-Dicom-Viewer/main/version.json";
     private const string ReleasesApiUrl = "https://api.github.com/repos/cezarmaxim1/Parsec-Dicom-Viewer/releases/latest";
-    private const string DefaultDownloadUrl = "https://github.com/cezarmaxim1/Parsec-Dicom-Viewer/releases/latest/download/Parsec_Setup_v1.3.2_Beta.exe";
+    private const string DefaultDownloadUrl = "https://github.com/cezarmaxim1/Parsec-Dicom-Viewer/releases/latest/download/Parsec_Setup_v1.3.3_Beta.exe";
 
     private static readonly HttpClient HttpClient = CreateHttpClient();
 
@@ -164,7 +164,7 @@ public static class AppUpdateService
     private static readonly string PrefsFile = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Parsec", "update_prefs.json");
 
-    /// <summary>Whether a new version is announced when Parsec starts. Turned off by "Nu mai anunța", back on in About.</summary>
+    /// <summary>Whether a new version is announced when Parsec starts. Turned off by "Don't remind me", back on in About.</summary>
     public static bool AnnounceOnStartup
     {
         get
@@ -217,7 +217,7 @@ public static class AppUpdateService
 
         var dlg = new Window
         {
-            Title = "Actualizare Parsec",
+            Title = "Parsec Update",
             Owner = owner,
             WindowStartupLocation = WindowStartupLocation.CenterOwner,
             SizeToContent = SizeToContent.WidthAndHeight,
@@ -228,8 +228,8 @@ public static class AppUpdateService
 
         var status = new TextBlock { Foreground = muted, FontSize = 12, Margin = new Thickness(0, 10, 0, 0), Visibility = Visibility.Collapsed, TextWrapping = TextWrapping.Wrap };
         var panel = new StackPanel { Margin = new Thickness(22), MaxWidth = 460 };
-        panel.Children.Add(new TextBlock { Text = $"Este disponibilă o versiune nouă: {res.LatestVersion}", Foreground = accent, FontSize = 15, FontWeight = FontWeights.SemiBold });
-        panel.Children.Add(new TextBlock { Text = $"Versiunea instalată: {CurrentDisplayVersion}", Foreground = muted, FontSize = 12, Margin = new Thickness(0, 4, 0, 0) });
+        panel.Children.Add(new TextBlock { Text = $"A new version is available: {res.LatestVersion}", Foreground = accent, FontSize = 15, FontWeight = FontWeights.SemiBold });
+        panel.Children.Add(new TextBlock { Text = $"Installed version: {CurrentDisplayVersion}", Foreground = muted, FontSize = 12, Margin = new Thickness(0, 4, 0, 0) });
         if (!string.IsNullOrWhiteSpace(res.ReleaseNotes))
             panel.Children.Add(new TextBlock { Text = res.ReleaseNotes, Foreground = text, FontSize = 12.5, Margin = new Thickness(0, 12, 0, 0), TextWrapping = TextWrapping.Wrap });
         panel.Children.Add(status);
@@ -245,9 +245,9 @@ public static class AppUpdateService
             Cursor = System.Windows.Input.Cursors.Hand
         };
 
-        var install = MakeButton("Instalează acum", true);
-        var later = MakeButton("Mai târziu", false);
-        var never = MakeButton("Nu mai anunța", false);
+        var install = MakeButton("Install now", true);
+        var later = MakeButton("Later", false);
+        var never = MakeButton("Don't remind me", false);
         install.IsDefault = true;
         later.IsCancel = true;
 
@@ -263,8 +263,8 @@ public static class AppUpdateService
         {
             AnnounceOnStartup = false;
             MessageBox.Show(dlg,
-                "Parsec nu va mai anunța versiunile noi la pornire.\n\nPuteți verifica oricând din About → Check for Updates, unde puteți și reactiva anunțul.",
-                "Actualizare Parsec", MessageBoxButton.OK, MessageBoxImage.Information);
+                "Parsec will no longer announce new versions at startup.\n\nYou can still use About → Check for Updates, where you can also turn the notice back on.",
+                "Parsec Update", MessageBoxButton.OK, MessageBoxImage.Information);
             dlg.Close();
         };
         install.Click += async (_, _) =>
@@ -278,7 +278,7 @@ public static class AppUpdateService
             }
             catch (Exception ex)
             {
-                status.Text = $"Eroare la descărcare: {ex.Message}";
+                status.Text = $"Download failed: {ex.Message}";
                 install.IsEnabled = later.IsEnabled = never.IsEnabled = true;
             }
         };
