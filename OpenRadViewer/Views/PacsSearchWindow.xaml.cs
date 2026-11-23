@@ -1724,8 +1724,34 @@ public partial class PacsSearchWindow : Window
                 r.IsInLocalDatabase = false;
                 r.LocalSize = string.Empty;
             }
+
+            FillPhysiciansFromCache(r);
         }
         catch { }
+    }
+
+    /// <summary>
+    /// Fills empty physician columns from images of the study already downloaded with Open, which are not in the
+    /// local database. Runs in the background and changes only empty fields.
+    /// </summary>
+    private static void FillPhysiciansFromCache(PacsStudyResult r)
+    {
+        if (!string.IsNullOrWhiteSpace(r.ReadingPhysician) && !string.IsNullOrWhiteSpace(r.PerformingPhysician) &&
+            !string.IsNullOrWhiteSpace(r.ReferringPhysician)) return;
+
+        string uid = r.StudyInstanceUid;
+        _ = Task.Run(() =>
+        {
+            var names = PacsService.Instance.ReadPhysiciansFromCache(uid);
+            if (names == null) return;
+            var (reading, performing, referring) = names.Value;
+            Application.Current?.Dispatcher.BeginInvoke(() =>
+            {
+                if (string.IsNullOrWhiteSpace(r.ReadingPhysician) && reading.Length > 0) r.ReadingPhysician = reading;
+                if (string.IsNullOrWhiteSpace(r.PerformingPhysician) && performing.Length > 0) r.PerformingPhysician = performing;
+                if (string.IsNullOrWhiteSpace(r.ReferringPhysician) && referring.Length > 0) r.ReferringPhysician = referring;
+            });
+        });
     }
 
     /// <summary>Shows the size of the local copy. Records without a stored size are measured in the background.</summary>

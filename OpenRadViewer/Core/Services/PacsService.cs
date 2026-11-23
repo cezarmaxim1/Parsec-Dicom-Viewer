@@ -520,6 +520,38 @@ public class PacsService
         return results.OrderByDescending(r => r.SortDateTimeKey).ToList();
     }
 
+    /// <summary>
+    /// Physician names read from one image of a study already in the PACS cache, or null if none is there.
+    /// Many PACS return these fields empty in C-FIND, while the images carry them. Reads a file, so call it off the UI thread.
+    /// </summary>
+    public (string Reading, string Performing, string Referring)? ReadPhysiciansFromCache(string studyInstanceUid)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(studyInstanceUid)) return null;
+            string dir = Path.Combine(Settings.CacheDirectory, Sanitize(studyInstanceUid.Trim()));
+            if (!Directory.Exists(dir)) return null;
+
+            // A few files are tried, because a dose report or scout may lack the fields that image series carry
+            foreach (string file in Directory.EnumerateFiles(dir, "*", SearchOption.AllDirectories).Take(5))
+            {
+                try
+                {
+                    var ds = DicomFile.Open(file, FileReadOption.SkipLargeTags).Dataset;
+                    string reading = GetCleanPersonName(ds, DicomTag.NameOfPhysiciansReadingStudy);
+                    string performing = GetCleanPersonName(ds, DicomTag.PerformingPhysicianName);
+                    if (string.IsNullOrWhiteSpace(performing)) performing = GetCleanPersonName(ds, DicomTag.OperatorsName);
+                    string referring = GetCleanPersonName(ds, DicomTag.ReferringPhysicianName);
+                    if (reading.Length > 0 || performing.Length > 0 || referring.Length > 0)
+                        return (reading, performing, referring);
+                }
+                catch { }
+            }
+        }
+        catch { }
+        return null;
+    }
+
     private static string GetCleanPersonName(DicomDataset ds, DicomTag tag)
     {
         if (!ds.Contains(tag)) return string.Empty;
